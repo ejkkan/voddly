@@ -1,0 +1,21 @@
+# lockfiles
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+bun.lock
+
+# misc
+routeTree.gen.ts
+.tanstack/
+drizzle/
+.drizzle/
+
+# build outputs
+.vercel
+.output
+.wrangler
+.netlify
+dist
+
+# Ignore the auto-generated TanStack Router file
+src/routeTree.gen.ts
