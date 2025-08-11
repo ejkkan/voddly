@@ -8,3 +8,6 @@ export * from './accounts';
 
 // Watch state management
 export * from './watchState';
+
+// Subtitles
+export * from './subtitles';

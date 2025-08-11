@@ -54,15 +54,33 @@ export class SourceCredentialsManager {
    * Find which account contains a specific source
    */
   async findSourceInfo(sourceId: string): Promise<SourceInfo> {
+    console.log("🔍 Finding source info for:", sourceId);
     const accountsData = await apiClient.user.getAccounts();
+    console.log(
+      "📋 Available accounts:",
+      accountsData.accounts.map((a) => ({ id: a.id, name: a.name })),
+    );
 
     // Find the account that contains this source
     for (const account of accountsData.accounts) {
+      console.log(
+        `🔎 Checking account ${account.name} (${account.id}) for source ${sourceId}`,
+      );
       try {
         const { sources, keyData } = await apiClient.user.getSources(account.id);
+        console.log(
+          `📂 Account ${account.name} has ${sources?.length || 0} sources:`,
+          sources?.map((s) => ({ id: s.id, name: s.name, active: s.is_active })),
+        );
+
         const source = sources?.find((s) => s.id === String(sourceId));
+        console.log(
+          `🎯 Source match for ${sourceId}:`,
+          source ? `Found: ${source.name}` : "Not found",
+        );
 
         if (source && keyData) {
+          console.log("✅ Source found with key data!");
           return {
             source: {
               id: source.id,
@@ -78,11 +96,13 @@ export class SourceCredentialsManager {
           };
         }
       } catch (e) {
+        console.log(`❌ Error checking account ${account.name}:`, e);
         // Continue searching other accounts
         continue;
       }
     }
 
+    console.error("❌ Source not found in any account after checking all accounts");
     throw new Error("Source not found in any account");
   }
 
@@ -95,10 +115,23 @@ export class SourceCredentialsManager {
     options: SourceCredentialsOptions = {},
   ): Promise<SourceCredentials> {
     try {
+      console.log(
+        "🔐 getSourceCredentials: Starting credential retrieval for source:",
+        sourceId,
+      );
+
       // Find the source and account info
       const sourceInfo = await this.findSourceInfo(sourceId);
+      console.log(
+        "✅ getSourceCredentials: Source info found for account:",
+        sourceInfo.account.name,
+      );
 
       // Get passphrase using the hook (will use cache or prompt)
+      console.log(
+        "🔐 getSourceCredentials: Getting passphrase for account:",
+        sourceInfo.account.id,
+      );
       const passphrase = await this.passphraseHook.getPassphrase(sourceInfo.account.id, {
         title: options.title || "Decrypt Source",
         message: options.message || "Enter your passphrase to decrypt the source",
@@ -106,11 +139,17 @@ export class SourceCredentialsManager {
         validateFn: options.validatePassphrase,
       });
 
+      console.log("✅ getSourceCredentials: Passphrase obtained");
+
       // Initialize encryption and decrypt
+      console.log("🔐 getSourceCredentials: Initializing encryption");
       const encryption = new AccountEncryption();
       await encryption.initialize(passphrase, sourceInfo.account.id);
 
+      console.log("🔐 getSourceCredentials: Getting master key");
       const masterKey = await encryption.getMasterKey(sourceInfo.keyData, passphrase);
+
+      console.log("🔐 getSourceCredentials: Decrypting source configuration");
       const credentials = await encryption.decryptSource(
         {
           encrypted_config: sourceInfo.source.encrypted_config,
@@ -119,8 +158,11 @@ export class SourceCredentialsManager {
         masterKey,
       );
 
+      console.log("✅ getSourceCredentials: Source credentials decrypted successfully");
       return credentials;
     } catch (error) {
+      console.error("💥 getSourceCredentials: Failed to get source credentials:", error);
+
       const message =
         error instanceof Error ? error.message : "Failed to get source credentials";
       toast.error(message);

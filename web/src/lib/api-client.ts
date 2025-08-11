@@ -248,6 +248,81 @@ class AuthenticatedEncoreClient {
     if (!res.ok) throw new Error(`getSeriesDetails failed: ${res.status}`);
     return res.json();
   }
+
+  /**
+   * Extract MKV subtitle track via backend (legacy)
+   */
+  async extractMKVSubtitle(params: {
+    streamUrl: string;
+    language: string;
+    trackIndex: number;
+    codecId: string;
+  }) {
+    const res = await fetch(`${this.baseUrl}/subtitles/mkv-extract`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: document?.cookie || "",
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      throw new Error(`MKV extraction failed: ${res.status}`);
+    }
+
+    return res.json();
+  }
+
+  /**
+   * Extract all original subtitle tracks from video stream
+   */
+  async extractOriginalSubtitles(params: {
+    streamUrl: string;
+    movieId: string;
+    tmdbId?: number;
+  }) {
+    const res = await fetch(`${this.baseUrl}/subtitles/extract-original`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Original subtitle extraction failed: ${res.status}`);
+    }
+
+    return res.json();
+  }
+
+  /**
+   * Extract specific original subtitle content
+   */
+  async extractOriginalSubtitleContent(params: {
+    subtitleId: string;
+    streamUrl: string;
+    trackIndex: number;
+    language: string;
+  }) {
+    const res = await fetch(`${this.baseUrl}/subtitles/extract-original-content`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      throw new Error(`Original subtitle content extraction failed: ${res.status}`);
+    }
+
+    return res.json();
+  }
 }
 
 // Create singleton instances for different environments

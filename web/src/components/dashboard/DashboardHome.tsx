@@ -66,16 +66,54 @@ export function DashboardHome() {
     setReloading(sourceId);
 
     try {
+      console.log("🚀 Starting catalog reload for source:", sourceId);
+
       const source = sourcesData?.sources?.find((s) => s.id === sourceId);
-      if (!source) throw new Error("Source not found");
+      if (!source) {
+        console.error("❌ Source not found in sourcesData:", {
+          sourceId,
+          availableSources: sourcesData?.sources?.map((s) => s.id),
+        });
+        throw new Error("Source not found");
+      }
+
+      console.log("📋 Source found:", { id: source.id, name: source.name });
 
       // Get credentials using centralized manager
+      console.log("🔐 Getting credentials for source...");
       const credentials = await getCredentials(sourceId, {
         title: "Reload Source",
         message: "Enter your passphrase to reload the catalog",
       });
 
-      console.log("🔐 Credentials obtained:", !!credentials);
+      console.log("✅ Credentials obtained:", {
+        hasServer: !!credentials.server,
+        hasUsername: !!credentials.username,
+        hasPassword: !!credentials.password,
+        server: credentials.server,
+      });
+
+      // Validate credentials before proceeding
+      if (!credentials.server || !credentials.username || !credentials.password) {
+        const missing = [];
+        if (!credentials.server) missing.push("server");
+        if (!credentials.username) missing.push("username");
+        if (!credentials.password) missing.push("password");
+        throw new Error(`Invalid credentials: missing ${missing.join(", ")}`);
+      }
+
+      // Validate server URL format
+      try {
+        const serverUrl = new URL(
+          credentials.server.endsWith("/")
+            ? credentials.server
+            : credentials.server + "/",
+        );
+        console.log("🌐 Server URL validated:", serverUrl.origin);
+      } catch (urlError) {
+        console.error("❌ Invalid server URL:", credentials.server);
+        throw new Error(`Invalid server URL format: ${credentials.server}`);
+      }
 
       toast.info("Fetching catalog from source...");
 
@@ -100,7 +138,144 @@ export function DashboardHome() {
         return url.toString();
       };
 
+      console.log("🌐 Testing connection with get_live_categories...");
+      const testUrl = buildXtreamUrl("get_live_categories");
+      console.log(
+        "📡 First request URL:",
+        testUrl
+          .replace(/username=[^&]*/, "username=***")
+          .replace(/password=[^&]*/, "password=***"),
+      );
+
       // Fetch catalog data directly from Xtream server
+      const fetchWithRetry = async (url: string, description: string, retries = 2) => {
+        for (let attempt = 1; attempt <= retries + 1; attempt++) {
+          try {
+            console.log(
+              `🔄 Fetching ${description} (attempt ${attempt}/${retries + 1})...`,
+            );
+
+            // Add timeout to prevent hanging requests
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+            const response = await fetch(url, {
+              method: "GET",
+              headers: {
+                Accept: "application/json",
+                "User-Agent": "Mozilla/5.0 (compatible; IPTV-Client/1.0)",
+              },
+              signal: controller.signal,
+              // Note: removed credentials: "include" to avoid CORS issues
+            });
+
+            clearTimeout(timeoutId);
+
+            console.log(`📊 ${description} response (attempt ${attempt}):`, {
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok,
+              url: url
+                .replace(/username=[^&]*/, "username=***")
+                .replace(/password=[^&]*/, "password=***"),
+              headers: Object.fromEntries(response.headers.entries()),
+            });
+
+            if (!response.ok) {
+              let errorText = "";
+              try {
+                errorText = await response.text();
+              } catch (e) {
+                errorText = "Could not read response body";
+              }
+
+              console.error(`❌ ${description} failed (attempt ${attempt}):`, {
+                status: response.status,
+                statusText: response.statusText,
+                body: errorText.substring(0, 500),
+              });
+
+              // If this is the last attempt, throw the error
+              if (attempt > retries) {
+                if (response.status === 0) {
+                  throw new Error(
+                    `Network error: Unable to connect to server (CORS or network issue)`,
+                  );
+                } else if (response.status === 401) {
+                  throw new Error(`Authentication failed: Invalid credentials`);
+                } else if (response.status === 404) {
+                  throw new Error(
+                    `Endpoint not found: ${description} API endpoint may not be available`,
+                  );
+                } else if (response.status >= 500) {
+                  throw new Error(
+                    `Server error: ${response.status} ${response.statusText}`,
+                  );
+                } else {
+                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+              }
+
+              // Wait before retry
+              console.log(`⏳ Waiting 2 seconds before retry...`);
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              continue;
+            }
+
+            let data;
+            try {
+              data = await response.json();
+            } catch (jsonError) {
+              console.error(`💥 Failed to parse JSON for ${description}:`, jsonError);
+              const text = await response.text();
+              console.error(`📄 Response body:`, text.substring(0, 500));
+              throw new Error(`Invalid JSON response from ${description}`);
+            }
+
+            console.log(`✅ ${description} success (attempt ${attempt}):`, {
+              type: typeof data,
+              length: Array.isArray(data) ? data.length : "not array",
+              sample: Array.isArray(data) && data.length > 0 ? data[0] : "no data",
+            });
+
+            return data;
+          } catch (error) {
+            console.error(
+              `💥 Error fetching ${description} (attempt ${attempt}):`,
+              error,
+            );
+
+            // If this is the last attempt or it's not a network error, throw
+            if (attempt > retries) {
+              if (error instanceof Error) {
+                if (error.name === "AbortError") {
+                  throw new Error(
+                    `Request timeout: ${description} took too long to respond`,
+                  );
+                } else if (error.message.includes("fetch")) {
+                  throw new Error(
+                    `Network error: Unable to fetch ${description} (check network connection)`,
+                  );
+                } else if (error.message.includes("CORS")) {
+                  throw new Error(
+                    `CORS error: Server does not allow cross-origin requests`,
+                  );
+                }
+                throw error;
+              } else {
+                throw new Error(`Unknown error fetching ${description}`);
+              }
+            }
+
+            // Wait before retry for network errors
+            console.log(`⏳ Network error, waiting 3 seconds before retry...`);
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+          }
+        }
+
+        throw new Error(`Failed to fetch ${description} after ${retries + 1} attempts`);
+      };
+
       const [
         liveCategories,
         vodCategories,
@@ -109,43 +284,15 @@ export function DashboardHome() {
         vodStreams,
         seriesList,
       ] = await Promise.all([
-        fetch(buildXtreamUrl("get_live_categories"), {
-          credentials: "include",
-        }).then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch live categories");
-          return res.json();
-        }),
-        fetch(buildXtreamUrl("get_vod_categories"), {
-          credentials: "include",
-        }).then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch VOD categories");
-          return res.json();
-        }),
-        fetch(buildXtreamUrl("get_series_categories"), {
-          credentials: "include",
-        }).then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch series categories");
-          return res.json();
-        }),
-        fetch(buildXtreamUrl("get_live_streams"), {
-          credentials: "include",
-        }).then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch live streams");
-          return res.json();
-        }),
-        fetch(buildXtreamUrl("get_vod_streams"), {
-          credentials: "include",
-        }).then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch VOD streams");
-          return res.json();
-        }),
-        fetch(buildXtreamUrl("get_series"), {
-          credentials: "include",
-        }).then((res) => {
-          if (!res.ok) throw new Error("Failed to fetch series list");
-          return res.json();
-        }),
+        fetchWithRetry(buildXtreamUrl("get_live_categories"), "live categories"),
+        fetchWithRetry(buildXtreamUrl("get_vod_categories"), "VOD categories"),
+        fetchWithRetry(buildXtreamUrl("get_series_categories"), "series categories"),
+        fetchWithRetry(buildXtreamUrl("get_live_streams"), "live streams"),
+        fetchWithRetry(buildXtreamUrl("get_vod_streams"), "VOD streams"),
+        fetchWithRetry(buildXtreamUrl("get_series"), "series list"),
       ]);
+
+      console.log("📦 Data fetched successfully, processing...");
 
       // Combine all categories
       const categories = [
@@ -170,24 +317,65 @@ export function DashboardHome() {
         channels: Array.isArray(liveStreams) ? liveStreams : [],
       };
 
-      // Store in IndexedDB
-      await catalogStorage.storeSourceCatalog(sourceId, {
-        categories: catalog.categories || [],
-        movies: catalog.movies || [],
-        series: catalog.series || [],
-        channels: catalog.channels || [],
+      console.log("📊 Catalog summary:", {
+        categories: catalog.categories.length,
+        movies: catalog.movies.length,
+        series: catalog.series.length,
+        channels: catalog.channels.length,
+        total:
+          catalog.categories.length +
+          catalog.movies.length +
+          catalog.series.length +
+          catalog.channels.length,
       });
 
+      // Store in IndexedDB
+      console.log("💾 Storing catalog in IndexedDB...");
+      try {
+        await catalogStorage.storeSourceCatalog(sourceId, {
+          categories: catalog.categories || [],
+          movies: catalog.movies || [],
+          series: catalog.series || [],
+          channels: catalog.channels || [],
+        });
+        console.log("✅ Catalog stored successfully");
+      } catch (dbError) {
+        console.error("💥 IndexedDB storage failed:", dbError);
+        throw new Error(
+          `Failed to store catalog in local database: ${dbError instanceof Error ? dbError.message : "Unknown error"}`,
+        );
+      }
+
       // Update stats
+      console.log("📈 Getting updated stats...");
       const newStats = await catalogStorage.getCatalogStats(sourceId);
       setCatalogStats((prev) => ({ ...prev, [sourceId]: newStats }));
 
+      console.log("🎉 Catalog reload completed successfully");
       toast.success(`Catalog updated! ${newStats.total} items loaded.`);
     } catch (error) {
-      console.error("Failed to reload source data:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Failed to reload source data",
-      );
+      console.error("💥 Failed to reload source data:", error);
+
+      // More detailed error reporting
+      if (error instanceof Error) {
+        if (error.message.includes("fetch")) {
+          toast.error(`Network error: ${error.message}`);
+        } else if (
+          error.message.includes("IndexedDB") ||
+          error.message.includes("database")
+        ) {
+          toast.error(`Database error: ${error.message}`);
+        } else if (
+          error.message.includes("credentials") ||
+          error.message.includes("passphrase")
+        ) {
+          toast.error(`Authentication error: ${error.message}`);
+        } else {
+          toast.error(`Error: ${error.message}`);
+        }
+      } else {
+        toast.error("Unknown error occurred while reloading catalog");
+      }
     } finally {
       setReloading(null);
     }

@@ -8,12 +8,9 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-
+import { env } from "~/env/client";
 import { getUser } from "~/lib/auth/functions/getUser";
 import appCss from "~/styles.css?url";
-import { env } from "~/env/client";
 
 import { ThemeProvider } from "~/components/theme-provider";
 import { Toaster } from "~/components/ui/sonner";
@@ -44,7 +41,8 @@ export const Route = createRootRouteWithContext<{
       },
       {
         name: "description",
-        content: "Professional IPTV streaming platform with advanced playlist management and live streaming capabilities.",
+        content:
+          "Professional IPTV streaming platform with advanced playlist management and live streaming capabilities.",
       },
       {
         name: "theme-color",
@@ -80,9 +78,9 @@ function RootComponent() {
 
   // Enhanced shell rendering with loading fallback
   const shellContent = isShell ? (
-    <div className="flex min-h-svh items-center justify-center">
+    <div className="flex min-h-svh items-center justify-center" suppressHydrationWarning>
       <div className="flex flex-col items-center gap-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"></div>
         <p className="text-muted-foreground">Loading IPTV Platform...</p>
       </div>
     </div>
@@ -90,17 +88,13 @@ function RootComponent() {
     <Outlet />
   );
 
-  return (
-    <RootDocument isShell={isShell}>
-      {shellContent}
-    </RootDocument>
-  );
+  return <RootDocument isShell={isShell}>{shellContent}</RootDocument>;
 }
 
-function RootDocument({ 
-  children, 
-  isShell 
-}: { 
+function RootDocument({
+  children,
+  isShell,
+}: {
   readonly children: React.ReactNode;
   readonly isShell?: boolean;
 }) {
@@ -119,8 +113,8 @@ function RootDocument({
         {/* Only show dev tools in development and when not in shell mode */}
         {!isShell && env.VITE_ENABLE_DEVTOOLS && env.VITE_APP_ENV === "development" && (
           <>
-            <ReactQueryDevtools buttonPosition="bottom-right" />
-            <TanStackRouterDevtools position="bottom-right" />
+            {/* <ReactQueryDevtools buttonPosition="bottom-right" /> */}
+            {/* <TanStackRouterDevtools position="bottom-right" /> */}
           </>
         )}
 

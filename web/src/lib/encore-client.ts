@@ -102,12 +102,20 @@ export namespace auth {
         constructor(baseClient: BaseClient) {
             this.baseClient = baseClient
             this.authRouter = this.authRouter.bind(this)
+            this.debugUser = this.debugUser.bind(this)
             this.healthCheck = this.healthCheck.bind(this)
             this.testAuth = this.testAuth.bind(this)
         }
 
         public async authRouter(method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE" | "HEAD" | "OPTIONS" | "TRACE", _params: string[], body?: RequestInit["body"], options?: CallParameters): Promise<globalThis.Response> {
             return this.baseClient.callAPI(method, `/api/auth/${_params.map(encodeURIComponent).join("/")}`, body, options)
+        }
+
+        /**
+         * Debug endpoint to check what's in the database
+         */
+        public async debugUser(userId: string): Promise<void> {
+            await this.baseClient.callTypedAPI("GET", `/debug/user/${encodeURIComponent(userId)}`)
         }
 
         /**
@@ -223,13 +231,20 @@ export namespace user {
             this.createAccount = this.createAccount.bind(this)
             this.createPortalSession = this.createPortalSession.bind(this)
             this.deleteSource = this.deleteSource.bind(this)
+            this.downloadSubtitleFile = this.downloadSubtitleFile.bind(this)
             this.getAccounts = this.getAccounts.bind(this)
+            this.getAvailableLanguages = this.getAvailableLanguages.bind(this)
             this.getCurrentUser = this.getCurrentUser.bind(this)
             this.getFavorites = this.getFavorites.bind(this)
+            this.getLanguagesByTmdb = this.getLanguagesByTmdb.bind(this)
             this.getSources = this.getSources.bind(this)
+            this.getSubtitleContent = this.getSubtitleContent.bind(this)
+            this.getSubtitleContentByTmdb = this.getSubtitleContentByTmdb.bind(this)
+            this.getSubtitles = this.getSubtitles.bind(this)
             this.getUserById = this.getUserById.bind(this)
             this.getWatchState = this.getWatchState.bind(this)
             this.inviteMember = this.inviteMember.bind(this)
+            this.searchSubtitles = this.searchSubtitles.bind(this)
             this.updateCurrentUser = this.updateCurrentUser.bind(this)
             this.updateWatchState = this.updateWatchState.bind(this)
         }
@@ -301,6 +316,22 @@ export namespace user {
         }
 
         /**
+         * Legacy download endpoint - kept for backward compatibility
+         */
+        public async downloadSubtitleFile(params: {
+    "file_id"?: string
+    "subtitle_id"?: string
+}): Promise<{
+    content: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/subtitles/download`, JSON.stringify(params))
+            return await resp.json() as {
+    content: string
+}
+        }
+
+        /**
          * Get user's accounts
          */
         public async getAccounts(): Promise<{
@@ -310,6 +341,43 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/accounts`)
             return await resp.json() as {
     accounts: endpoints.AccountRow[]
+}
+        }
+
+        public async getAvailableLanguages(movieId: string, params: {
+    "imdb_id"?: number
+    "tmdb_id"?: number
+    "parent_imdb_id"?: number
+    "parent_tmdb_id"?: number
+    "season_number"?: number
+    "episode_number"?: number
+    query?: string
+    moviehash?: string
+    type?: "movie" | "episode" | "all"
+    year?: number
+    "preferred_provider"?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    languages: subtitles.SubtitleLanguage[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "imdb_id":            params["imdb_id"] === undefined ? undefined : String(params["imdb_id"]),
+                moviehash:            params.moviehash,
+                "parent_imdb_id":     params["parent_imdb_id"] === undefined ? undefined : String(params["parent_imdb_id"]),
+                "parent_tmdb_id":     params["parent_tmdb_id"] === undefined ? undefined : String(params["parent_tmdb_id"]),
+                "preferred_provider": params["preferred_provider"] === undefined ? undefined : String(params["preferred_provider"]),
+                query:                params.query,
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+                type:                 params.type === undefined ? undefined : String(params.type),
+                year:                 params.year === undefined ? undefined : String(params.year),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/${encodeURIComponent(movieId)}/languages`, undefined, {query})
+            return await resp.json() as {
+    languages: subtitles.SubtitleLanguage[]
 }
         }
 
@@ -332,6 +400,26 @@ export namespace user {
         }
 
         /**
+         * TMDB-first endpoint: check DB by TMDB, fetch/store metadata if missing, return languages
+         */
+        public async getLanguagesByTmdb(tmdbId: number, params: {
+    provider?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    languages: subtitles.SubtitleLanguage[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                provider: params.provider === undefined ? undefined : String(params.provider),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/tmdb/${encodeURIComponent(tmdbId)}/languages`, undefined, {query})
+            return await resp.json() as {
+    languages: subtitles.SubtitleLanguage[]
+}
+        }
+
+        /**
          * Get sources for account (returns encrypted configs)
          */
         public async getSources(accountId: string): Promise<{
@@ -347,12 +435,111 @@ export namespace user {
         }
 
         /**
+         * New endpoint for getting subtitle content on demand
+         */
+        public async getSubtitleContent(movieId: string, languageCode: string, params: {
+    "imdb_id"?: number
+    "tmdb_id"?: number
+    "parent_imdb_id"?: number
+    "parent_tmdb_id"?: number
+    "season_number"?: number
+    "episode_number"?: number
+    query?: string
+    moviehash?: string
+    type?: "movie" | "episode" | "all"
+    year?: number
+    "preferred_provider"?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitle: endpoints.Subtitle | null
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "imdb_id":            params["imdb_id"] === undefined ? undefined : String(params["imdb_id"]),
+                moviehash:            params.moviehash,
+                "parent_imdb_id":     params["parent_imdb_id"] === undefined ? undefined : String(params["parent_imdb_id"]),
+                "parent_tmdb_id":     params["parent_tmdb_id"] === undefined ? undefined : String(params["parent_tmdb_id"]),
+                "preferred_provider": params["preferred_provider"] === undefined ? undefined : String(params["preferred_provider"]),
+                query:                params.query,
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+                type:                 params.type === undefined ? undefined : String(params.type),
+                year:                 params.year === undefined ? undefined : String(params.year),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/${encodeURIComponent(movieId)}/content/${encodeURIComponent(languageCode)}`, undefined, {query})
+            return await resp.json() as {
+    subtitle: endpoints.Subtitle | null
+}
+        }
+
+        /**
+         * TMDB-first endpoint: fetch/return content for selected language
+         */
+        public async getSubtitleContentByTmdb(tmdbId: number, languageCode: string, params: {
+    provider?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitle: endpoints.Subtitle | null
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                provider: params.provider === undefined ? undefined : String(params.provider),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/tmdb/${encodeURIComponent(tmdbId)}/content/${encodeURIComponent(languageCode)}`, undefined, {query})
+            return await resp.json() as {
+    subtitle: endpoints.Subtitle | null
+}
+        }
+
+        public async getSubtitles(movieId: string, params: {
+    "imdb_id"?: number
+    "tmdb_id"?: number
+    "parent_imdb_id"?: number
+    "parent_tmdb_id"?: number
+    "season_number"?: number
+    "episode_number"?: number
+    query?: string
+    moviehash?: string
+    languages?: string
+    type?: "movie" | "episode" | "all"
+    year?: number
+    "preferred_provider"?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitles: endpoints.Subtitle[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "imdb_id":            params["imdb_id"] === undefined ? undefined : String(params["imdb_id"]),
+                languages:            params.languages,
+                moviehash:            params.moviehash,
+                "parent_imdb_id":     params["parent_imdb_id"] === undefined ? undefined : String(params["parent_imdb_id"]),
+                "parent_tmdb_id":     params["parent_tmdb_id"] === undefined ? undefined : String(params["parent_tmdb_id"]),
+                "preferred_provider": params["preferred_provider"] === undefined ? undefined : String(params["preferred_provider"]),
+                query:                params.query,
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+                type:                 params.type === undefined ? undefined : String(params.type),
+                year:                 params.year === undefined ? undefined : String(params.year),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/${encodeURIComponent(movieId)}`, undefined, {query})
+            return await resp.json() as {
+    subtitles: endpoints.Subtitle[]
+}
+        }
+
+        /**
          * Get user by ID endpoint (for admin/internal use)
          */
-        public async getUserById(id: string): Promise<User> {
+        public async getUserById(id: string): Promise<endpoints.SimpleUser> {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI("GET", `/user/${encodeURIComponent(id)}`)
-            return await resp.json() as User
+            return await resp.json() as endpoints.SimpleUser
         }
 
         /**
@@ -377,6 +564,19 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("POST", `/accounts/${encodeURIComponent(accountId)}/invite`, JSON.stringify(params))
             return await resp.json() as {
     inviteToken: string
+}
+        }
+
+        /**
+         * Legacy search endpoint - deprecated in favor of getAvailableLanguages + getSubtitleContent
+         */
+        public async searchSubtitles(): Promise<{
+    results: any
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/search`)
+            return await resp.json() as {
+    results: any
 }
         }
 
@@ -492,6 +692,15 @@ export namespace endpoints {
         iterations: number
     }
 
+    export interface SimpleUser {
+        id: string
+        email: string
+        name: string
+        emailVerified: boolean
+        createdAt: string
+        updatedAt: string
+    }
+
     export interface SourceRow {
         id: string
         name: string
@@ -502,6 +711,14 @@ export namespace endpoints {
         "created_at": string
     }
 
+    export interface Subtitle {
+        id: string
+        "language_code": string
+        "language_name": string
+        content: string
+        source?: string
+    }
+
     export interface UpdateWatchStateRequest {
         sourceId: string
         contentId: string
@@ -509,6 +726,14 @@ export namespace endpoints {
         lastPositionSeconds?: number | null
         totalDurationSeconds?: number | null
         isFavorite?: boolean | null
+    }
+}
+
+export namespace subtitles {
+    export interface SubtitleLanguage {
+        code: string
+        name: string
+        count?: number
     }
 }
 

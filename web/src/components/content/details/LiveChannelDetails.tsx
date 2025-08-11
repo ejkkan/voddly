@@ -1,11 +1,16 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Play } from "lucide-react";
+import { ArrowLeft, Play, RefreshCw, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { useSession } from "~/hooks/useAuth";
 import { useSourceCredentials } from "~/hooks/useSourceCredentials";
 import { CatalogStorage } from "~/lib/catalog-storage";
+import { inspectContentMetadata, type ContentMetadata } from "~/lib/metadata-inspector";
+import {
+  fetchFreshContentDetails,
+  type FreshContentMetadata,
+} from "~/lib/source-fetcher";
 import { constructStreamUrl } from "~/lib/stream-url";
 
 interface LiveChannelInfo {
@@ -36,7 +41,13 @@ export function LiveChannelDetails() {
   const [channel, setChannel] = useState<LiveChannelInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { prepareContentPlayback } = useSourceCredentials();
+  const [metadata, setMetadata] = useState<ContentMetadata | null>(null);
+  const [isInspectingMetadata, setIsInspectingMetadata] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const [freshData, setFreshData] = useState<FreshContentMetadata | null>(null);
+  const [isFetchingFresh, setIsFetchingFresh] = useState(false);
+  const [showFreshData, setShowFreshData] = useState(false);
+  const { getCredentials, prepareContentPlayback } = useSourceCredentials();
 
   useEffect(() => {
     if (!playlistId || !channelId) return;
@@ -76,6 +87,107 @@ export function LiveChannelDetails() {
     run();
   }, [playlistId, channelId]);
 
+  const handleInspectMetadata = async () => {
+    if (!playlistId || !channelId || !channel?.found) return;
+
+    try {
+      setIsInspectingMetadata(true);
+      setError(null);
+
+      console.log("🔍 Inspecting metadata for channel:", channel.basicInfo?.name);
+
+      // Get credentials and construct stream URL
+      const credentials = await getCredentials(playlistId, {
+        title: "Inspect Metadata",
+        message: "Enter your passphrase to inspect content metadata",
+      });
+
+      const { streamingUrl } = constructStreamUrl({
+        server: credentials.server,
+        username: credentials.username,
+        password: credentials.password,
+        contentId: Number(channelId),
+        contentType: "live",
+        containerExtension: credentials.containerExtension,
+        videoCodec: credentials.videoCodec,
+        audioCodec: credentials.audioCodec,
+      });
+
+      console.log("🔗 Inspecting stream URL:", streamingUrl);
+
+      // Inspect the metadata
+      const contentMetadata = await inspectContentMetadata(
+        streamingUrl,
+        "live",
+        channel.basicInfo?.name,
+      );
+
+      setMetadata(contentMetadata);
+      setShowMetadata(true);
+
+      console.log("✅ Metadata inspection complete:", contentMetadata);
+    } catch (error) {
+      console.error("❌ Metadata inspection failed:", error);
+      setError(error instanceof Error ? error.message : "Failed to inspect metadata");
+    } finally {
+      setIsInspectingMetadata(false);
+    }
+  };
+
+  const handleFetchFresh = async () => {
+    if (!playlistId || !channelId) return;
+
+    try {
+      setIsFetchingFresh(true);
+      setError(null);
+
+      console.log("🔄 Fetching fresh data for channel:", channelId);
+
+      // Get credentials
+      const credentials = await getCredentials(playlistId, {
+        title: "Fetch Fresh Data",
+        message: "Enter your passphrase to fetch fresh data from source",
+      });
+
+      // Fetch fresh data with stream metadata
+      const freshContentData = await fetchFreshContentDetails(
+        credentials,
+        String(channelId),
+        "live",
+        true, // Include stream metadata
+      );
+
+      setFreshData(freshContentData);
+      setShowFreshData(true);
+
+      // Update the catalog storage with the fresh data (including TMDB info)
+      try {
+        const storage = new CatalogStorage();
+        await storage.init();
+        const sourceInfo = await storage.getStorageInfo();
+        const currentSource = sourceInfo.sources.find((s) => s.sourceId === playlistId);
+        if (currentSource) {
+          await storage.updateContentItemWithFreshData(
+            playlistId,
+            String(channelId),
+            "live",
+            freshContentData,
+          );
+          console.log("📚 Updated catalog storage with fresh TMDB data");
+        }
+      } catch (updateError) {
+        console.warn("Failed to update catalog with fresh data:", updateError);
+      }
+
+      console.log("✅ Fresh data fetch complete:", freshContentData);
+    } catch (error) {
+      console.error("❌ Fresh data fetch failed:", error);
+      setError(error instanceof Error ? error.message : "Failed to fetch fresh data");
+    } finally {
+      setIsFetchingFresh(false);
+    }
+  };
+
   const handlePlayChannel = async () => {
     try {
       if (!playlistId || !channelId) return;
@@ -91,24 +203,11 @@ export function LiveChannelDetails() {
         },
       );
 
-      const id = Number(channel?.basicInfo?.stream_id ?? channelId);
-      const { streamingUrl } = constructStreamUrl({
-        server: credentials.server,
-        username: credentials.username,
-        password: credentials.password,
-        contentId: id,
-        contentType: "live",
-        containerExtension: credentials.containerExtension,
-        videoCodec: credentials.videoCodec,
-        audioCodec: credentials.audioCodec,
-      });
-
       navigate({
         to: "/app/player",
         search: {
-          url: streamingUrl,
-          title: channel?.basicInfo?.name || "Live Channel",
-          type: "live",
+          playlist: String(playlistId),
+          live: String(channelId), // Use channel ID for back navigation
         },
       });
     } catch (e) {
@@ -162,14 +261,42 @@ export function LiveChannelDetails() {
                         {channel.epg?.currentProgram?.title || "Live Stream"}
                       </p>
                     </div>
-                    <Button
-                      className="gap-2"
-                      onClick={handlePlayChannel}
-                      disabled={!channel?.found}
-                    >
-                      <Play className="h-4 w-4" />
-                      Start Watching
-                    </Button>
+                    <div className="flex gap-3">
+                      <Button
+                        className="gap-2"
+                        onClick={handlePlayChannel}
+                        disabled={!channel?.found}
+                      >
+                        <Play className="h-4 w-4" />
+                        Start Watching
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={handleInspectMetadata}
+                        disabled={isInspectingMetadata || !channel?.found}
+                      >
+                        {isInspectingMetadata ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
+                        {isInspectingMetadata ? "Inspecting..." : "Inspect"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={handleFetchFresh}
+                        disabled={isFetchingFresh || !playlistId || !channelId}
+                      >
+                        {isFetchingFresh ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4" />
+                        )}
+                        {isFetchingFresh ? "Fetching..." : "Refresh"}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -235,6 +362,46 @@ export function LiveChannelDetails() {
                     </div>
                   )}
                 </div>
+
+                {/* Metadata Display */}
+                {showMetadata && metadata && (
+                  <div className="bg-card border-border rounded-lg border p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-foreground font-semibold">Content Metadata</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowMetadata(false)}
+                      >
+                        Hide
+                      </Button>
+                    </div>
+                    <pre className="bg-muted overflow-auto rounded p-3 text-xs">
+                      {JSON.stringify(metadata, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Fresh Data Display */}
+                {showFreshData && freshData && (
+                  <div className="bg-card border-border rounded-lg border p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-foreground font-semibold">
+                        Fresh Content Data
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFreshData(false)}
+                      >
+                        Hide
+                      </Button>
+                    </div>
+                    <pre className="bg-muted overflow-auto rounded p-3 text-xs">
+                      {JSON.stringify(freshData, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </>
             )}
           </div>

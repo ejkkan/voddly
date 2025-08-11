@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
-import { ArrowLeft, Calendar, Play, Plus, Share } from "lucide-react";
+import { ArrowLeft, Calendar, Play, Plus, RefreshCw, Search, Share } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
@@ -7,6 +7,11 @@ import { useSession } from "~/hooks/useAuth";
 import { useSourceCredentials } from "~/hooks/useSourceCredentials";
 import { apiClient } from "~/lib/api-client";
 import { CatalogStorage } from "~/lib/catalog-storage";
+import { inspectContentMetadata, type ContentMetadata } from "~/lib/metadata-inspector";
+import {
+  fetchFreshContentDetails,
+  type FreshContentMetadata,
+} from "~/lib/source-fetcher";
 import { constructStreamUrl } from "~/lib/stream-url";
 
 export function SeriesDetails() {
@@ -18,6 +23,12 @@ export function SeriesDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<ContentMetadata | null>(null);
+  const [isInspectingMetadata, setIsInspectingMetadata] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(false);
+  const [freshData, setFreshData] = useState<FreshContentMetadata | null>(null);
+  const [isFetchingFresh, setIsFetchingFresh] = useState(false);
+  const [showFreshData, setShowFreshData] = useState(false);
   const { getCredentials, prepareContentPlayback } = useSourceCredentials();
 
   useEffect(() => {
@@ -64,7 +75,7 @@ export function SeriesDetails() {
             !basicSeriesInfo.seasons ||
             basicSeriesInfo.seasons.length === 0 ||
             !basicSeriesInfo.seasons.some(
-              (season) => season.episodes && season.episodes.length > 0,
+              (season: any) => season.episodes && season.episodes.length > 0,
             )
           ) {
             await fetchDetailedSeriesInfo(basicSeriesInfo);
@@ -102,7 +113,7 @@ export function SeriesDetails() {
 
       if (detailedSeriesResponse.found && detailedSeriesResponse.seriesData) {
         // Merge the detailed information with what we already have
-        setSeries((prevSeries) => ({
+        setSeries((prevSeries: any) => ({
           ...prevSeries,
           basicInfo: {
             ...prevSeries.basicInfo,
@@ -119,6 +130,118 @@ export function SeriesDetails() {
       // Don't set error state, just keep the basic info we have
     } finally {
       setIsLoadingDetails(false);
+    }
+  };
+
+  const handleInspectMetadata = async () => {
+    if (!playlistId || !seriesId || !series?.found) return;
+
+    try {
+      setIsInspectingMetadata(true);
+      setError(null);
+
+      console.log("🔍 Inspecting metadata for series:", series.basicInfo?.name);
+
+      // Get credentials and construct stream URL for first episode
+      const credentials = await getCredentials(playlistId, {
+        title: "Inspect Metadata",
+        message: "Enter your passphrase to inspect content metadata",
+      });
+
+      // Use first episode if available; otherwise fall back to series id
+      const firstEpisode = series?.seasons?.[0]?.episodes?.[0];
+      let episodeId =
+        firstEpisode?.id ?? firstEpisode?.stream_id ?? series?.basicInfo?.series_id;
+
+      // Clean up the episode ID
+      if (typeof episodeId === "string") {
+        episodeId = episodeId.replace(/^["']|["']$/g, "");
+        episodeId = Number(episodeId);
+      }
+
+      const { streamingUrl } = constructStreamUrl({
+        server: credentials.server,
+        username: credentials.username,
+        password: credentials.password,
+        contentId: Number(episodeId),
+        contentType: "series",
+        containerExtension: credentials.containerExtension,
+        videoCodec: credentials.videoCodec,
+        audioCodec: credentials.audioCodec,
+      });
+
+      console.log("🔗 Inspecting stream URL:", streamingUrl);
+
+      // Inspect the metadata
+      const contentMetadata = await inspectContentMetadata(
+        streamingUrl,
+        "series",
+        series.basicInfo?.name,
+      );
+
+      setMetadata(contentMetadata);
+      setShowMetadata(true);
+
+      console.log("✅ Metadata inspection complete:", contentMetadata);
+    } catch (error) {
+      console.error("❌ Metadata inspection failed:", error);
+      setError(error instanceof Error ? error.message : "Failed to inspect metadata");
+    } finally {
+      setIsInspectingMetadata(false);
+    }
+  };
+
+  const handleFetchFresh = async () => {
+    if (!playlistId || !seriesId) return;
+
+    try {
+      setIsFetchingFresh(true);
+      setError(null);
+
+      console.log("🔄 Fetching fresh data for series:", seriesId);
+
+      // Get credentials
+      const credentials = await getCredentials(playlistId, {
+        title: "Fetch Fresh Data",
+        message: "Enter your passphrase to fetch fresh data from source",
+      });
+
+      // Fetch fresh data with stream metadata
+      const freshContentData = await fetchFreshContentDetails(
+        credentials,
+        String(seriesId),
+        "series",
+        true, // Include stream metadata
+      );
+
+      setFreshData(freshContentData);
+      setShowFreshData(true);
+
+      // Update the catalog storage with the fresh data (including TMDB info)
+      try {
+        const storage = new CatalogStorage();
+        await storage.init();
+        const sourceInfo = await storage.getStorageInfo();
+        const currentSource = sourceInfo.sources.find((s) => s.sourceId === playlistId);
+        if (currentSource) {
+          await storage.updateContentItemWithFreshData(
+            playlistId,
+            String(seriesId),
+            "series",
+            freshContentData,
+          );
+          console.log("📚 Updated catalog storage with fresh TMDB data");
+        }
+      } catch (updateError) {
+        console.warn("Failed to update catalog with fresh data:", updateError);
+      }
+
+      console.log("✅ Fresh data fetch complete:", freshContentData);
+    } catch (error) {
+      console.error("❌ Fresh data fetch failed:", error);
+      setError(error instanceof Error ? error.message : "Failed to fetch fresh data");
+    } finally {
+      setIsFetchingFresh(false);
     }
   };
 
@@ -139,18 +262,47 @@ export function SeriesDetails() {
 
       // Use first episode if seasons/episodes exist; otherwise fall back to series id
       const firstEpisode = series?.seasons?.[0]?.episodes?.[0];
-      const episodeId =
+      let episodeId =
         firstEpisode?.id ?? firstEpisode?.stream_id ?? series?.basicInfo?.series_id;
-      const { streamingUrl } = constructStreamUrl({
-        server: credentials.server,
-        username: credentials.username,
-        password: credentials.password,
-        contentId: Number(episodeId),
-        contentType: "series",
-        containerExtension: credentials.containerExtension,
-        videoCodec: credentials.videoCodec,
-        audioCodec: credentials.audioCodec,
-      });
+
+      // Clean up the episode ID - remove quotes if present and ensure it's a clean number
+      if (typeof episodeId === "string") {
+        episodeId = episodeId.replace(/^["']|["']$/g, ""); // Remove surrounding quotes
+        episodeId = Number(episodeId); // Convert to number
+      }
+
+      // Get TMDB ID from series data, fresh data, or episode data
+      let tmdbId: number | undefined;
+
+      // Try to get TMDB from fresh data first (most detailed)
+      if (freshData?.seasons?.[0]?.episodes?.[0]?.info?.tmdb_id) {
+        tmdbId = Number(freshData.seasons[0].episodes[0].info.tmdb_id);
+      }
+      // Fall back to series data
+      else if (series?.basicInfo?.tmdb_id) {
+        tmdbId = Number(series.basicInfo.tmdb_id);
+      }
+      // Try episode info if available
+      else if (firstEpisode?.info?.tmdb_id) {
+        tmdbId = Number(firstEpisode.info.tmdb_id);
+      }
+      // Try to get from stored content item
+      else {
+        try {
+          const storage = new CatalogStorage();
+          await storage.init();
+          const contentItem = await storage.getContentItem(
+            playlistId,
+            "series",
+            String(seriesId),
+          );
+          if (contentItem?.tmdbId) {
+            tmdbId = contentItem.tmdbId;
+          }
+        } catch (error) {
+          console.warn("Failed to get TMDB ID from storage:", error);
+        }
+      }
 
       const episodeTitle = firstEpisode?.title
         ? ` - ${firstEpisode.title}`
@@ -158,12 +310,18 @@ export function SeriesDetails() {
           ? ` - Episode ${firstEpisode.episode_num}`
           : "";
 
+      if (tmdbId) {
+        console.log(`🎬 Including TMDB ID ${tmdbId} in player URL for series`);
+      } else {
+        console.log("⚠️ No TMDB ID found for series navigation");
+      }
+
       navigate({
         to: "/app/player",
         search: {
-          url: streamingUrl,
-          title: `${series?.basicInfo?.name || "Series"}${episodeTitle}`,
-          type: "series",
+          playlist: String(playlistId),
+          series: String(episodeId), // Use episode stream ID for playback
+          ...(tmdbId && { tmdb: tmdbId }), // Include TMDB ID if available
         },
       });
     } catch (e) {
@@ -187,27 +345,59 @@ export function SeriesDetails() {
       );
 
       // Use episode's streamingUrl if available, or construct it
-      let streamingUrl = episode.streamingUrl;
-      if (!streamingUrl) {
-        const { streamingUrl: constructedUrl } = constructStreamUrl({
-          server: credentials.server,
-          username: credentials.username,
-          password: credentials.password,
-          contentId: Number(episode.id),
-          contentType: "series",
-          containerExtension: episode.container_extension,
-          videoCodec: credentials.videoCodec,
-          audioCodec: credentials.audioCodec,
-        });
-        streamingUrl = constructedUrl;
+      let episodeId = episode.id || episode.stream_id;
+
+      // Clean up the episode ID - remove quotes if present and ensure it's a clean number
+      if (typeof episodeId === "string") {
+        episodeId = episodeId.replace(/^["']|["']$/g, ""); // Remove surrounding quotes
+        episodeId = Number(episodeId); // Convert to number
+      }
+
+      // Get TMDB ID from episode data, fresh data, or stored content
+      let tmdbId: number | undefined;
+
+      // Try to get TMDB from specific episode first
+      if (episode?.info?.tmdb_id) {
+        tmdbId = Number(episode.info.tmdb_id);
+      }
+      // Try to get from fresh data
+      else if (freshData?.seasons?.[0]?.episodes?.[0]?.info?.tmdb_id) {
+        tmdbId = Number(freshData.seasons[0].episodes[0].info.tmdb_id);
+      }
+      // Fall back to series data
+      else if (series?.basicInfo?.tmdb_id) {
+        tmdbId = Number(series.basicInfo.tmdb_id);
+      }
+      // Try to get from stored content item
+      else {
+        try {
+          const storage = new CatalogStorage();
+          await storage.init();
+          const contentItem = await storage.getContentItem(
+            playlistId,
+            "series",
+            String(seriesId),
+          );
+          if (contentItem?.tmdbId) {
+            tmdbId = contentItem.tmdbId;
+          }
+        } catch (error) {
+          console.warn("Failed to get TMDB ID from storage:", error);
+        }
+      }
+
+      if (tmdbId) {
+        console.log(`🎬 Including TMDB ID ${tmdbId} in player URL for specific episode`);
+      } else {
+        console.log("⚠️ No TMDB ID found for specific episode navigation");
       }
 
       navigate({
         to: "/app/player",
         search: {
-          url: streamingUrl,
-          title: `${series?.basicInfo?.name || "Series"} - ${episode.title || `Episode ${episode.episode_num}`}`,
-          type: "series",
+          playlist: String(playlistId),
+          series: String(episodeId), // Use episode stream ID for playback
+          ...(tmdbId && { tmdb: tmdbId }), // Include TMDB ID if available
         },
       });
     } catch (e) {
@@ -338,6 +528,34 @@ export function SeriesDetails() {
                       <Button variant="outline" size="lg" className="gap-2">
                         <Plus className="h-5 w-5" />
                         Add to List
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="gap-2"
+                        onClick={handleInspectMetadata}
+                        disabled={isInspectingMetadata || !getHasEpisode()}
+                      >
+                        {isInspectingMetadata ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <Search className="h-5 w-5" />
+                        )}
+                        {isInspectingMetadata ? "Inspecting..." : "Inspect Metadata"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="gap-2"
+                        onClick={handleFetchFresh}
+                        disabled={isFetchingFresh || !playlistId || !seriesId}
+                      >
+                        {isFetchingFresh ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <RefreshCw className="h-5 w-5" />
+                        )}
+                        {isFetchingFresh ? "Fetching..." : "Fetch Fresh"}
                       </Button>
                       <Button variant="outline" size="lg" className="gap-2">
                         <Share className="h-5 w-5" />
@@ -543,6 +761,46 @@ export function SeriesDetails() {
                     )}
                   </div>
                 </div>
+
+                {/* Metadata Display */}
+                {showMetadata && metadata && (
+                  <div className="bg-card border-border rounded-lg border p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-foreground font-semibold">Content Metadata</h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowMetadata(false)}
+                      >
+                        Hide
+                      </Button>
+                    </div>
+                    <pre className="bg-muted overflow-auto rounded p-3 text-xs">
+                      {JSON.stringify(metadata, null, 2)}
+                    </pre>
+                  </div>
+                )}
+
+                {/* Fresh Data Display */}
+                {showFreshData && freshData && (
+                  <div className="bg-card border-border rounded-lg border p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <h3 className="text-foreground font-semibold">
+                        Fresh Content Data
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowFreshData(false)}
+                      >
+                        Hide
+                      </Button>
+                    </div>
+                    <pre className="bg-muted overflow-auto rounded p-3 text-xs">
+                      {JSON.stringify(freshData, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </>
             )}
           </div>

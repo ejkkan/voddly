@@ -179,48 +179,92 @@ export class AccountEncryption {
     },
     passphrase?: string,
   ): Promise<CryptoKey> {
-    if (this.masterKey) return this.masterKey;
+    console.log("🔐 getMasterKey: Starting master key derivation");
+
+    if (this.masterKey) {
+      console.log("✅ getMasterKey: Using cached master key");
+      return this.masterKey;
+    }
 
     let pass = passphrase || this.passphrase;
 
     // Try to get from cache if no passphrase provided and accountId is available
     if (!pass && this.accountId) {
       pass = passphraseCache.get(this.accountId);
+      console.log("🔐 getMasterKey: Retrieved passphrase from cache");
     }
 
     if (!pass) {
+      console.error("❌ getMasterKey: No passphrase available");
       throw new Error("Passphrase required to unlock master key");
     }
 
-    // Derive personal key from passphrase
-    const salt = this.base64ToBuffer(keyData.salt);
-    const personalKey = await this.deriveKey(pass, salt);
+    console.log("🔐 getMasterKey: Passphrase available, deriving personal key");
 
-    // Unwrap master key
-    const wrapped = this.base64ToBuffer(keyData.wrapped_master_key);
-    const iv = this.base64ToBuffer(keyData.iv);
+    try {
+      // Derive personal key from passphrase
+      const salt = this.base64ToBuffer(keyData.salt);
+      console.log("🔐 getMasterKey: Salt decoded, length:", salt.length);
 
-    const masterKeyBytes = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      personalKey,
-      wrapped,
-    );
+      const personalKey = await this.deriveKey(pass, salt);
+      console.log("✅ getMasterKey: Personal key derived successfully");
 
-    // Import master key
-    this.masterKey = await crypto.subtle.importKey(
-      "raw",
-      masterKeyBytes,
-      { name: "AES-GCM", length: 256 },
-      false,
-      ["encrypt", "decrypt"],
-    );
+      // Unwrap master key
+      const wrapped = this.base64ToBuffer(keyData.wrapped_master_key);
+      const iv = this.base64ToBuffer(keyData.iv);
 
-    // Cache the passphrase for future use if accountId is available
-    if (this.accountId && pass && !passphrase) {
-      passphraseCache.set(this.accountId, pass);
+      console.log(
+        "🔐 getMasterKey: Attempting to decrypt master key, wrapped length:",
+        wrapped.length,
+        "iv length:",
+        iv.length,
+      );
+
+      const masterKeyBytes = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        personalKey,
+        wrapped,
+      );
+
+      console.log(
+        "✅ getMasterKey: Master key decrypted successfully, length:",
+        masterKeyBytes.byteLength,
+      );
+
+      // Import master key
+      this.masterKey = await crypto.subtle.importKey(
+        "raw",
+        masterKeyBytes,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"],
+      );
+
+      console.log("✅ getMasterKey: Master key imported successfully");
+
+      // Cache the passphrase for future use if accountId is available
+      if (this.accountId && pass && !passphrase) {
+        passphraseCache.set(this.accountId, pass);
+      }
+
+      return this.masterKey;
+    } catch (error) {
+      console.error("💥 getMasterKey: Failed to derive master key:", error);
+
+      if (error instanceof Error) {
+        if (error.name === "OperationError") {
+          throw new Error(
+            "Failed to decrypt master key. This usually means the passphrase is incorrect.",
+          );
+        } else if (error.name === "InvalidAccessError") {
+          throw new Error("Invalid key or algorithm parameters.");
+        } else {
+          throw new Error(`Master key derivation failed: ${error.message}`);
+        }
+      } else {
+        throw new Error("Unknown error during master key derivation");
+      }
     }
-
-    return this.masterKey;
   }
 
   /**
@@ -247,17 +291,56 @@ export class AccountEncryption {
     },
     masterKey: CryptoKey,
   ): Promise<any> {
-    const iv = this.base64ToBuffer(source.config_iv);
-    const encrypted = this.base64ToBuffer(source.encrypted_config);
+    console.log("🔐 decryptSource: Starting source decryption");
 
-    const decrypted = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv },
-      masterKey,
-      encrypted,
-    );
+    try {
+      const iv = this.base64ToBuffer(source.config_iv);
+      const encrypted = this.base64ToBuffer(source.encrypted_config);
 
-    const decoder = new TextDecoder();
-    return JSON.parse(decoder.decode(decrypted));
+      console.log(
+        "🔐 decryptSource: Buffers decoded, iv length:",
+        iv.length,
+        "encrypted length:",
+        encrypted.length,
+      );
+
+      const decrypted = await crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        masterKey,
+        encrypted,
+      );
+
+      console.log(
+        "✅ decryptSource: Source decrypted successfully, length:",
+        decrypted.byteLength,
+      );
+
+      const decoder = new TextDecoder();
+      const result = JSON.parse(decoder.decode(decrypted));
+
+      console.log("✅ decryptSource: Source config parsed successfully");
+      return result;
+    } catch (error) {
+      console.error("💥 decryptSource: Failed to decrypt source:", error);
+
+      if (error instanceof Error) {
+        if (error.name === "OperationError") {
+          throw new Error(
+            "Failed to decrypt source configuration. The master key may be invalid.",
+          );
+        } else if (error.name === "InvalidAccessError") {
+          throw new Error("Invalid master key or algorithm parameters.");
+        } else if (error instanceof SyntaxError) {
+          throw new Error(
+            "Failed to parse decrypted source configuration (corrupted data).",
+          );
+        } else {
+          throw new Error(`Source decryption failed: ${error.message}`);
+        }
+      } else {
+        throw new Error("Unknown error during source decryption");
+      }
+    }
   }
 
   /**

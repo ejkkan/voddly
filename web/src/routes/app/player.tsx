@@ -1,345 +1,204 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
-import { AlertTriangle, ArrowLeft, ExternalLink, RotateCcw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { Button } from "~/components/ui/button";
-import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
+import { useEffect, useState } from "react";
+import { VideoPlayer } from "~/components/video";
+import { useSourceCredentials } from "~/hooks/useSourceCredentials";
+import { contentResolver } from "~/lib/content-resolver";
+import type { PlayerContext } from "~/lib/content-types";
+import { constructStreamUrl } from "~/lib/stream-url";
+
+type VideoTheme = "default" | "modern";
 
 interface PlayerSearchParams {
-  url: string;
-  title: string;
-  type: "movie" | "series" | "live";
+  playlist: string; // playlist/source identifier
+  movie?: string; // movie content id
+  series?: string; // series content id
+  live?: string; // live channel id
+  tmdb?: number; // TMDB ID for subtitle search
 }
 
 export const Route = createFileRoute("/app/player")({
-  component: VideoPlayer,
+  component: VideoPlayerRoute,
   validateSearch: (search: Record<string, unknown>): PlayerSearchParams => ({
-    url: (search.url as string) || "",
-    title: (search.title as string) || "Video Player",
-    type: (search.type as "movie" | "series" | "live") || "movie",
+    playlist: String(search.playlist || ""),
+    movie: search.movie ? String(search.movie) : undefined,
+    series: search.series ? String(search.series) : undefined,
+    live: search.live ? String(search.live) : undefined,
+    tmdb: search.tmdb ? Number(search.tmdb) : undefined,
   }),
 });
 
-function VideoPlayer() {
+function VideoPlayerRoute() {
   const navigate = useNavigate();
-  const { url, title, type } = useSearch({ from: "/app/player" });
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { playlist, movie, series, live, tmdb } = useSearch({
+    from: "/app/player",
+  });
+  const { getCredentials } = useSourceCredentials();
+  const [streamingUrl, setStreamingUrl] = useState<string>("");
+  const [playerContext, setPlayerContext] = useState<PlayerContext | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  // Internal loading/error are handled implicitly by the underlying player UI
+  const [, setIsLoading] = useState<boolean>(true);
 
-  // Clean up the video URL by removing .undefined extension
-  const cleanVideoUrl = url?.replace(/\.undefined$/, "") || "";
+  // Determine content type and ID from the provided parameters
+  const contentId = movie || series || live;
+  const contentType: "movie" | "series" | "live" = movie
+    ? "movie"
+    : series
+      ? "series"
+      : "live";
 
-  // Log the URL for debugging
-  console.log("🎥 Video Player URL:", cleanVideoUrl);
-  console.log("🎥 Video Player Title:", title);
-  console.log("🎥 Video Player Type:", type);
+  // Use default theme (could be made user-configurable later)
+  const theme: VideoTheme = "modern";
 
-  // Helper function to clear loading state
-  const clearLoadingState = (reason: string) => {
-    console.log(`Clearing loading state: ${reason}`);
-    setIsLoading(false);
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current);
-      loadingTimeoutRef.current = null;
-    }
-  };
-
-  // Reset state when URL changes
   useEffect(() => {
-    if (cleanVideoUrl) {
-      setVideoError(null);
-      setIsLoading(true);
+    let cancelled = false;
+    const run = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        if (!playlist || !contentId) throw new Error("Missing identifiers");
 
-      // Set a loading timeout (30 seconds)
-      loadingTimeoutRef.current = setTimeout(() => {
-        if (isLoading && !videoError) {
-          setIsLoading(false);
-          setVideoError(
-            "Video is taking too long to load. The streaming server may be slow or unavailable.",
-          );
+        console.log("🎬 Resolving content:", { playlist, contentType, contentId, tmdb });
+
+        // Clean the content ID - remove quotes if present
+        let cleanContentId = String(contentId);
+        if (cleanContentId.startsWith('"') && cleanContentId.endsWith('"')) {
+          cleanContentId = cleanContentId.slice(1, -1);
+          console.log("🎬 Cleaned content ID:", cleanContentId, "from", contentId);
         }
-      }, 30000);
-    }
 
-    return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-        loadingTimeoutRef.current = null;
+        // Resolve content using the new content resolver
+        const context = await contentResolver.resolveContent(
+          playlist,
+          contentType,
+          cleanContentId,
+          tmdb,
+        );
+
+        if (!cancelled) {
+          setPlayerContext(context);
+          console.log("🎬 Player context resolved:", context);
+        }
+
+        // Fetch decrypted credentials for the playlist/source
+        const credentials = await getCredentials(playlist, {
+          title: `Play ${contentType}`,
+          message: "Enter your passphrase to start playback",
+        });
+
+        // Construct stream URL using the resolved content ID (episode ID for series)
+        const { streamingUrl } = constructStreamUrl({
+          server: credentials.server,
+          username: credentials.username,
+          password: credentials.password,
+          contentId: Number(context.contentId),
+          contentType: context.contentType,
+          containerExtension: credentials.containerExtension,
+          videoCodec: credentials.videoCodec,
+          audioCodec: credentials.audioCodec,
+        });
+
+        if (!cancelled) {
+          console.log("🎬 Stream URL generated:", streamingUrl);
+          console.log("🎬 Stream URL details:", {
+            url: streamingUrl,
+            length: streamingUrl.length,
+            isValidUrl: streamingUrl.startsWith("http"),
+            extension: streamingUrl.split(".").pop(),
+          });
+          setStreamingUrl(streamingUrl);
+        }
+      } catch (e) {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to prepare playback");
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
-  }, [cleanVideoUrl, isLoading, videoError]);
-
-  // Handle ESC key press to go back
-  useEffect(() => {
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        navigate({ to: "..", from: "/app/player" });
-      }
-    };
-
-    document.addEventListener("keydown", handleEscape);
+    run();
     return () => {
-      document.removeEventListener("keydown", handleEscape);
+      cancelled = true;
     };
-  }, [navigate]);
-
-  const handleRetry = () => {
-    console.log("Retrying video load...");
-    setVideoError(null);
-    setIsLoading(true);
-    if (videoRef.current) {
-      // Force reload by setting src again
-      videoRef.current.src = cleanVideoUrl;
-      videoRef.current.load();
-    }
-  };
-
-  const handleTryHLS = () => {
-    const hlsUrl = cleanVideoUrl.replace(/\.(mp4|mkv|avi)$/, ".m3u8");
-    console.log("Trying HLS version:", hlsUrl);
-    setVideoError(null);
-    setIsLoading(true);
-    if (videoRef.current) {
-      videoRef.current.src = hlsUrl;
-      videoRef.current.load();
-    }
-  };
-
-  const handleTryTS = () => {
-    const tsUrl = cleanVideoUrl.replace(/\.(mp4|mkv|avi)$/, ".ts");
-    console.log("Trying TS version:", tsUrl);
-    setVideoError(null);
-    setIsLoading(true);
-    if (videoRef.current) {
-      videoRef.current.src = tsUrl;
-      videoRef.current.load();
-    }
-  };
-
-  const handleOpenExternal = () => {
-    window.open(cleanVideoUrl, "_blank");
-  };
-
-  const handleTestUrl = async () => {
-    console.log("🔍 Testing stream URL accessibility...");
-    try {
-      const response = await fetch(cleanVideoUrl, {
-        method: "HEAD",
-        mode: "no-cors", // Avoid CORS issues for testing
-      });
-      console.log("✅ Stream URL test result:", response.status);
-    } catch (error) {
-      console.error("❌ Stream URL test failed:", error);
-      // Try a different approach - just log the attempt
-      console.log("🔗 Stream URL to test manually:", cleanVideoUrl);
-    }
-  };
+  }, [playlist, contentId, contentType, tmdb, getCredentials]);
 
   const handleGoBack = () => {
-    navigate({ to: "..", from: "/app/player" });
+    // Navigate back to the appropriate content details page based on type
+    if (contentType === "movie" && movie) {
+      navigate({
+        to: "/app/movies/$playlistId/$movieId",
+        params: { playlistId: playlist, movieId: movie },
+      });
+    } else if (contentType === "series" && series) {
+      navigate({
+        to: "/app/shows/$playlistId/$seriesId",
+        params: { playlistId: playlist, seriesId: series },
+      });
+    } else if (contentType === "live" && live) {
+      navigate({
+        to: "/app/live/$playlistId/$channelId",
+        params: { playlistId: playlist, channelId: live },
+      });
+    } else {
+      // Fallback to home if type is unknown
+      navigate({ to: "/app" });
+    }
   };
 
-  if (!cleanVideoUrl) {
+  // Show error state if something went wrong
+  if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
         <div className="text-center text-white">
-          <AlertTriangle className="mx-auto mb-4 h-16 w-16 text-red-400" />
-          <h2 className="mb-2 text-xl font-semibold">No Video URL</h2>
-          <p className="mb-4 text-gray-300">No video URL was provided for playback.</p>
-          <Button onClick={handleGoBack} variant="outline">
+          <div className="mb-4 text-red-500">❌</div>
+          <div className="mb-2 text-lg font-semibold">Playback Error</div>
+          <div className="mb-4 text-sm text-gray-300">{error}</div>
+          <button
+            onClick={() => window.history.back()}
+            className="rounded bg-white px-4 py-2 text-black hover:bg-gray-200"
+          >
             Go Back
-          </Button>
+          </button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="relative min-h-screen bg-black">
-      {/* Header Controls */}
-      <div className="absolute top-0 right-0 left-0 z-10 bg-gradient-to-b from-black/80 to-transparent p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={handleGoBack}
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20 hover:text-white"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="text-white">
-              <h1 className="truncate text-lg font-semibold">{title}</h1>
-              <p className="text-sm text-gray-300 capitalize">{type}</p>
-            </div>
-          </div>
-
-          <div className="text-xs text-gray-400">Press ESC to exit</div>
+  // Show loading state while resolving content
+  if (!playerContext) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="text-center text-white">
+          <div className="mb-4">🎬</div>
+          <div>Loading content...</div>
         </div>
       </div>
+    );
+  }
 
-      {/* Video Player */}
-      <div className="relative h-screen w-full">
-        <video
-          ref={videoRef}
-          className="h-full w-full bg-black object-contain"
-          controls
-          autoPlay
-          preload="metadata"
-          controlsList="nodownload"
-          crossOrigin="anonymous"
-          playsInline
-          onLoadStart={() => {
-            console.log("Video load started:", cleanVideoUrl);
-            setIsLoading(true);
-            setVideoError(null);
-            // Clear any existing timeout
-            if (loadingTimeoutRef.current) {
-              clearTimeout(loadingTimeoutRef.current);
-              loadingTimeoutRef.current = null;
-            }
-          }}
-          onCanPlay={() => clearLoadingState("Video can play")}
-          onLoadedData={() => clearLoadingState("Video loaded data")}
-          onPlay={() => clearLoadingState("Video started playing")}
-          onPlaying={() => clearLoadingState("Video is actively playing")}
-          onTimeUpdate={() => {
-            // Only clear loading if video is actually playing and has progressed
-            if (
-              videoRef.current &&
-              videoRef.current.currentTime > 0 &&
-              !videoRef.current.paused
-            ) {
-              clearLoadingState("Video time update - playing");
-            }
-          }}
-          onError={(e) => {
-            console.error("Video playback error:", e);
-            console.log("Failed URL:", cleanVideoUrl);
-
-            const video = e.currentTarget as HTMLVideoElement;
-            const error = video.error;
-
-            // Log detailed error information
-            console.log("Video error details:", {
-              code: error?.code,
-              message: error?.message,
-              networkState: video.networkState,
-              readyState: video.readyState,
-              currentSrc: video.currentSrc,
-            });
-
-            clearLoadingState("Video error occurred");
-
-            // Prevent multiple error handlers from firing
-            if (videoError) return;
-
-            let errorMessage = "Unable to load IPTV stream";
-
-            if (error) {
-              switch (error.code) {
-                case error.MEDIA_ERR_ABORTED:
-                  errorMessage = "Stream loading was cancelled";
-                  break;
-                case error.MEDIA_ERR_NETWORK:
-                  errorMessage = "Network error - IPTV server may be unreachable";
-                  break;
-                case error.MEDIA_ERR_DECODE:
-                  errorMessage = "Video codec not supported - try a different player";
-                  break;
-                case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                  errorMessage = "IPTV stream format not supported by browser";
-                  break;
-                default:
-                  errorMessage = "IPTV stream playback failed";
-              }
-            }
-
-            setVideoError(errorMessage);
-          }}
-        >
-          <source src={cleanVideoUrl} type="video/mp4" />
-          <source
-            src={cleanVideoUrl.replace(/\.(mp4|mkv|avi)$/, ".m3u8")}
-            type="application/x-mpegURL"
-          />
-          <source
-            src={cleanVideoUrl.replace(/\.(mp4|mkv|avi)$/, ".ts")}
-            type="video/mp2t"
-          />
-          <track kind="captions" srcLang="en" label="English" />
-          Your browser does not support the video tag or IPTV streaming.
-        </video>
-
-        {/* Loading overlay */}
-        {isLoading && !videoError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/75">
-            <div className="space-y-4 text-center">
-              <LoadingSpinner size="lg" className="mx-auto" />
-              <div className="space-y-2 text-white">
-                <p className="text-lg font-medium">Loading video...</p>
-                <p className="text-sm text-white/70">Connecting to streaming server...</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Error overlay */}
-        {videoError && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/90">
-            <div className="max-w-md space-y-6 p-8 text-center text-white">
-              <div className="flex justify-center">
-                <AlertTriangle className="h-16 w-16 text-red-400" />
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold">Playback Error</h3>
-                <p className="text-white/70">{videoError}</p>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button
-                    onClick={handleRetry}
-                    variant="default"
-                    size="sm"
-                    className="gap-2"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    Try Again
-                  </Button>
-                  <Button onClick={handleTryHLS} variant="secondary" size="sm">
-                    Try HLS
-                  </Button>
-                  <Button onClick={handleTryTS} variant="secondary" size="sm">
-                    Try TS
-                  </Button>
-                  <Button
-                    onClick={handleOpenExternal}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    External
-                  </Button>
-                  <Button onClick={handleTestUrl} variant="outline" size="sm">
-                    Test URL
-                  </Button>
-                </div>
-
-                <div className="space-y-2 text-xs text-white/50">
-                  <div className="rounded bg-black/50 p-2 text-left font-mono break-all text-white/70">
-                    {cleanVideoUrl}
-                  </div>
-                  <p>IPTV streams may require specific players like VLC or Kodi</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+  // Show loading state while getting stream URL
+  if (!streamingUrl) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="text-center text-white">
+          <div className="mb-4">🔗</div>
+          <div>Preparing stream...</div>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  // Render player with resolved context
+  return (
+    <VideoPlayer
+      url={streamingUrl}
+      title={playerContext.title}
+      theme={theme}
+      onBack={handleGoBack}
+      autoPlay={true}
+      type={playerContext.contentType}
+      movieId={playerContext.contentId}
+      tmdbId={playerContext.tmdbId}
+      playerContext={playerContext}
+    />
   );
 }
