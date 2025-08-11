@@ -31,6 +31,9 @@ target 'iptvtest' do
 
   # Enable Video Caching
   ENV['RNVideoUseVideoCaching'] = 'true'
+  
+  # Enable Google IMA SDK (for ads support)
+  ENV['RNVideoUseGoogleIMA'] = 'true'
 
   config = use_native_modules!(config_command)
 

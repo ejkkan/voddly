@@ -68,7 +68,7 @@
     "react-error-boundary": "^4.0.13",
     "react-hook-form": "^7.53.0",
     "react-i18next": "^15.0.1",
-    "react-native": "0.79.4",
+    "react-native": "npm:react-native-tvos",
     "react-native-edge-to-edge": "^1.6.0",
     "react-native-flash-message": "^0.4.2",
     "react-native-gesture-handler": "~2.24.0",
@@ -95,6 +95,7 @@
     "@eslint/eslintrc": "^3.3.1",
     "@eslint/js": "^9.28.0",
     "@expo/config": "~11.0.10",
+    "@react-native-tvos/config-tv": "^0.1.3",
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react-native": "^12.7.2",
     "@types/i18n-js": "^3.8.9",
@@ -149,7 +150,8 @@
     },
     "install": {
       "exclude": [
-        "eslint-config-expo"
+        "eslint-config-expo",
+        "react-native"
       ]
     }
   },

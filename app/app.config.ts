@@ -74,8 +74,26 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-localization',
     'expo-router',
+    '@react-native-tvos/config-tv',
     ['app-icon-badge', appIconBadgeConfig],
     ['react-native-edge-to-edge'],
+    [
+      'react-native-video',
+      {
+        enableNotificationControls: false,
+        enableBackgroundAudio: false,
+        enableADSExtension: true, // Google IMA for iOS
+        enableCacheExtension: true, // Video caching for iOS
+        androidExtensions: {
+          useExoplayerRtsp: false,
+          useExoplayerSmoothStreaming: true,
+          useExoplayerHls: true,
+          useExoplayerDash: true,
+          useExoplayerIMA: false, // Set to true if you want Google IMA on Android
+        },
+        enableAndroidPictureInPicture: false,
+      },
+    ],
   ],
   extra: {
     ...ClientEnv,
