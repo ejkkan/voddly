@@ -42,6 +42,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: true,
       bundleIdentifier: Env.BUNDLE_ID,
+      // Set deployment target based on platform
+      deploymentTarget: isTV ? '17.0' : '13.0',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
