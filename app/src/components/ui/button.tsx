@@ -1,8 +1,14 @@
 import React from 'react';
 import type { PressableProps, View } from 'react-native';
-import { ActivityIndicator, Pressable, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable as RNPressable,
+  Text,
+} from 'react-native';
 import type { VariantProps } from 'tailwind-variants';
 import { tv } from 'tailwind-variants';
+
+import { getTVOSFocusStyles, useTVOSFocus } from '@/lib/tvos-focus';
 
 const button = tv({
   slots: {
@@ -112,11 +118,15 @@ export const Button = React.forwardRef<View, Props>(
       [variant, disabled, size]
     );
 
+    const { isFocused, focusProps } = useTVOSFocus();
+    const tvFocusStyles = getTVOSFocusStyles(isFocused);
+
     return (
-      <Pressable
+      <RNPressable
         disabled={disabled || loading}
-        className={styles.container({ className })}
+        className={`${styles.container({ className })} ${tvFocusStyles}`}
         {...props}
+        {...focusProps}
         ref={ref}
         testID={testID}
       >
@@ -140,7 +150,7 @@ export const Button = React.forwardRef<View, Props>(
             )}
           </>
         )}
-      </Pressable>
+      </RNPressable>
     );
   }
 );

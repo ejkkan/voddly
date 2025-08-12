@@ -11,6 +11,8 @@ import { I18nManager, StyleSheet, View } from 'react-native';
 import { TextInput as NTextInput } from 'react-native';
 import { tv } from 'tailwind-variants';
 
+import { getTVOSFocusStyles, useTVOSFocus, isTV } from '@/lib/tvos-focus';
+
 import colors from './colors';
 import { Text } from './text';
 
@@ -77,6 +79,9 @@ export const Input = React.forwardRef<NTextInput, NInputProps>((props, ref) => {
   const onBlur = React.useCallback(() => setIsFocussed(false), []);
   const onFocus = React.useCallback(() => setIsFocussed(true), []);
 
+  const { isFocused: isTVFocused, focusProps } = useTVOSFocus();
+  const tvFocusStyles = getTVOSFocusStyles(isTVFocused);
+
   const styles = React.useMemo(
     () =>
       inputTv({
@@ -86,6 +91,18 @@ export const Input = React.forwardRef<NTextInput, NInputProps>((props, ref) => {
       }),
     [error, isFocussed, props.disabled]
   );
+
+  // tvOS-specific input props
+  const tvInputProps = isTV
+    ? {
+        enablesReturnKeyAutomatically: false,
+        blurOnSubmit: false,
+        selectTextOnFocus: false,
+        // Prevent auto-advance to next field
+        returnKeyType: 'done' as const,
+        onSubmitEditing: undefined, // Disable auto-advance
+      }
+    : {};
 
   return (
     <View className={styles.container()}>
@@ -101,10 +118,12 @@ export const Input = React.forwardRef<NTextInput, NInputProps>((props, ref) => {
         testID={testID}
         ref={ref}
         placeholderTextColor={colors.neutral[400]}
-        className={styles.input()}
+        className={`${styles.input()} ${tvFocusStyles}`}
         onBlur={onBlur}
         onFocus={onFocus}
         {...inputProps}
+        {...tvInputProps}
+        {...(isTV ? focusProps : {})}
         style={StyleSheet.flatten([
           { writingDirection: I18nManager.isRTL ? 'rtl' : 'ltr' },
           { textAlign: I18nManager.isRTL ? 'right' : 'left' },

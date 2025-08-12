@@ -9,15 +9,16 @@ export * from './image';
 export * from './input';
 export * from './list';
 export * from './modal';
+export * from './pressable';
 export * from './progress-bar';
 export * from './select';
 export * from './text';
+export * from './tvos-text-input';
 export * from './utils';
 
 // export base components from react-native
 export {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   TouchableOpacity,
   View,

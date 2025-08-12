@@ -2,10 +2,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import React from 'react';
 import type { SubmitHandler } from 'react-hook-form';
 import { useForm } from 'react-hook-form';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import * as z from 'zod';
 
 import { Button, ControlledInput, Text, View } from '@/components/ui';
+
+// Use platform-appropriate component
+const KeyboardWrapper = Platform.isTV
+  ? ({ children, style }: any) => (
+      <ScrollView style={style} contentContainerStyle={{ flex: 1 }}>
+        {children}
+      </ScrollView>
+    )
+  : KeyboardAvoidingView;
 
 const schema = z.object({
   name: z.string().optional(),
@@ -32,7 +41,7 @@ export const LoginForm = ({ onSubmit = () => {} }: LoginFormProps) => {
     resolver: zodResolver(schema),
   });
   return (
-    <KeyboardAvoidingView
+    <KeyboardWrapper
       style={{ flex: 1 }}
       behavior="padding"
       keyboardVerticalOffset={10}
@@ -79,6 +88,6 @@ export const LoginForm = ({ onSubmit = () => {} }: LoginFormProps) => {
           onPress={handleSubmit(onSubmit)}
         />
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardWrapper>
   );
 };

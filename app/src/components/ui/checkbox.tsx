@@ -2,13 +2,14 @@ import { MotiView } from 'moti';
 import React, { useCallback } from 'react';
 import {
   I18nManager,
-  Pressable,
+  Pressable as RNPressable,
   type PressableProps,
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import colors from '@/components/ui/colors';
+import { getTVOSFocusStyles, useTVOSFocus } from '@/lib/tvos-focus';
 
 import { Text } from './text';
 
@@ -42,18 +43,22 @@ export const Root = ({
     onChange(!checked);
   }, [onChange, checked]);
 
+  const { isFocused, focusProps } = useTVOSFocus();
+  const tvFocusStyles = getTVOSFocusStyles(isFocused);
+
   return (
-    <Pressable
+    <RNPressable
       onPress={handleChange}
-      className={`flex-row items-center ${className} ${
+      className={`flex-row items-center ${className} ${tvFocusStyles} ${
         disabled ? 'opacity-50' : ''
       }`}
       accessibilityState={{ checked }}
       disabled={disabled}
       {...props}
+      {...focusProps}
     >
       {children}
-    </Pressable>
+    </RNPressable>
   );
 };
 

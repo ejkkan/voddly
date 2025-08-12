@@ -1,4 +1,3 @@
-import { useIsFocused } from '@react-navigation/native';
 import { useColorScheme } from 'nativewind';
 import * as React from 'react';
 import { Platform } from 'react-native';
@@ -6,15 +5,15 @@ import { SystemBars } from 'react-native-edge-to-edge';
 
 type Props = { hidden?: boolean };
 export const FocusAwareStatusBar = ({ hidden = false }: Props) => {
-  const isFocused = useIsFocused();
   const { colorScheme } = useColorScheme();
 
   if (Platform.OS === 'web') return null;
 
-  return isFocused ? (
+  // For Expo Router, we don't need complex focus management - just show the status bar
+  return (
     <SystemBars
       style={colorScheme === 'light' ? 'dark' : 'light'}
       hidden={hidden}
     />
-  ) : null;
+  );
 };
