@@ -62,7 +62,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       [
-        'expo-av',
+        'expo-video',
+        {
+          supportsBackgroundPlayback: true,
+          supportsPictureInPicture: true,
+        },
+      ],
+
+      [
+        'expo-audio',
         {
           microphonePermission:
             'Allow $(PRODUCT_NAME) to access your microphone.',

@@ -2,9 +2,9 @@ import React from 'react';
 import { platformSelector } from '@/lib/platform';
 
 // Platform-specific layout imports
-const MobileLayout = React.lazy(() => import('./_layout.mobile'));
-const TVOSLayout = React.lazy(() => import('./_layout.tvos'));
-const WebLayout = React.lazy(() => import('./_layout.web'));
+const MobileLayout = React.lazy(() => import('./mobile.layout'));
+const TVOSLayout = React.lazy(() => import('./tvos.layout'));
+const WebLayout = React.lazy(() => import('./web.layout'));
 
 // Select the appropriate layout based on platform
 const LayoutComponent = platformSelector({
