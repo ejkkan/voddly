@@ -96,15 +96,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...(isTV ? [['@react-native-tvos/config-tv', { isTV: true }]] : []),
       ['app-icon-badge', appIconBadgeConfig],
       ['react-native-edge-to-edge'],
-      // Conditionally include react-native-video only for non-TV builds
-
+      // Conditionally configure react-native-video based on platform
       [
         'react-native-video',
         {
           enableNotificationControls: false,
           enableBackgroundAudio: false,
-          enableADSExtension: true, // Google IMA for iOS
-          enableCacheExtension: true, // Video caching for iOS
+          // Disable iOS-specific features that don't work on tvOS
+          enableADSExtension: !isTV, // Google IMA - not compatible with tvOS
+          enableCacheExtension: !isTV, // Video caching - not compatible with tvOS
           androidExtensions: {
             useExoplayerRtsp: false,
             useExoplayerSmoothStreaming: true,
