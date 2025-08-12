@@ -9,27 +9,27 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		6B48D188CD3A460D8394A776 /* Inter.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 76AD8BCB4224405BBFF67FF1 /* Inter.ttf */; };
+		60319140403EFC91A8910231 /* libPods-iptvtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 990D405C805A34AC62D151D6 /* libPods-iptvtest.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		BEC0F3CC70628115464A4C9F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 226DDFA70A0C3A6856DA398F /* PrivacyInfo.xcprivacy */; };
-		CC68B0D57BC9824F0E0427F0 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DA4ED9FD0C3CD2B1A1B4DD6 /* ExpoModulesProvider.swift */; };
-		DC231FE8A2C074681CA11900 /* libPods-iptvtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = ED777DD68B8596B66B2327B6 /* libPods-iptvtest.a */; };
+		C4CCBED19C4F4F36AB0002CF /* Inter.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 88DD4CAC7846477C8DB08830 /* Inter.ttf */; };
+		E966D09A8F516FCC5C3986FE /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4C172FE266E731606320FC88 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
+		F1E0D270FAA247ADAFF4D99B /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A7883AEE4E34D000E21980 /* ExpoModulesProvider.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* iptvtest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iptvtest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = iptvtest/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = iptvtest/Info.plist; sourceTree = "<group>"; };
-		226DDFA70A0C3A6856DA398F /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = iptvtest/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		6ADCB813463ADBE6FDD0F828 /* Pods-iptvtest.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.debug.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.debug.xcconfig"; sourceTree = "<group>"; };
-		6DA4ED9FD0C3CD2B1A1B4DD6 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-iptvtest/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		76AD8BCB4224405BBFF67FF1 /* Inter.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Inter.ttf; path = ../assets/fonts/Inter.ttf; sourceTree = "<group>"; };
-		98A74A277E992F018BBD31D2 /* Pods-iptvtest.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.release.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.release.xcconfig"; sourceTree = "<group>"; };
+		4C172FE266E731606320FC88 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = iptvtest/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		88DD4CAC7846477C8DB08830 /* Inter.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Inter.ttf; path = ../assets/fonts/Inter.ttf; sourceTree = "<group>"; };
+		90A0BC817A2A135F11146AA6 /* Pods-iptvtest.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.debug.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.debug.xcconfig"; sourceTree = "<group>"; };
+		9670B823B5F8A766EF53F74C /* Pods-iptvtest.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.release.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.release.xcconfig"; sourceTree = "<group>"; };
+		990D405C805A34AC62D151D6 /* libPods-iptvtest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-iptvtest.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = iptvtest/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
+		E4A7883AEE4E34D000E21980 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-iptvtest/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		ED777DD68B8596B66B2327B6 /* libPods-iptvtest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-iptvtest.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = iptvtest/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* iptvtest-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "iptvtest-Bridging-Header.h"; path = "iptvtest/iptvtest-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -39,7 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DC231FE8A2C074681CA11900 /* libPods-iptvtest.a in Frameworks */,
+				60319140403EFC91A8910231 /* libPods-iptvtest.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,15 +55,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				226DDFA70A0C3A6856DA398F /* PrivacyInfo.xcprivacy */,
-			);
-			name = iptvtest;
-			sourceTree = "<group>";
-		};
-		1C162980C308760C7E51C95E /* iptvtest */ = {
-			isa = PBXGroup;
-			children = (
-				6DA4ED9FD0C3CD2B1A1B4DD6 /* ExpoModulesProvider.swift */,
+				4C172FE266E731606320FC88 /* PrivacyInfo.xcprivacy */,
 			);
 			name = iptvtest;
 			sourceTree = "<group>";
@@ -72,28 +64,27 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				ED777DD68B8596B66B2327B6 /* libPods-iptvtest.a */,
+				990D405C805A34AC62D151D6 /* libPods-iptvtest.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		7E896EC6424E689F676E18B4 /* Pods */ = {
+		34C967ECA439063CDA3EA386 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				6ADCB813463ADBE6FDD0F828 /* Pods-iptvtest.debug.xcconfig */,
-				98A74A277E992F018BBD31D2 /* Pods-iptvtest.release.xcconfig */,
+				90A0BC817A2A135F11146AA6 /* Pods-iptvtest.debug.xcconfig */,
+				9670B823B5F8A766EF53F74C /* Pods-iptvtest.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
-		82184677F5D348F49DD23D87 /* Resources */ = {
+		7AD3C20812A6FC41C66DDB38 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				76AD8BCB4224405BBFF67FF1 /* Inter.ttf */,
+				B503E1B05CBE03F07D8E195A /* iptvtest */,
 			);
-			name = Resources;
-			path = "";
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -110,9 +101,9 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				82184677F5D348F49DD23D87 /* Resources */,
-				7E896EC6424E689F676E18B4 /* Pods */,
-				9070C5ABD52808FDD5CCD111 /* ExpoModulesProviders */,
+				CE743B37584847D3BEEFCC15 /* Resources */,
+				34C967ECA439063CDA3EA386 /* Pods */,
+				7AD3C20812A6FC41C66DDB38 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -127,12 +118,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		9070C5ABD52808FDD5CCD111 /* ExpoModulesProviders */ = {
+		B503E1B05CBE03F07D8E195A /* iptvtest */ = {
 			isa = PBXGroup;
 			children = (
-				1C162980C308760C7E51C95E /* iptvtest */,
+				E4A7883AEE4E34D000E21980 /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = iptvtest;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -144,6 +135,15 @@
 			path = iptvtest/Supporting;
 			sourceTree = "<group>";
 		};
+		CE743B37584847D3BEEFCC15 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				88DD4CAC7846477C8DB08830 /* Inter.ttf */,
+			);
+			name = Resources;
+			path = "";
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -152,13 +152,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "iptvtest" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				05A91C2636ADC0FD740F6BDB /* [Expo] Configure project */,
+				7E23400B880CCA0A77B9B77E /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				4724A41C77D8178AD6A19211 /* [CP] Embed Pods Frameworks */,
+				6641C90E577BDEB9B4A0888E /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -208,8 +208,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				6B48D188CD3A460D8394A776 /* Inter.ttf in Resources */,
-				BEC0F3CC70628115464A4C9F /* PrivacyInfo.xcprivacy in Resources */,
+				C4CCBED19C4F4F36AB0002CF /* Inter.ttf in Resources */,
+				E966D09A8F516FCC5C3986FE /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -230,25 +230,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [[ -f \"$PODS_ROOT/../.xcode.env\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env\"\nfi\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n# The project root by default is one level up from the ios directory\nexport PROJECT_ROOT=\"$PROJECT_DIR\"/..\n\nif [[ \"$CONFIGURATION\" = *Debug* ]]; then\n  export SKIP_BUNDLING=1\nfi\nif [[ -z \"$ENTRY_FILE\" ]]; then\n  # Set the entry JS file using the bundler's entry resolution.\n  export ENTRY_FILE=\"$(\"$NODE_BINARY\" -e \"require('expo/scripts/resolveAppEntry')\" \"$PROJECT_ROOT\" ios absolute | tail -n 1)\"\nfi\n\nif [[ -z \"$CLI_PATH\" ]]; then\n  # Use Expo CLI\n  export CLI_PATH=\"$(\"$NODE_BINARY\" --print \"require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })\")\"\nfi\nif [[ -z \"$BUNDLE_COMMAND\" ]]; then\n  # Default Expo CLI command for bundling\n  export BUNDLE_COMMAND=\"export:embed\"\nfi\n\n# Source .xcode.env.updates if it exists to allow\n# SKIP_BUNDLING to be unset if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.updates\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.updates\"\nfi\n# Source local changes to allow overrides\n# if needed\nif [[ -f \"$PODS_ROOT/../.xcode.env.local\" ]]; then\n  source \"$PODS_ROOT/../.xcode.env.local\"\nfi\n\n`\"$NODE_BINARY\" --print \"require('path').dirname(require.resolve('react-native/package.json')) + '/scripts/react-native-xcode.sh'\"`\n\n";
-		};
-		05A91C2636ADC0FD740F6BDB /* [Expo] Configure project */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "[Expo] Configure project";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-iptvtest/expo-configure-project.sh\"\n";
 		};
 		08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -272,7 +253,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		4724A41C77D8178AD6A19211 /* [CP] Embed Pods Frameworks */ = {
+		6641C90E577BDEB9B4A0888E /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -289,6 +270,25 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-iptvtest/Pods-iptvtest-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		7E23400B880CCA0A77B9B77E /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-iptvtest/expo-configure-project.sh\"\n";
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -338,7 +338,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				CC68B0D57BC9824F0E0427F0 /* ExpoModulesProvider.swift in Sources */,
+				F1E0D270FAA247ADAFF4D99B /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,7 +347,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 6ADCB813463ADBE6FDD0F828 /* Pods-iptvtest.debug.xcconfig */;
+			baseConfigurationReference = 90A0BC817A2A135F11146AA6 /* Pods-iptvtest.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -385,7 +385,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 98A74A277E992F018BBD31D2 /* Pods-iptvtest.release.xcconfig */;
+			baseConfigurationReference = 9670B823B5F8A766EF53F74C /* Pods-iptvtest.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
