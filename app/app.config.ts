@@ -62,6 +62,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       [
+        'expo-av',
+        {
+          microphonePermission:
+            'Allow $(PRODUCT_NAME) to access your microphone.',
+        },
+      ],
+      [
         'expo-splash-screen',
         {
           backgroundColor: '#2E3C4B',
