@@ -10,6 +10,14 @@ export const authRouter = api.raw(
   },
   async (req, res) => {
     const authHandler = toNodeHandler(auth);
+    // Pass full /api/auth/* path through as-is; just guard GET/HEAD bodies
+    try {
+      const method = (req as any).method;
+      if (method === 'GET' || method === 'HEAD') {
+        (req as any).headers['content-length'] &&
+          delete (req as any).headers['content-length'];
+      }
+    } catch {}
     authHandler(req, res)
       .then(() => {
         // Response is handled by the auth handler

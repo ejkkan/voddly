@@ -3,6 +3,7 @@ import * as React from "react";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { CatalogStorage } from "~/lib/catalog-storage";
 import { ContentHeader } from "./ContentHeader";
+import { ContentSection } from "./ContentSection";
 import { InfiniteContentGrid } from "./InfiniteContentGrid";
 import { SearchDialog } from "./SearchDialog";
 
@@ -73,6 +74,25 @@ export function MoviesPage() {
             ]}
           />
 
+          {/* Carousels */}
+          <div className="space-y-10">
+            <ContentSection
+              title="Trending"
+              description="Most watched right now"
+              playlistId={String(sourceId)}
+              contentType="movies"
+              viewAllHref="/app/movies"
+            />
+            <ContentSection
+              title="Popular"
+              description="Top picks for you"
+              playlistId={String(sourceId)}
+              contentType="movies"
+              viewAllHref="/app/movies"
+            />
+          </div>
+
+          {/* Grid */}
           <InfiniteContentGrid sourceId={String(sourceId)} contentType="movies" />
         </div>
       </div>

@@ -3,6 +3,7 @@ import * as React from "react";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { CatalogStorage } from "~/lib/catalog-storage";
 import { ContentHeader } from "./ContentHeader";
+import { ContentSection } from "./ContentSection";
 import { InfiniteContentGrid } from "./InfiniteContentGrid";
 import { SearchDialog } from "./SearchDialog";
 
@@ -75,6 +76,27 @@ export function LiveChannelsPage() {
             ]}
           />
 
+          {/* Carousels */}
+          {sourceId && (
+            <div className="space-y-10">
+              <ContentSection
+                title="Featured"
+                description="Editor’s picks"
+                playlistId={String(sourceId)}
+                contentType="live"
+                viewAllHref="/app/live"
+              />
+              <ContentSection
+                title="Popular"
+                description="Top channels"
+                playlistId={String(sourceId)}
+                contentType="live"
+                viewAllHref="/app/live"
+              />
+            </div>
+          )}
+
+          {/* Grid */}
           <InfiniteContentGrid sourceId={sourceId} contentType="live" />
         </div>
       </div>

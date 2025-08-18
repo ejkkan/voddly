@@ -14,13 +14,16 @@ import { Route as authRouteRouteImport } from "./routes/(auth)/route";
 import { Route as IndexRouteImport } from "./routes/index";
 import { Route as AppIndexRouteImport } from "./routes/app/index";
 import { Route as AppShowsRouteImport } from "./routes/app/shows";
+import { Route as AppPlaylistsRouteImport } from "./routes/app/playlists";
 import { Route as AppPlayerRouteImport } from "./routes/app/player";
 import { Route as AppMoviesRouteImport } from "./routes/app/movies";
 import { Route as AppLiveRouteImport } from "./routes/app/live";
 import { Route as authSignupRouteImport } from "./routes/(auth)/signup";
 import { Route as authLoginRouteImport } from "./routes/(auth)/login";
 import { Route as AppShowsIndexRouteImport } from "./routes/app/shows/index";
+import { Route as AppPlaylistsIndexRouteImport } from "./routes/app/playlists/index";
 import { Route as AppMoviesIndexRouteImport } from "./routes/app/movies/index";
+import { Route as AppPlaylistsAddRouteImport } from "./routes/app/playlists/add";
 import { Route as AppShowsPlaylistIdSeriesIdRouteImport } from "./routes/app/shows/$playlistId.$seriesId";
 import { Route as AppMoviesPlaylistIdMovieIdRouteImport } from "./routes/app/movies/$playlistId.$movieId";
 import { Route as AppLivePlaylistIdChannelIdRouteImport } from "./routes/app/live/$playlistId.$channelId";
@@ -47,6 +50,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppShowsRoute = AppShowsRouteImport.update({
   id: "/shows",
   path: "/shows",
+  getParentRoute: () => AppRouteRoute,
+} as any);
+const AppPlaylistsRoute = AppPlaylistsRouteImport.update({
+  id: "/playlists",
+  path: "/playlists",
   getParentRoute: () => AppRouteRoute,
 } as any);
 const AppPlayerRoute = AppPlayerRouteImport.update({
@@ -79,10 +87,20 @@ const AppShowsIndexRoute = AppShowsIndexRouteImport.update({
   path: "/",
   getParentRoute: () => AppShowsRoute,
 } as any);
+const AppPlaylistsIndexRoute = AppPlaylistsIndexRouteImport.update({
+  id: "/",
+  path: "/",
+  getParentRoute: () => AppPlaylistsRoute,
+} as any);
 const AppMoviesIndexRoute = AppMoviesIndexRouteImport.update({
   id: "/",
   path: "/",
   getParentRoute: () => AppMoviesRoute,
+} as any);
+const AppPlaylistsAddRoute = AppPlaylistsAddRouteImport.update({
+  id: "/add",
+  path: "/add",
+  getParentRoute: () => AppPlaylistsRoute,
 } as any);
 const AppShowsPlaylistIdSeriesIdRoute =
   AppShowsPlaylistIdSeriesIdRouteImport.update({
@@ -111,9 +129,12 @@ export interface FileRoutesByFullPath {
   "/app/live": typeof AppLiveRouteWithChildren;
   "/app/movies": typeof AppMoviesRouteWithChildren;
   "/app/player": typeof AppPlayerRoute;
+  "/app/playlists": typeof AppPlaylistsRouteWithChildren;
   "/app/shows": typeof AppShowsRouteWithChildren;
   "/app/": typeof AppIndexRoute;
+  "/app/playlists/add": typeof AppPlaylistsAddRoute;
   "/app/movies/": typeof AppMoviesIndexRoute;
+  "/app/playlists/": typeof AppPlaylistsIndexRoute;
   "/app/shows/": typeof AppShowsIndexRoute;
   "/app/live/$playlistId/$channelId": typeof AppLivePlaylistIdChannelIdRoute;
   "/app/movies/$playlistId/$movieId": typeof AppMoviesPlaylistIdMovieIdRoute;
@@ -126,7 +147,9 @@ export interface FileRoutesByTo {
   "/app/live": typeof AppLiveRouteWithChildren;
   "/app/player": typeof AppPlayerRoute;
   "/app": typeof AppIndexRoute;
+  "/app/playlists/add": typeof AppPlaylistsAddRoute;
   "/app/movies": typeof AppMoviesIndexRoute;
+  "/app/playlists": typeof AppPlaylistsIndexRoute;
   "/app/shows": typeof AppShowsIndexRoute;
   "/app/live/$playlistId/$channelId": typeof AppLivePlaylistIdChannelIdRoute;
   "/app/movies/$playlistId/$movieId": typeof AppMoviesPlaylistIdMovieIdRoute;
@@ -142,9 +165,12 @@ export interface FileRoutesById {
   "/app/live": typeof AppLiveRouteWithChildren;
   "/app/movies": typeof AppMoviesRouteWithChildren;
   "/app/player": typeof AppPlayerRoute;
+  "/app/playlists": typeof AppPlaylistsRouteWithChildren;
   "/app/shows": typeof AppShowsRouteWithChildren;
   "/app/": typeof AppIndexRoute;
+  "/app/playlists/add": typeof AppPlaylistsAddRoute;
   "/app/movies/": typeof AppMoviesIndexRoute;
+  "/app/playlists/": typeof AppPlaylistsIndexRoute;
   "/app/shows/": typeof AppShowsIndexRoute;
   "/app/live/$playlistId/$channelId": typeof AppLivePlaylistIdChannelIdRoute;
   "/app/movies/$playlistId/$movieId": typeof AppMoviesPlaylistIdMovieIdRoute;
@@ -160,9 +186,12 @@ export interface FileRouteTypes {
     | "/app/live"
     | "/app/movies"
     | "/app/player"
+    | "/app/playlists"
     | "/app/shows"
     | "/app/"
+    | "/app/playlists/add"
     | "/app/movies/"
+    | "/app/playlists/"
     | "/app/shows/"
     | "/app/live/$playlistId/$channelId"
     | "/app/movies/$playlistId/$movieId"
@@ -175,7 +204,9 @@ export interface FileRouteTypes {
     | "/app/live"
     | "/app/player"
     | "/app"
+    | "/app/playlists/add"
     | "/app/movies"
+    | "/app/playlists"
     | "/app/shows"
     | "/app/live/$playlistId/$channelId"
     | "/app/movies/$playlistId/$movieId"
@@ -190,9 +221,12 @@ export interface FileRouteTypes {
     | "/app/live"
     | "/app/movies"
     | "/app/player"
+    | "/app/playlists"
     | "/app/shows"
     | "/app/"
+    | "/app/playlists/add"
     | "/app/movies/"
+    | "/app/playlists/"
     | "/app/shows/"
     | "/app/live/$playlistId/$channelId"
     | "/app/movies/$playlistId/$movieId"
@@ -242,6 +276,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppShowsRouteImport;
       parentRoute: typeof AppRouteRoute;
     };
+    "/app/playlists": {
+      id: "/app/playlists";
+      path: "/playlists";
+      fullPath: "/app/playlists";
+      preLoaderRoute: typeof AppPlaylistsRouteImport;
+      parentRoute: typeof AppRouteRoute;
+    };
     "/app/player": {
       id: "/app/player";
       path: "/player";
@@ -284,12 +325,26 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof AppShowsIndexRouteImport;
       parentRoute: typeof AppShowsRoute;
     };
+    "/app/playlists/": {
+      id: "/app/playlists/";
+      path: "/";
+      fullPath: "/app/playlists/";
+      preLoaderRoute: typeof AppPlaylistsIndexRouteImport;
+      parentRoute: typeof AppPlaylistsRoute;
+    };
     "/app/movies/": {
       id: "/app/movies/";
       path: "/";
       fullPath: "/app/movies/";
       preLoaderRoute: typeof AppMoviesIndexRouteImport;
       parentRoute: typeof AppMoviesRoute;
+    };
+    "/app/playlists/add": {
+      id: "/app/playlists/add";
+      path: "/add";
+      fullPath: "/app/playlists/add";
+      preLoaderRoute: typeof AppPlaylistsAddRouteImport;
+      parentRoute: typeof AppPlaylistsRoute;
     };
     "/app/shows/$playlistId/$seriesId": {
       id: "/app/shows/$playlistId/$seriesId";
@@ -354,6 +409,20 @@ const AppMoviesRouteWithChildren = AppMoviesRoute._addFileChildren(
   AppMoviesRouteChildren,
 );
 
+interface AppPlaylistsRouteChildren {
+  AppPlaylistsAddRoute: typeof AppPlaylistsAddRoute;
+  AppPlaylistsIndexRoute: typeof AppPlaylistsIndexRoute;
+}
+
+const AppPlaylistsRouteChildren: AppPlaylistsRouteChildren = {
+  AppPlaylistsAddRoute: AppPlaylistsAddRoute,
+  AppPlaylistsIndexRoute: AppPlaylistsIndexRoute,
+};
+
+const AppPlaylistsRouteWithChildren = AppPlaylistsRoute._addFileChildren(
+  AppPlaylistsRouteChildren,
+);
+
 interface AppShowsRouteChildren {
   AppShowsIndexRoute: typeof AppShowsIndexRoute;
   AppShowsPlaylistIdSeriesIdRoute: typeof AppShowsPlaylistIdSeriesIdRoute;
@@ -372,6 +441,7 @@ interface AppRouteRouteChildren {
   AppLiveRoute: typeof AppLiveRouteWithChildren;
   AppMoviesRoute: typeof AppMoviesRouteWithChildren;
   AppPlayerRoute: typeof AppPlayerRoute;
+  AppPlaylistsRoute: typeof AppPlaylistsRouteWithChildren;
   AppShowsRoute: typeof AppShowsRouteWithChildren;
   AppIndexRoute: typeof AppIndexRoute;
 }
@@ -380,6 +450,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppLiveRoute: AppLiveRouteWithChildren,
   AppMoviesRoute: AppMoviesRouteWithChildren,
   AppPlayerRoute: AppPlayerRoute,
+  AppPlaylistsRoute: AppPlaylistsRouteWithChildren,
   AppShowsRoute: AppShowsRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 };

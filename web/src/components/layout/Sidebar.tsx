@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Film, Home, LogOut, PlayCircle, Tv, X } from "lucide-react";
+import { Film, Home, List, LogOut, PlayCircle, Tv, X } from "lucide-react";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { Button } from "~/components/ui/button";
 import authClient from "~/lib/auth/auth-client";
@@ -26,6 +26,11 @@ const navigationItems = [
     name: "Shows",
     href: "/app/shows",
     icon: PlayCircle,
+  },
+  {
+    name: "Playlists",
+    href: "/app/playlists",
+    icon: List,
   },
 ];
 
