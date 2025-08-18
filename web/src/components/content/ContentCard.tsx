@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Calendar, Film, Play, Tv } from "lucide-react";
 
 interface ContentCardProps {
@@ -8,6 +8,7 @@ interface ContentCardProps {
 }
 
 export function ContentCard({ item, contentType, playlistId }: ContentCardProps) {
+  const navigate = useNavigate();
   const getHref = () => {
     const itemId = item.contentId ?? item.data?.stream_id ?? item.data?.id ?? item.id;
     const href = (() => {
@@ -18,6 +19,9 @@ export function ContentCard({ item, contentType, playlistId }: ContentCardProps)
           return `/app/movies/${String(playlistId)}/${String(itemId)}`;
         case "series":
           return `/app/shows/${String(playlistId)}/${String(itemId)}`;
+        default:
+          console.warn("Unknown content type:", contentType, "falling back to movies");
+          return `/app/movies/${String(playlistId)}/${String(itemId)}`;
       }
     })();
     console.log("🔗 ContentCard href:", { contentType, playlistId, itemId, href });
@@ -32,6 +36,8 @@ export function ContentCard({ item, contentType, playlistId }: ContentCardProps)
         return Film;
       case "series":
         return Calendar;
+      default:
+        return Film; // fallback to film icon
     }
   };
 
@@ -47,13 +53,23 @@ export function ContentCard({ item, contentType, playlistId }: ContentCardProps)
     item.data?.stream_icon ||
     "";
 
+  const href = getHref();
+
   return (
     <Link
-      to={getHref()}
-      className="group w-72 flex-shrink-0 cursor-pointer"
+      to={href}
+      className="group focus:ring-primary/60 w-72 flex-shrink-0 cursor-pointer rounded-md focus:ring-2 focus:outline-none"
+      data-card-link="true"
       onClick={() => {
         const itemId = item.contentId ?? item.data?.stream_id ?? item.data?.id ?? item.id;
-        console.log("📱 ContentCard clicked:", { contentType, playlistId, itemId });
+        console.log("📱 ContentCard clicked:", { contentType, playlistId, itemId, href });
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === "NumpadEnter") {
+          e.preventDefault();
+          e.stopPropagation();
+          navigate({ to: href });
+        }
       }}
     >
       <div className="bg-card border-border relative overflow-hidden rounded-lg border transition-all duration-300 hover:scale-105 hover:shadow-lg">

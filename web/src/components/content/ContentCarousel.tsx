@@ -2,8 +2,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { Button } from "~/components/ui/button";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
-import { ContentCard } from "./ContentCard";
 import { CatalogStorage, type ContentItem } from "~/lib/catalog-storage";
+import { ContentCard } from "./ContentCard";
 
 interface ContentCarouselProps {
   playlistId: string; // kept prop name for UI components; treated as sourceId
@@ -25,11 +25,17 @@ export function ContentCarousel({ playlistId, contentType }: ContentCarouselProp
         setIsLoading(true);
         setError(null);
         await storage.init();
-        const type = contentType === "movies" ? "movie" : contentType === "series" ? "series" : "live";
+        const type =
+          contentType === "movies"
+            ? "movie"
+            : contentType === "series"
+              ? "series"
+              : "live";
         const results = await storage.queryContent(playlistId, { type, limit: 30 });
         if (!isCancelled) setItems(results);
       } catch (e) {
-        if (!isCancelled) setError(e instanceof Error ? e.message : "Failed to load content");
+        if (!isCancelled)
+          setError(e instanceof Error ? e.message : "Failed to load content");
       } finally {
         if (!isCancelled) setIsLoading(false);
       }
@@ -104,6 +110,7 @@ export function ContentCarousel({ playlistId, contentType }: ContentCarouselProp
       {/* Carousel Container */}
       <div
         ref={scrollRef}
+        data-carousel="true"
         className="scrollbar-hide flex gap-4 overflow-x-auto scroll-smooth px-2"
         style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
