@@ -2,29 +2,15 @@
 
 import { Env } from '@env';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
+
 import { getItem, removeItem, setItem } from '@/lib/storage';
 
 const AUTH_COOKIE_KEY = 'auth.session.cookie';
 
 function normalizeDevHost(url: string): string {
   if (!url) return url;
-  if (__DEV__) {
-    // Android emulator: localhost => 10.0.2.2
-    if (Platform.OS === 'android') {
-      url = url
-        .replace('localhost', '10.0.2.2')
-        .replace('127.0.0.1', '10.0.2.2');
-    } else if (Platform.OS !== 'web') {
-      // Physical devices: swap localhost with LAN IP from hostUri when available
-      const hostUri = (Constants as any)?.expoConfig?.hostUri as
-        | string
-        | undefined;
-      const lanHost = hostUri?.split(':')[0];
-      if (lanHost && /localhost|127\.0\.0\.1/.test(url)) {
-        url = url.replace(/localhost|127\.0\.0\.1/, lanHost);
-      }
-    }
+  if (__DEV__ && Platform.OS === 'android') {
+    url = url.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2');
   }
   return url;
 }
@@ -62,15 +48,17 @@ async function doFetch(path: string, init?: RequestInit) {
   const base = getBaseURL().replace(/\/+$/, '');
   const rel = path.startsWith('/') ? path : `/${path}`;
   const method = (init?.method || 'GET').toUpperCase();
+  try {
+    // helpful dev log
+    console.log('[auth] fetch', method, `${base}${rel}`);
+  } catch {}
 
   // Only set JSON content-type for non-GET/HEAD requests
   const includeJsonHeader = method !== 'GET' && method !== 'HEAD';
-  const cookieHeader = getStoredCookie()
-    ? { cookie: getStoredCookie() as string }
-    : {};
+  const stored = getStoredCookie();
   const headers: Record<string, string> = {
     ...(includeJsonHeader ? { 'Content-Type': 'application/json' } : {}),
-    ...cookieHeader,
+    ...(stored ? { cookie: stored } : {}),
     ...(init?.headers as Record<string, string> | undefined),
   };
 
@@ -111,7 +99,7 @@ export const authClient = {
       } catch {
         return null;
       }
-    } catch (e: any) {
+    } catch (_e: any) {
       // Fallback to backend user endpoint if /session is not available
       const res = await fetch(`${getApiRoot()}/user/me`, {
         method: 'GET',

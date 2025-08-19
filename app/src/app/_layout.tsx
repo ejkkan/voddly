@@ -11,15 +11,11 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import FlashMessage from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 // Removed APIProvider – old API layer not used anymore
 import { loadSelectedTheme } from '@/lib';
 import { DbProvider } from '@/lib/db/provider';
-
-// No keyboard provider needed - using standard React Native components
-const KeyboardProvider = ({ children }: { children: React.ReactNode }) => (
-  <>{children}</>
-);
 
 // ErrorBoundary export removed to avoid type issues in tooling
 

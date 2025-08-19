@@ -1,4 +1,5 @@
 import { Redirect } from 'expo-router';
+import { router } from 'expo-router';
 import React from 'react';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
@@ -22,7 +23,13 @@ export default function Login() {
 
   const onSubmit: LoginFormProps['onSubmit'] = async (data) => {
     try {
-      await signIn.mutateAsync({ email: data.email, password: data.password });
+      const result = await signIn.mutateAsync({
+        email: data.email,
+        password: data.password,
+      });
+      if ((result as any)?.data) {
+        router.replace('/(app)');
+      }
     } catch (e) {
       console.log('Login failed', e);
     }
@@ -45,7 +52,7 @@ export default function Login() {
             }}
           >
             <View className="mx-auto w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-              <LoginForm onSubmit={onSubmit} />
+              <LoginForm onSubmit={onSubmit} loading={signIn.isPending} />
             </View>
           </ScrollView>
         </View>

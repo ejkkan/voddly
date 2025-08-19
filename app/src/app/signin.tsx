@@ -1,7 +1,8 @@
+import { Redirect, router } from 'expo-router';
 import React from 'react';
-import { Redirect } from 'expo-router';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { LoginForm, type FormType } from '@/components/login-form';
+
+import { type FormType, LoginForm } from '@/components/login-form';
 import { SafeAreaView, ScrollView, View } from '@/components/ui';
 import { useSession, useSignIn } from '@/lib/auth/hooks';
 
@@ -14,7 +15,19 @@ export default function SignIn() {
   }
 
   const handleSubmit = async (_data: FormType) => {
-    await signIn.mutateAsync({ email: _data.email, password: _data.password });
+    console.log('handleSubmit', _data);
+    try {
+      const result = await signIn.mutateAsync({
+        email: _data.email,
+        password: _data.password,
+      });
+      console.log('result', result);
+      if ((result as any)?.data) {
+        router.replace('/(app)');
+      }
+    } catch (error) {
+      console.log('error', error);
+    }
   };
 
   return (
@@ -34,7 +47,7 @@ export default function SignIn() {
             }}
           >
             <View className="mx-auto w-full max-w-md rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-              <LoginForm onSubmit={handleSubmit} />
+              <LoginForm onSubmit={handleSubmit} loading={signIn.isPending} />
             </View>
           </ScrollView>
         </View>

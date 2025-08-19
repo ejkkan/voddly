@@ -1,19 +1,28 @@
 'use client';
 
 import { Env } from '@env';
+import { Platform } from 'react-native';
 
 import auth from '@/lib/auth/auth-client';
 import Client, { Environment } from '@/lib/encore-client';
 console.log('Env', Env.API_URL);
+
+function normalizeDevHost(url: string): string {
+  if (!url) return url;
+  if (__DEV__ && Platform.OS === 'android') {
+    return url
+      .replace('localhost', '10.0.2.2')
+      .replace('127.0.0.1', '10.0.2.2');
+  }
+  return url;
+}
 // Minimal Encore client wrapper for the app.
 // Only exposes the generated services; no custom endpoint helpers here.
 class EncoreAPI {
   private readonly client: Client;
 
-  constructor() {
-    console.log('Env', Env);
-    const url = Env.API_URL;
-
+  constructor(baseURL?: string) {
+    const url = normalizeDevHost(baseURL ?? Env.API_URL);
     this.client = new Client(url, {
       requestInit: {
         credentials: 'include',

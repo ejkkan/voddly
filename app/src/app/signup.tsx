@@ -1,5 +1,5 @@
 import { Env } from '@env';
-import { Link, Redirect } from 'expo-router';
+import { Link, Redirect, router } from 'expo-router';
 import React from 'react';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
@@ -17,11 +17,14 @@ export default function SignUp() {
   }
 
   const handleSubmit = async (_data: FormType) => {
-    await signUp.mutateAsync({
+    const result = await signUp.mutateAsync({
       email: _data.email,
       password: _data.password,
       name: _data.name,
     });
+    if ((result as any)?.data) {
+      router.replace('/(app)');
+    }
   };
 
   return (
