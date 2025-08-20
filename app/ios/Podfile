@@ -4,7 +4,12 @@ require File.join(File.dirname(`node --print "require.resolve('react-native/pack
 require 'json'
 podfile_properties = JSON.parse(File.read(File.join(__dir__, 'Podfile.properties.json'))) rescue {}
 
-ENV['RCT_NEW_ARCH_ENABLED'] = '0' if podfile_properties['newArchEnabled'] == 'false'
+# Ensure RCT_NEW_ARCH_ENABLED is explicitly set for Cocoapods integration
+if podfile_properties['newArchEnabled'] == 'false'
+  ENV['RCT_NEW_ARCH_ENABLED'] = '0'
+else
+  ENV['RCT_NEW_ARCH_ENABLED'] = '1'
+end
 ENV['EX_DEV_CLIENT_NETWORK_INSPECTOR'] = podfile_properties['EX_DEV_CLIENT_NETWORK_INSPECTOR']
 
 platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
@@ -13,7 +18,7 @@ install! 'cocoapods',
 
 prepare_react_native_project!
 
-target 'iptvtest' do
+target 'voddly' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'

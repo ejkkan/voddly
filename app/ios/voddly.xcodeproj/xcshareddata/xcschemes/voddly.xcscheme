@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "iptvtest.app"
-               BlueprintName = "iptvtest"
-               ReferencedContainer = "container:iptvtest.xcodeproj">
+               BuildableName = "voddly.app"
+               BlueprintName = "voddly"
+               ReferencedContainer = "container:voddly.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "iptvtestTests.xctest"
-               BlueprintName = "iptvtestTests"
-               ReferencedContainer = "container:iptvtest.xcodeproj">
+               BuildableName = "voddlyTests.xctest"
+               BlueprintName = "voddlyTests"
+               ReferencedContainer = "container:voddly.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "iptvtest.app"
-            BlueprintName = "iptvtest"
-            ReferencedContainer = "container:iptvtest.xcodeproj">
+            BuildableName = "voddly.app"
+            BlueprintName = "voddly"
+            ReferencedContainer = "container:voddly.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "iptvtest.app"
-            BlueprintName = "iptvtest"
-            ReferencedContainer = "container:iptvtest.xcodeproj">
+            BuildableName = "voddly.app"
+            BlueprintName = "voddly"
+            ReferencedContainer = "container:voddly.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
