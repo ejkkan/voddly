@@ -259,14 +259,15 @@ type MasterKeyInputs = {
   wrapped: Uint8Array;
 };
 
+const storage: MMKV | null = Platform.OS === 'web' ? null : new MMKV();
+
 async function getOrDeriveMasterKey(
   args: MasterKeyInputs
 ): Promise<Uint8Array> {
   const { accountId, passphrase, keyData, salt, iv, wrapped } = args;
-  const storage = new MMKV();
   const cacheKeyPersist = `mk:${accountId}`;
   try {
-    const packed = storage.getString(cacheKeyPersist);
+    const packed = storage?.getString(cacheKeyPersist);
     if (packed) {
       const obj = JSON.parse(packed) as { b64: string; exp: number };
       if (Date.now() < obj.exp) {
@@ -297,7 +298,7 @@ async function getOrDeriveMasterKey(
     expiresAt: nowTs + MASTER_KEY_CACHE_TTL_MS,
   });
   try {
-    storage.set(
+    storage?.set(
       cacheKeyPersist,
       JSON.stringify({
         b64: encodeBase64(masterKeyBytes),

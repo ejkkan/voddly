@@ -1,17 +1,17 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+/* eslint-disable max-lines-per-function */
 import { useRouter } from 'expo-router';
-import { SafeAreaView, View, Text, FlatList } from '@/components/ui';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
-import {
-  fetchCategoriesWithPreviews,
-  backfillMissingItemCategories,
-  fetchPreviewByType,
-} from '@/lib/db/ui';
+import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
+import { useUiPreview, useUiSections } from '@/hooks/ui';
+import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 
 type Section = {
+  categoryId?: string;
   title: string;
-  data: Array<{ id: string; title: string; imageUrl?: string | null }>;
+  data: { id: string; title: string; imageUrl?: string | null }[];
   aspect?: 'poster' | 'backdrop';
 };
 
@@ -23,57 +23,53 @@ export default function Live() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const loadingRowsRef = useRef<Record<string, boolean>>({});
 
+  const sectionsQuery = useUiSections('live', {
+    limitPerCategory: 10,
+    maxCategories: 10,
+    categoryOffset: 0,
+  });
+
+  const previewQuery = useUiPreview('live', 10);
+
   useEffect(() => {
-    let mounted = true;
-    const run = async () => {
-      try {
-        // Fire-and-forget so we don't block initial UI render
-        backfillMissingItemCategories().catch(() => {});
-      } catch {}
-      return fetchCategoriesWithPreviews('live', 10, 10, 0);
-    };
-    run()
-      .then((cats) => {
-        if (!mounted) return;
-        const mapped: Section[] = cats.map((c) => ({
-          categoryId: c.categoryId,
-          title: c.name,
-          data: c.items.map((i) => ({
-            id: i.id,
-            title: i.title,
-            imageUrl: i.imageUrl,
-          })),
-          aspect: 'backdrop',
-        }));
-        if (mapped.length === 0 || mapped.every((s) => s.data.length === 0)) {
-          fetchPreviewByType('live', 10)
-            .then((items) => {
-              if (!mounted) return;
-              setSections([
-                {
-                  title: 'Recently Added',
-                  data: items.map((i) => ({
-                    id: i.id,
-                    title: i.title,
-                    imageUrl: i.imageUrl,
-                  })),
-                  aspect: 'backdrop',
-                },
-              ]);
-              setInitialLoaded(true);
-            })
-            .catch(() => setSections([]));
-        } else {
-          setSections(mapped);
-          setCatOffset(10);
-          setInitialLoaded(true);
-        }
-      })
-      .catch(() => setSections([]));
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    if (sectionsQuery.isPending || sectionsQuery.isError) return;
+    const cats = sectionsQuery.data || [];
+    const mapped: Section[] = cats.map((c) => ({
+      categoryId: c.categoryId,
+      title: c.name,
+      data: c.items.map((i) => ({
+        id: i.id,
+        title: i.title,
+        imageUrl: i.imageUrl,
+      })),
+      aspect: 'backdrop',
+    }));
+    if (mapped.length === 0 || mapped.every((s) => s.data.length === 0)) {
+      if (previewQuery.data) {
+        setSections([
+          {
+            title: 'Recently Added',
+            data: previewQuery.data.map((i) => ({
+              id: i.id,
+              title: i.title,
+              imageUrl: i.imageUrl,
+            })),
+            aspect: 'backdrop',
+          },
+        ]);
+        setInitialLoaded(true);
+      }
+    } else {
+      setSections(mapped);
+      setCatOffset(10);
+      setInitialLoaded(true);
+    }
+  }, [
+    sectionsQuery.isPending,
+    sectionsQuery.isError,
+    sectionsQuery.data,
+    previewQuery.data,
+  ]);
 
   const loadMoreCategories = useCallback(async () => {
     if (loadingCats || !initialLoaded) return;

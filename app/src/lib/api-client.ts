@@ -20,9 +20,11 @@ function normalizeDevHost(url: string): string {
 // Only exposes the generated services; no custom endpoint helpers here.
 class EncoreAPI {
   private readonly client: Client;
+  private readonly baseUrl: string;
 
   constructor(baseURL?: string) {
     const url = normalizeDevHost(baseURL ?? Env.API_URL);
+    this.baseUrl = url;
     this.client = new Client(url, {
       requestInit: {
         credentials: 'include',
@@ -53,6 +55,114 @@ class EncoreAPI {
 
   get url() {
     return this.client.url;
+  }
+
+  // Custom subtitle endpoints used by the web player
+  async extractOriginalSubtitles(params: {
+    streamUrl: string;
+    movieId: string;
+    tmdbId?: number;
+  }): Promise<{
+    success: boolean;
+    tracks?: Array<{
+      id: string;
+      language_code: string;
+      language_name: string;
+      source: 'original';
+      has_content: boolean;
+      trackIndex: number;
+      codecId: string;
+      format: string;
+    }>;
+    error?: string;
+  }> {
+    const res = await fetch(`${this.baseUrl}/subtitles/extract-original`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
+    if (!res.ok)
+      throw new Error(`extractOriginalSubtitles failed: ${res.status}`);
+    return res.json();
+  }
+
+  async extractOriginalSubtitleContent(params: {
+    subtitleId: string;
+    streamUrl: string;
+    trackIndex: number;
+    language: string;
+  }): Promise<{
+    success: boolean;
+    content?: string;
+    error?: string;
+  }> {
+    const res = await fetch(
+      `${this.baseUrl}/subtitles/extract-original-content`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+      }
+    );
+    if (!res.ok)
+      throw new Error(`extractOriginalSubtitleContent failed: ${res.status}`);
+    return res.json();
+  }
+
+  async getSubtitleVariants(
+    movieId: string,
+    languageCode: string,
+    params?: { tmdb_id?: number }
+  ): Promise<{
+    variants: Array<{
+      id: string;
+      language_code: string;
+      language_name: string;
+      source: string;
+      has_content: boolean;
+      name?: string;
+      download_count?: number;
+      uploader?: string;
+    }>;
+  }> {
+    const url = new URL(
+      `${this.baseUrl}/subtitles/${encodeURIComponent(movieId)}/variants/${encodeURIComponent(languageCode)}`
+    );
+    if (params?.tmdb_id)
+      url.searchParams.set('tmdb_id', String(params.tmdb_id));
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`getSubtitleVariants failed: ${res.status}`);
+    return res.json();
+  }
+
+  async getSubtitleContentById(variantId: string): Promise<{
+    subtitle: {
+      id: string;
+      language_code: string;
+      language_name: string;
+      content: string;
+      source?: string;
+    } | null;
+  }> {
+    const res = await fetch(
+      `${this.baseUrl}/subtitles/variant/${encodeURIComponent(variantId)}/content`,
+      {
+        method: 'GET',
+        credentials: 'include',
+      }
+    );
+    if (!res.ok)
+      throw new Error(`getSubtitleContentById failed: ${res.status}`);
+    return res.json();
   }
 
   with(options: Parameters<Client['with']>[0]) {

@@ -87,7 +87,7 @@ export default function AddPlaylist() {
           ),
         ];
         const storage = new MobileCatalogStorage();
-        await storage.storeSourceCatalog(sourceId, {
+        await storage.storeSourceCatalog(res.accountId, sourceId, {
           categories,
           movies: Array.isArray(vodStreams) ? vodStreams : [],
           series: Array.isArray(seriesList) ? seriesList : [],
@@ -127,7 +127,7 @@ export default function AddPlaylist() {
           }
         }
         const storage = new MobileCatalogStorage();
-        await storage.storeSourceCatalog(sourceId, {
+        await storage.storeSourceCatalog(res.accountId, sourceId, {
           categories: [],
           movies: [],
           series: [],

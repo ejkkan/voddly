@@ -1,57 +1,48 @@
-import React, { useEffect, useMemo, useState } from 'react';
+/* eslint-disable max-lines-per-function */
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 
 import { SafeAreaView, ScrollView, View } from '@/components/ui';
-import { useRouter } from 'expo-router';
+import { useDashboardPreviews } from '@/hooks/ui';
 
 import { CarouselRow } from '../../components/media/carousel-row';
 import Hero from '../../components/media/hero';
 import { PosterCard } from '../../components/media/poster-card';
-import { fetchDashboardPreviews } from '@/lib/db/ui';
 
 export default function Dashboard() {
   const router = useRouter();
   const [movies, setMovies] = useState<
-    Array<{ id: string; title: string; imageUrl?: string | null }>
+    { id: string; title: string; imageUrl?: string | null }[]
   >([]);
   const [series, setSeries] = useState<
-    Array<{ id: string; title: string; imageUrl?: string | null }>
+    { id: string; title: string; imageUrl?: string | null }[]
   >([]);
   const [live, setLive] = useState<
-    Array<{ id: string; title: string; imageUrl?: string | null }>
+    { id: string; title: string; imageUrl?: string | null }[]
   >([]);
 
+  const dashboard = useDashboardPreviews(10);
   useEffect(() => {
-    let mounted = true;
-    fetchDashboardPreviews(10)
-      .then((res) => {
-        if (!mounted) return;
-        setMovies(
-          res.movies.map((i) => ({
-            id: i.id,
-            title: i.title,
-            imageUrl: i.imageUrl,
-          }))
-        );
-        setSeries(
-          res.series.map((i) => ({
-            id: i.id,
-            title: i.title,
-            imageUrl: i.imageUrl,
-          }))
-        );
-        setLive(
-          res.live.map((i) => ({
-            id: i.id,
-            title: i.title,
-            imageUrl: i.imageUrl,
-          }))
-        );
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
+    const res = dashboard.data;
+    if (!res) return;
+    setMovies(
+      res.movies.map((i) => ({
+        id: i.id,
+        title: i.title,
+        imageUrl: i.imageUrl,
+      }))
+    );
+    setSeries(
+      res.series.map((i) => ({
+        id: i.id,
+        title: i.title,
+        imageUrl: i.imageUrl,
+      }))
+    );
+    setLive(
+      res.live.map((i) => ({ id: i.id, title: i.title, imageUrl: i.imageUrl }))
+    );
+  }, [dashboard.data]);
 
   return (
     <SafeAreaView className="flex-1">

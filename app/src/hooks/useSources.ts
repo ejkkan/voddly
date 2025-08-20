@@ -81,7 +81,7 @@ export function useSources() {
             sampleSeries: data.series.slice(0, 3),
             sampleChannels: data.channels.slice(0, 3),
           });
-        await storage.storeSourceCatalog(sourceId, data);
+        await storage.storeSourceCatalog(accountId, sourceId, data);
       } else if (provider === 'm3u') {
         const data = await getIptvClient('m3u', {
           server: creds.server,
@@ -94,12 +94,12 @@ export function useSources() {
             channels: data.channels.length,
             sampleChannels: data.channels.slice(0, 3),
           });
-        await storage.storeSourceCatalog(sourceId, data);
+        await storage.storeSourceCatalog(accountId, sourceId, data);
       }
 
       // Return minimal stats
       try {
-        const s = await storage.getCatalogStats(sourceId);
+        const s = await storage.getCatalogStats(accountId, sourceId);
         if (__DEV__) console.log('[reload] stats after store', s);
         return { sourceId, channels: s.channels };
       } catch {
@@ -155,7 +155,10 @@ export function useSources() {
       const entries: Record<string, { channels: number }> = {};
       for (const s of sourcesQuery.data?.sources || []) {
         try {
-          const st = await storage.getCatalogStats(s.id);
+          const st = await storage.getCatalogStats(
+            sourcesQuery.data?.accountId as string,
+            s.id
+          );
           entries[s.id] = { channels: st.channels };
         } catch {}
       }

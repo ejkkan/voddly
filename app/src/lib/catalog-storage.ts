@@ -23,7 +23,11 @@ export interface CatalogStats {
 // const _statsKey = (sourceId: string) => `catalog:stats:${sourceId}`;
 
 export class MobileCatalogStorage {
-  async storeSourceCatalog(sourceId: string, data: CatalogData): Promise<void> {
+  async storeSourceCatalog(
+    accountId: string,
+    sourceId: string,
+    data: CatalogData
+  ): Promise<void> {
     const db = await openDb();
     if (__DEV__) console.log('[store] begin', sourceId);
     const safeData: CatalogData = {
@@ -38,10 +42,11 @@ export class MobileCatalogStorage {
     await db.execAsync('BEGIN');
     try {
       await db.runAsync(
-        `INSERT INTO sources (id, name, kind, base_url, created_at, updated_at)
-         VALUES ($id, $name, $kind, $base_url, $created_at, $updated_at)
+        `INSERT INTO sources (account_id, id, name, kind, base_url, created_at, updated_at)
+         VALUES ($account_id, $id, $name, $kind, $base_url, $created_at, $updated_at)
          ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, base_url=excluded.base_url, updated_at=excluded.updated_at`,
         {
+          $account_id: accountId,
           $id: srcId,
           $name: 'Source',
           $kind: 'xtream',
@@ -50,10 +55,15 @@ export class MobileCatalogStorage {
           $updated_at: now,
         }
       );
-      await this.insertCategories(db, srcId, safeData.categories || []);
-      await this.insertMovies(db, srcId, safeData.movies || []);
-      await this.insertSeries(db, srcId, safeData.series || []);
-      await this.insertChannels(db, srcId, safeData.channels || []);
+      await this.insertCategories(
+        db,
+        accountId,
+        srcId,
+        safeData.categories || []
+      );
+      await this.insertMovies(db, accountId, srcId, safeData.movies || []);
+      await this.insertSeries(db, accountId, srcId, safeData.series || []);
+      await this.insertChannels(db, accountId, srcId, safeData.channels || []);
 
       await db.execAsync('COMMIT');
       if (__DEV__)
@@ -72,6 +82,7 @@ export class MobileCatalogStorage {
 
   private async insertCategories(
     db: Awaited<ReturnType<typeof openDb>>,
+    accountId: string,
     srcId: string,
     categories: any[]
   ) {
@@ -79,9 +90,10 @@ export class MobileCatalogStorage {
       const sourceCategoryId = String(cat.category_id ?? cat.id ?? '');
       const id = `${srcId}:${String(cat.type ?? 'generic')}:${sourceCategoryId}`;
       await db.runAsync(
-        `INSERT OR IGNORE INTO categories (id, source_id, source_category_id, name, type)
-         VALUES ($id, $source_id, $source_category_id, $name, $type)`,
+        `INSERT OR IGNORE INTO categories (account_id, id, source_id, source_category_id, name, type)
+         VALUES ($account_id, $id, $source_id, $source_category_id, $name, $type)`,
         {
+          $account_id: accountId,
           $id: id,
           $source_id: srcId,
           $source_category_id: sourceCategoryId,
@@ -94,6 +106,7 @@ export class MobileCatalogStorage {
 
   private async insertMovies(
     db: Awaited<ReturnType<typeof openDb>>,
+    accountId: string,
     srcId: string,
     movies: any[]
   ) {
@@ -101,9 +114,10 @@ export class MobileCatalogStorage {
       const sourceItemId = String(m.stream_id ?? m.num ?? '');
       const itemId = `${srcId}:movie:${sourceItemId}`;
       await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, original_payload_json)
-         VALUES ($id, $source_id, $source_item_id, 'movie', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, $is_adult, $added_at, $last_modified, $payload)`,
+        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
+         VALUES ($account_id, $id, $source_id, $source_item_id, 'movie', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, $is_adult, $added_at, $last_modified, NULL, $payload)`,
         {
+          $account_id: accountId,
           $id: itemId,
           $source_id: srcId,
           $source_item_id: sourceItemId,
@@ -136,6 +150,7 @@ export class MobileCatalogStorage {
 
   private async insertSeries(
     db: Awaited<ReturnType<typeof openDb>>,
+    accountId: string,
     srcId: string,
     series: any[]
   ) {
@@ -143,9 +158,10 @@ export class MobileCatalogStorage {
       const sourceItemId = String(s.series_id ?? s.num ?? '');
       const itemId = `${srcId}:series:${sourceItemId}`;
       await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, original_payload_json)
-         VALUES ($id, $source_id, $source_item_id, 'series', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, 0, $added_at, $last_modified, $payload)`,
+        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
+         VALUES ($account_id, $id, $source_id, $source_item_id, 'series', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, 0, $added_at, $last_modified, NULL, $payload)`,
         {
+          $account_id: accountId,
           $id: itemId,
           $source_id: srcId,
           $source_item_id: sourceItemId,
@@ -179,6 +195,7 @@ export class MobileCatalogStorage {
 
   private async insertChannels(
     db: Awaited<ReturnType<typeof openDb>>,
+    accountId: string,
     srcId: string,
     channels: any[]
   ) {
@@ -186,9 +203,10 @@ export class MobileCatalogStorage {
       const sourceItemId = String(c.stream_id ?? c.num ?? '');
       const itemId = `${srcId}:live:${sourceItemId}`;
       await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, original_payload_json)
-         VALUES ($id, $source_id, $source_item_id, 'live', $title, NULL, $poster_url, NULL, NULL, 0, 0, $is_adult, $added_at, NULL, $payload)`,
+        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
+         VALUES ($account_id, $id, $source_id, $source_item_id, 'live', $title, NULL, $poster_url, NULL, NULL, 0, 0, $is_adult, $added_at, NULL, NULL, $payload)`,
         {
+          $account_id: accountId,
           $id: itemId,
           $source_id: srcId,
           $source_item_id: sourceItemId,
@@ -218,7 +236,10 @@ export class MobileCatalogStorage {
     return null;
   }
 
-  async getCatalogStats(sourceId: string): Promise<CatalogStats> {
+  async getCatalogStats(
+    accountId: string,
+    sourceId: string
+  ): Promise<CatalogStats> {
     const db = await openDb();
     const res = await db.getFirstAsync<{
       movies: number;
@@ -229,8 +250,8 @@ export class MobileCatalogStorage {
          SUM(CASE WHEN type='movie' THEN 1 ELSE 0 END) AS movies,
          SUM(CASE WHEN type='series' THEN 1 ELSE 0 END) AS series,
          SUM(CASE WHEN type='live' THEN 1 ELSE 0 END) AS channels
-       FROM content_items WHERE source_id = $source_id`,
-      { $source_id: sourceId }
+       FROM content_items WHERE account_id = $account_id AND source_id = $source_id`,
+      { $account_id: accountId, $source_id: sourceId }
     );
     const movies = res?.movies || 0;
     const series = res?.series || 0;
@@ -238,8 +259,11 @@ export class MobileCatalogStorage {
     return { total: movies + series + channels, movies, series, channels };
   }
 
-  async clearSourceData(sourceId: string): Promise<void> {
+  async clearSourceData(accountId: string, sourceId: string): Promise<void> {
     const db = await openDb();
-    await db.runAsync('DELETE FROM sources WHERE id = $id', { $id: sourceId });
+    await db.runAsync(
+      'DELETE FROM sources WHERE id = $id AND account_id = $account_id',
+      { $id: sourceId, $account_id: accountId }
+    );
   }
 }

@@ -20,6 +20,18 @@ export function VlcPlayerView(props: Props) {
   const [duration, setDuration] = React.useState(0); // seconds
   const [showControls, setShowControls] = React.useState(true);
   const [isFull, setIsFull] = React.useState(false);
+  const [audioTracks, setAudioTracks] = React.useState<
+    { id: number; name: string }[]
+  >([]);
+  const [textTracks, setTextTracks] = React.useState<
+    { id: number; name: string }[]
+  >([]);
+  const [selectedAudioTrackId, setSelectedAudioTrackId] = React.useState<
+    number | undefined
+  >(undefined);
+  const [selectedTextTrackId, setSelectedTextTrackId] = React.useState<
+    number | undefined
+  >(undefined);
 
   const toggleFullScreen = React.useCallback(() => {
     setIsFull((prev) => {
@@ -67,11 +79,8 @@ export function VlcPlayerView(props: Props) {
           paused={paused}
           autoAspectRatio={true}
           resizeMode="contain"
-          videoAspectRatio={
-            Platform.OS === 'android'
-              ? `${width}:${isFull ? width : Math.floor((width * 9) / 16)}`
-              : '16:9'
-          }
+          audioTrack={selectedAudioTrackId ?? undefined}
+          textTrack={selectedTextTrackId ?? undefined}
           onPlaying={() => {
             setIsLoading(false);
             setHasError(null);
@@ -79,7 +88,7 @@ export function VlcPlayerView(props: Props) {
           onBuffering={() => setIsLoading(true)}
           onPaused={() => setPaused(true)}
           onStopped={() => setPaused(true)}
-          onEnded={() => setPaused(true)}
+          onEnd={() => setPaused(true)}
           onError={() => setHasError('Playback error')}
           onProgress={(e: any) => {
             // e.duration/currentTime are in ms
@@ -88,6 +97,13 @@ export function VlcPlayerView(props: Props) {
             if (d) setDuration(d);
             setCurrentTime(ct);
             setIsLoading(false);
+          }}
+          onLoad={(info: any) => {
+            const a = Array.isArray(info?.audioTracks) ? info.audioTracks : [];
+            const t = Array.isArray(info?.textTracks) ? info.textTracks : [];
+            setAudioTracks(a);
+            setTextTracks(t);
+            // Do not force-select on load; keep undefined to honor default until user changes
           }}
         />
       </Pressable>
@@ -161,6 +177,64 @@ export function VlcPlayerView(props: Props) {
               {fmt(duration)}
             </Text>
           </View>
+
+          {/* Tracks controls */}
+          {(audioTracks.length > 0 || textTracks.length > 0) && (
+            <View className="flex-row items-center justify-start gap-2 mt-2">
+              {audioTracks.length > 0 ? (
+                <Pressable
+                  className="rounded-md bg-white/10 px-3 py-2"
+                  onPress={() => {
+                    if (audioTracks.length === 0) return;
+                    // Cycle through available audio tracks
+                    const list = audioTracks;
+                    const currentIdx = list.findIndex(
+                      (tr) => tr.id === (selectedAudioTrackId ?? -999999)
+                    );
+                    const nextIdx =
+                      currentIdx >= 0 ? (currentIdx + 1) % list.length : 0;
+                    setSelectedAudioTrackId(list[nextIdx]?.id);
+                  }}
+                >
+                  <Text className="text-white text-xs">
+                    {(() => {
+                      const current = audioTracks.find(
+                        (t) => t.id === selectedAudioTrackId
+                      );
+                      const label = current?.name ?? 'Default';
+                      return `Audio: ${label}`;
+                    })()}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              {textTracks.length > 0 ? (
+                <Pressable
+                  className="rounded-md bg-white/10 px-3 py-2"
+                  onPress={() => {
+                    if (textTracks.length === 0) return;
+                    const list = textTracks;
+                    const currentIdx = list.findIndex(
+                      (tr) => tr.id === (selectedTextTrackId ?? -999999)
+                    );
+                    const nextIdx =
+                      currentIdx >= 0 ? (currentIdx + 1) % list.length : 0;
+                    setSelectedTextTrackId(list[nextIdx]?.id);
+                  }}
+                >
+                  <Text className="text-white text-xs">
+                    {(() => {
+                      const current = textTracks.find(
+                        (t) => t.id === selectedTextTrackId
+                      );
+                      const label = current?.name ?? 'Default';
+                      return `Subs: ${label}`;
+                    })()}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )}
 
           <View className="flex-row items-center justify-between mt-2">
             <Pressable

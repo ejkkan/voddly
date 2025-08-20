@@ -32,7 +32,8 @@ function mapRowToUiItem(row: any): UiCatalogItem {
 
 export async function fetchPreviewByType(
   type: CatalogItemType,
-  limit = 10
+  limit = 10,
+  accountId?: string
 ): Promise<UiCatalogItem[]> {
   const db = await openDb();
   const rows = await db.getAllAsync(
@@ -40,10 +41,12 @@ export async function fetchPreviewByType(
             ic.category_id
      FROM content_items i
      LEFT JOIN content_item_categories ic ON ic.item_id = i.id
-     WHERE i.type = $type
+     WHERE i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
      ORDER BY datetime(i.added_at) DESC, i.title ASC
      LIMIT $limit`,
-    { $type: type, $limit: limit }
+    accountId
+      ? { $type: type, $limit: limit, $account_id: accountId }
+      : { $type: type, $limit: limit }
   );
   const items = rows.map(mapRowToUiItem);
   // Debug: inspect what we fetched
@@ -56,7 +59,8 @@ export async function fetchCategoriesWithPreviews(
   type: CatalogItemType,
   limitPerCategory = 20,
   maxCategories = 6,
-  categoryOffset = 0
+  categoryOffset = 0,
+  accountId?: string
 ): Promise<
   {
     categoryId: string;
@@ -70,14 +74,15 @@ export async function fetchCategoriesWithPreviews(
   // Pick some categories for this type
   const baseQuery = `SELECT c.id, c.name
      FROM categories c
-     WHERE c.type = $catType AND c.source_id IN (
-       SELECT DISTINCT source_id FROM content_items WHERE type = $itemType
+     WHERE c.type = $catType ${accountId ? 'AND c.account_id = $accountId' : ''} AND c.source_id IN (
+       SELECT DISTINCT source_id FROM content_items WHERE type = $itemType ${accountId ? 'AND account_id = $accountId' : ''}
      )
      ORDER BY c.name ASC`;
   const catsParams: Record<string, unknown> = {
     $catType: categoryType,
     $itemType: type,
   };
+  if (accountId) (catsParams as any).$accountId = accountId;
   const catsQuery =
     typeof maxCategories === 'number' && maxCategories > 0
       ? `${baseQuery} LIMIT $maxCats OFFSET $catOffset`
@@ -104,10 +109,17 @@ export async function fetchCategoriesWithPreviews(
               ic.category_id
        FROM content_items i
        JOIN content_item_categories ic ON ic.item_id = i.id
-       WHERE ic.category_id = $category_id AND i.type = $type
+       WHERE ic.category_id = $category_id AND i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
        ORDER BY datetime(i.added_at) DESC, i.title ASC
        LIMIT $limit`,
-      { $category_id: c.id, $type: type, $limit: limitPerCategory }
+      accountId
+        ? {
+            $category_id: c.id,
+            $type: type,
+            $limit: limitPerCategory,
+            $account_id: accountId,
+          }
+        : { $category_id: c.id, $type: type, $limit: limitPerCategory }
     );
     const items = rows.map(mapRowToUiItem);
     results.push({ categoryId: c.id, name: c.name, items });
@@ -121,7 +133,8 @@ export async function fetchCategoryItems(
   type: CatalogItemType,
   categoryId: string,
   limit = 25,
-  offset = 0
+  offset = 0,
+  accountId?: string
 ): Promise<UiCatalogItem[]> {
   const db = await openDb();
   const rows = await db.getAllAsync(
@@ -129,23 +142,39 @@ export async function fetchCategoryItems(
             ic.category_id
      FROM content_items i
      JOIN content_item_categories ic ON ic.item_id = i.id
-     WHERE ic.category_id = $category_id AND i.type = $type
+     WHERE ic.category_id = $category_id AND i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
      ORDER BY datetime(i.added_at) DESC, i.title ASC
      LIMIT $limit OFFSET $offset`,
-    { $category_id: categoryId, $type: type, $limit: limit, $offset: offset }
+    accountId
+      ? {
+          $category_id: categoryId,
+          $type: type,
+          $limit: limit,
+          $offset: offset,
+          $account_id: accountId,
+        }
+      : {
+          $category_id: categoryId,
+          $type: type,
+          $limit: limit,
+          $offset: offset,
+        }
   );
   return rows.map(mapRowToUiItem);
 }
 
-export async function fetchDashboardPreviews(limit = 10): Promise<{
+export async function fetchDashboardPreviews(
+  limit = 10,
+  accountId?: string
+): Promise<{
   movies: UiCatalogItem[];
   series: UiCatalogItem[];
   live: UiCatalogItem[];
 }> {
   const [movies, series, live] = await Promise.all([
-    fetchPreviewByType('movie', limit),
-    fetchPreviewByType('series', limit),
-    fetchPreviewByType('live', limit),
+    fetchPreviewByType('movie', limit, accountId),
+    fetchPreviewByType('series', limit, accountId),
+    fetchPreviewByType('live', limit, accountId),
   ]);
   return { movies, series, live };
 }

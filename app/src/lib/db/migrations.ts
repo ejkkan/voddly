@@ -36,6 +36,7 @@ export async function resetDatabase(db: DatabaseHandle) {
 async function createCoreSchema(db: DatabaseHandle) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS sources (
+      account_id TEXT,
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       kind TEXT NOT NULL,
@@ -56,6 +57,7 @@ async function createCoreSchema(db: DatabaseHandle) {
 async function createCategoriesTable(db: DatabaseHandle) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS categories (
+      account_id TEXT,
       id TEXT PRIMARY KEY,
       source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
       source_category_id TEXT NOT NULL,
@@ -76,9 +78,23 @@ async function ensureExtraColumns(db: DatabaseHandle) {
     return (rows || []).some((r) => String(r.name) === column);
   };
 
+  // sources: account_id
+  if (!(await hasColumn('sources', 'account_id'))) {
+    await db.execAsync(`ALTER TABLE sources ADD COLUMN account_id TEXT`);
+  }
+
+  // categories: account_id
+  if (!(await hasColumn('categories', 'account_id'))) {
+    await db.execAsync(`ALTER TABLE categories ADD COLUMN account_id TEXT`);
+  }
+
   // content_items: tmdb_id for cross-type linking
   if (!(await hasColumn('content_items', 'tmdb_id'))) {
     await db.execAsync(`ALTER TABLE content_items ADD COLUMN tmdb_id TEXT`);
+  }
+  // content_items: account_id for scoping
+  if (!(await hasColumn('content_items', 'account_id'))) {
+    await db.execAsync(`ALTER TABLE content_items ADD COLUMN account_id TEXT`);
   }
 
   // movies_ext: tech and bitrate info
@@ -105,6 +121,7 @@ async function ensureExtraColumns(db: DatabaseHandle) {
 async function createContentItemsTable(db: DatabaseHandle) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS content_items (
+      account_id TEXT,
       id TEXT PRIMARY KEY,
       source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
       source_item_id TEXT NOT NULL,
@@ -194,7 +211,10 @@ async function createIndexes(db: DatabaseHandle) {
     CREATE INDEX IF NOT EXISTS idx_items_type_title ON content_items(type, title);
     CREATE INDEX IF NOT EXISTS idx_items_source ON content_items(source_id);
     CREATE INDEX IF NOT EXISTS idx_items_source_key ON content_items(source_id, source_item_id);
+    CREATE INDEX IF NOT EXISTS idx_items_account_source_type ON content_items(account_id, source_id, type);
     CREATE INDEX IF NOT EXISTS idx_categories_source ON categories(source_id, source_category_id);
+    CREATE INDEX IF NOT EXISTS idx_categories_account_source ON categories(account_id, source_id, source_category_id);
+    CREATE INDEX IF NOT EXISTS idx_sources_account ON sources(account_id, id);
     CREATE INDEX IF NOT EXISTS idx_item_categories_cat ON content_item_categories(category_id);
   `);
 }

@@ -1,11 +1,18 @@
-import React, { useMemo, useRef } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView, View, Text, Pressable } from '@/components/ui';
+import React, { useMemo, useRef } from 'react';
+
+import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
+import { ExpoVideoPlayerView } from '@/components/video/ExpoVideoPlayerView';
+import type { PlayerId } from '@/components/video/players';
+import {
+  AVAILABLE_PLAYERS,
+  getDefaultPlayerId,
+} from '@/components/video/players';
+import { VlcPlayerView } from '@/components/video/VlcPlayerView';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
-import { Platform } from 'react-native';
-import VlcPlayerView from '@/components/video/VlcPlayerView';
 
+// eslint-disable-next-line max-lines-per-function
 export default function Player() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -15,7 +22,6 @@ export default function Player() {
     live?: string;
   }>();
   const { getCredentials } = useSourceCredentials();
-  const playerRef = useRef<any>(null);
 
   const content = useMemo(() => {
     if (params.movie) return { id: params.movie, type: 'movie' as const };
@@ -30,13 +36,26 @@ export default function Player() {
     url?: string;
   }>({ loading: true });
 
+  const [selectedPlayer, setSelectedPlayer] =
+    React.useState<PlayerId>(getDefaultPlayerId());
+  const getCredsRef = useRef(getCredentials);
+  getCredsRef.current = getCredentials;
+  const lastRequestKeyRef = useRef<string | null>(null);
+  const requestKey = useMemo(() => {
+    if (!params.playlist || !content) return null;
+    return `${params.playlist}|${content.type}|${content.id}`;
+  }, [params.playlist, content]);
+
   React.useEffect(() => {
     let mounted = true;
     const run = async () => {
       try {
-        if (!params.playlist || !content)
+        if (!requestKey || !params.playlist || !content) {
           throw new Error('Missing identifiers');
-        const creds = await getCredentials(String(params.playlist), {
+        }
+        if (lastRequestKeyRef.current === requestKey) return;
+        lastRequestKeyRef.current = requestKey;
+        const creds = await getCredsRef.current(String(params.playlist), {
           title: 'Play Content',
           message: 'Enter your passphrase to decrypt the source',
         });
@@ -64,7 +83,7 @@ export default function Player() {
     return () => {
       mounted = false;
     };
-  }, [params.playlist, content?.id, content?.type]);
+  }, [requestKey, params.playlist, content, content?.id, content?.type]);
 
   return (
     <SafeAreaView className="flex-1">
@@ -79,15 +98,41 @@ export default function Player() {
         </View>
         <View className="flex-1 items-stretch justify-center">
           {state.loading ? (
-            <Text className="text-white text-center">Loading player…</Text>
+            <Text className="text-center text-white">Loading player…</Text>
           ) : state.error ? (
-            <Text className="text-red-400 text-center">{state.error}</Text>
+            <Text className="text-center text-red-400">{state.error}</Text>
           ) : state.url ? (
-            <VlcPlayerView
-              url={state.url}
-              showBack
-              onBack={() => router.back()}
-            />
+            <>
+              <View className="px-3 pb-3">
+                <View className="flex-row gap-2">
+                  {AVAILABLE_PLAYERS.map((p) => (
+                    <Pressable
+                      key={p.id}
+                      className={`rounded-md px-3 py-2 ${
+                        selectedPlayer === p.id ? 'bg-white/20' : 'bg-white/10'
+                      }`}
+                      onPress={() => setSelectedPlayer(p.id)}
+                    >
+                      <Text className="text-xs text-white">{p.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {selectedPlayer === 'vlc' ? (
+                <VlcPlayerView
+                  url={state.url}
+                  showBack
+                  onBack={() => router.back()}
+                />
+              ) : (
+                <ExpoVideoPlayerView
+                  url={state.url}
+                  showBack
+                  onBack={() => router.back()}
+                />
+              )}
+            </>
           ) : null}
         </View>
       </View>

@@ -1,0 +1,39 @@
+import { Platform, UIManager } from 'react-native';
+
+export type PlayerId = 'vlc' | 'expo' | 'web';
+
+export type PlayerMeta = {
+  id: PlayerId;
+  label: string;
+};
+
+// Only expose the Web player on web. On native, expose VLC and Expo Video.
+// Detect whether the native VLC view manager is registered. If not, hide VLC.
+// This prevents crashes like "View config not found for component RCTVLCPlayer" on Android
+// when the VLC library is not linked or not compatible with the current architecture.
+const isVlcNativeViewAvailable = (() => {
+  if (Platform.OS === 'web') return false;
+  try {
+    // RN >=0.62: prefer getViewManagerConfig. Check common names.
+    const byRCTVLC = UIManager.getViewManagerConfig?.('RCTVLCPlayer');
+    const byVLC = UIManager.getViewManagerConfig?.('VLCPlayer');
+    return Boolean(byRCTVLC || byVLC);
+  } catch {
+    return false;
+  }
+})();
+
+export const AVAILABLE_PLAYERS: PlayerMeta[] =
+  Platform.OS === 'web'
+    ? [{ id: 'web', label: 'Web Player' }]
+    : [
+        // Always provide Expo Video on native
+        { id: 'expo', label: 'Expo Video' },
+        // Only include VLC when its native view exists
+        ...(isVlcNativeViewAvailable ? [{ id: 'vlc', label: 'MKV (VLC)' }] : []),
+      ];
+
+export function getDefaultPlayerId(): PlayerId {
+  if (Platform.OS === 'web') return 'web';
+  return isVlcNativeViewAvailable ? 'vlc' : 'expo';
+}

@@ -1,6 +1,8 @@
-import React, { useMemo } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView, View, Text, Pressable } from '@/components/ui';
+import React, { useMemo } from 'react';
+
+import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
+import { WebPlayerView } from '@/components/video/web-player-view';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
 
@@ -74,18 +76,23 @@ export default function Player() {
             <Text className="text-white">Back</Text>
           </Pressable>
         </View>
-        <View className="flex-1 items-center justify-center">
+        <View className="flex-1 items-stretch justify-center">
           {state.loading ? (
-            <Text className="text-white">Loading player…</Text>
+            <Text className="text-center text-white">Loading player…</Text>
           ) : state.error ? (
-            <Text className="text-red-400">{state.error}</Text>
+            <Text className="text-center text-red-400">{state.error}</Text>
           ) : state.url ? (
-            <>
-              <Text className="text-white text-center px-6">Stream ready:</Text>
-              <Text className="text-white/80 text-xs px-6 mt-2">
-                {state.url}
-              </Text>
-            </>
+            <WebPlayerView
+              url={state.url}
+              title={undefined}
+              showBack
+              onBack={() => router.back()}
+              movieId={
+                content?.type === 'movie' ? String(content.id) : undefined
+              }
+              tmdbId={undefined}
+              type={content?.type}
+            />
           ) : null}
         </View>
       </View>

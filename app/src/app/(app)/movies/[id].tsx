@@ -1,16 +1,19 @@
-import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Platform } from 'react-native';
+
 import {
-  SafeAreaView,
-  View,
-  Text,
   Image,
-  ScrollView,
   Pressable,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
 } from '@/components/ui';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { openDb } from '@/lib/db';
 import { useFetchRemoteMovie } from '@/hooks/useFetchRemoteMovie';
+import { openDb } from '@/lib/db';
+import { useSourceCredentials } from '@/lib/source-credentials';
+import { constructStreamUrl } from '@/lib/stream-url';
 
 type ItemRow = {
   id: string;
@@ -39,6 +42,7 @@ export default function MovieDetails() {
     isFetching: fetching,
     error: fetchError,
   } = useFetchRemoteMovie();
+  const refreshedForIdRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -56,25 +60,30 @@ export default function MovieDetails() {
         );
         if (mounted) setItem(row ?? null);
         if (mounted) setLoading(false);
-        // Fetch remote in background and refresh if changed
-        if (row) {
+        // Fetch remote in background once per item id and refresh if changed
+        if (row && refreshedForIdRef.current !== row.id) {
+          refreshedForIdRef.current = row.id;
           fetchRemote({
             id: row.id,
             sourceId: row.source_id,
             sourceItemId: row.source_item_id,
-          }).then(async (ok) => {
-            try {
-              if (!ok || !mounted) return;
-              const db2 = await openDb();
-              const updated = await db2.getFirstAsync<ItemRow>(
-                `SELECT * FROM content_items WHERE id = $id`,
-                { $id: String(row.id) }
-              );
-              if (mounted) setItem(updated ?? row);
-            } catch {
-              // ignore refresh errors
-            }
-          });
+          })
+            .then(async (ok) => {
+              try {
+                if (!ok || !mounted) return;
+                const db2 = await openDb();
+                const updated = await db2.getFirstAsync<ItemRow>(
+                  `SELECT * FROM content_items WHERE id = $id`,
+                  { $id: String(row.id) }
+                );
+                if (mounted) setItem(updated ?? row);
+              } catch {
+                // ignore refresh errors
+              }
+            })
+            .catch(() => {
+              // ignore
+            });
         }
       } finally {
         // loading ended after local read
@@ -84,6 +93,8 @@ export default function MovieDetails() {
     return () => {
       mounted = false;
     };
+    // Intentionally depend only on id to avoid reruns when background fetch toggles fetching state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handlePlay = async () => {
@@ -92,9 +103,14 @@ export default function MovieDetails() {
       // source_id is of the form `${sourceId}:type:...` for content_items.id, but here we stored source_id as raw source id
       const sourceId = item.source_id;
       const sourceItemId = item.source_item_id;
-      await prepareContentPlayback(sourceId, sourceItemId, 'movie', {
-        title: 'Play Movie',
-        message: 'Enter your passphrase to play the movie',
+      await prepareContentPlayback({
+        sourceId,
+        contentId: sourceItemId,
+        contentType: 'movie',
+        options: {
+          title: 'Play Movie',
+          message: 'Enter your passphrase to play the movie',
+        },
       });
       // Navigate to player route (to be implemented) with identifiers
       router.push({
@@ -103,6 +119,122 @@ export default function MovieDetails() {
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to prepare playback');
+    }
+  };
+
+  // Derive audio codec (if available) from the stored provider payload
+  const audioCodec = useMemo(() => {
+    try {
+      const raw = item?.original_payload_json
+        ? JSON.parse(item.original_payload_json)
+        : null;
+      const codec = String(raw?.info?.audio?.codec_name || '')
+        .trim()
+        .toLowerCase();
+      return codec || null;
+    } catch {
+      return null;
+    }
+  }, [item?.original_payload_json]);
+
+  const isUnsupportedAudioOnWeb = useMemo(() => {
+    if (Platform.OS !== 'web') return false;
+    if (!audioCodec) return false;
+    return (
+      audioCodec === 'eac3' || audioCodec === 'ac3' || audioCodec === 'dts'
+    );
+  }, [audioCodec]);
+
+  const handleOpenInVlc = async () => {
+    try {
+      if (!item) return;
+      const sourceId = item.source_id;
+      const sourceItemId = item.source_item_id;
+      // Get credentials to build direct provider URL
+
+      const prep = await prepareContentPlayback({
+        sourceId,
+        contentId: sourceItemId,
+        contentType: 'movie',
+        options: {
+          title: 'Open in VLC',
+          message: 'Enter your passphrase to generate the stream URL',
+        },
+      });
+      const { streamingUrl } = constructStreamUrl({
+        server: prep.credentials.server,
+        username: prep.credentials.username,
+        password: prep.credentials.password,
+        contentId: sourceItemId,
+        contentType: 'movie',
+        containerExtension: prep.credentials.containerExtension,
+        videoCodec: prep.credentials.videoCodec,
+        audioCodec: prep.credentials.audioCodec,
+      });
+      // Build platform-specific deep link
+      const httpUrl = streamingUrl;
+      const deepLink = (() => {
+        if (Platform.OS === 'ios') {
+          return `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(
+            httpUrl
+          )}`;
+        }
+        // Android/web default
+        return `vlc://${httpUrl}`;
+      })();
+
+      if (Platform.OS === 'web') {
+        try {
+          const ua = (navigator.userAgent || '').toLowerCase();
+          const isAndroid = ua.includes('android');
+          const intentLink = isAndroid
+            ? ((): string => {
+                try {
+                  const u = new URL(httpUrl);
+                  return `intent://${u.host}${u.pathname}${u.search}#Intent;scheme=http;package=org.videolan.vlc;S.browser_fallback_url=${encodeURIComponent(
+                    'https://www.videolan.org/vlc/'
+                  )};end`;
+                } catch {
+                  return '';
+                }
+              })()
+            : '';
+          const linkToUse = isAndroid && intentLink ? intentLink : deepLink;
+          // Use a temporary <a> to trigger the protocol handler without auto-opening the HTTP URL
+          const a = document.createElement('a');
+          a.href = linkToUse;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(async () => {
+            // If no handler, copy URL and show guidance instead of downloading in a new tab
+            try {
+              await navigator.clipboard?.writeText(httpUrl);
+            } catch {}
+            setError(
+              'Could not open VLC automatically. URL copied – open VLC and use Open Network Stream.'
+            );
+            try {
+              document.body.removeChild(a);
+            } catch {}
+          }, 1200);
+        } catch {
+          // Swallow – user can use Copy URL / Get VLC buttons
+        }
+      } else {
+        // Native: attempt deep link via Linking if available
+        try {
+          // Dynamically import to avoid web bundling issues
+          const { Linking } = await import('react-native');
+          const supported = await Linking.canOpenURL(deepLink);
+          if (supported) await Linking.openURL(deepLink);
+          else await Linking.openURL(httpUrl as any);
+        } catch {
+          // swallow
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to open in VLC');
     }
   };
 
@@ -188,6 +320,62 @@ export default function MovieDetails() {
                   </Text>
                 </Pressable>
               </View>
+              {isUnsupportedAudioOnWeb ? (
+                <View className="mt-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 p-3">
+                  <Text className="text-sm text-yellow-300">
+                    Audio may not work in the browser for this title
+                    (E-AC-3/AC-3/DTS). Use the app for full playback.
+                  </Text>
+                  <View className="mt-2 flex-row gap-2">
+                    <Pressable
+                      className="rounded-md bg-white/10 px-3 py-2"
+                      onPress={handleOpenInVlc}
+                    >
+                      <Text className="text-xs text-white">Open in VLC</Text>
+                    </Pressable>
+                    <Pressable
+                      className="rounded-md bg-white/10 px-3 py-2"
+                      onPress={() => {
+                        try {
+                          window.open(
+                            'https://www.videolan.org/vlc/',
+                            '_blank'
+                          );
+                        } catch {}
+                      }}
+                    >
+                      <Text className="text-xs text-white">Get VLC</Text>
+                    </Pressable>
+                    <Pressable
+                      className="rounded-md bg-white/10 px-3 py-2"
+                      onPress={async () => {
+                        try {
+                          const prep = await prepareContentPlayback({
+                            sourceId: item.source_id,
+                            contentId: item.source_item_id,
+                            contentType: 'movie',
+                            options: { title: 'Copy URL' },
+                          });
+                          const { streamingUrl } = constructStreamUrl({
+                            server: prep.credentials.server,
+                            username: prep.credentials.username,
+                            password: prep.credentials.password,
+                            contentId: item.source_item_id,
+                            contentType: 'movie',
+                            containerExtension:
+                              prep.credentials.containerExtension,
+                            videoCodec: prep.credentials.videoCodec,
+                            audioCodec: prep.credentials.audioCodec,
+                          });
+                          await navigator.clipboard?.writeText(streamingUrl);
+                        } catch {}
+                      }}
+                    >
+                      <Text className="text-xs text-white">Copy URL</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
               {error ? (
                 <Text className="mt-2 text-red-600 dark:text-red-400">
                   {error}
