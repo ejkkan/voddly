@@ -23,15 +23,14 @@ const isVlcNativeViewAvailable = (() => {
   }
 })();
 
-export const AVAILABLE_PLAYERS: PlayerMeta[] =
-  Platform.OS === 'web'
-    ? [{ id: 'web', label: 'Web Player' }]
-    : [
-        // Always provide Expo Video on native
-        { id: 'expo', label: 'Expo Video' },
-        // Only include VLC when its native view exists
-        ...(isVlcNativeViewAvailable ? [{ id: 'vlc', label: 'MKV (VLC)' }] : []),
-      ];
+export const AVAILABLE_PLAYERS: PlayerMeta[] = (() => {
+  if (Platform.OS === 'web') {
+    return [{ id: 'web' as const, label: 'Web Player' }];
+  }
+  const list: PlayerMeta[] = [{ id: 'expo', label: 'Expo Video' }];
+  if (isVlcNativeViewAvailable) list.push({ id: 'vlc', label: 'MKV (VLC)' });
+  return list;
+})();
 
 export function getDefaultPlayerId(): PlayerId {
   if (Platform.OS === 'web') return 'web';

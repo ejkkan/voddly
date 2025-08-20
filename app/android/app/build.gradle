@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.iptvtest.development'
+    namespace 'com.voddly.development'
     defaultConfig {
-        applicationId 'com.iptvtest.development'
+        applicationId 'com.voddly.development'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

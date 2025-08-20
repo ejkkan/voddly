@@ -1,4 +1,4 @@
-package com.iptvtest.development
+package com.voddly.development
 import com.facebook.react.common.assets.ReactFontManager
 
 import android.app.Application

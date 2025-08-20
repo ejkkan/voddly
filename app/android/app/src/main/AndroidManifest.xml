@@ -26,6 +26,8 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="iptvtest"/>
         <data android:scheme="exp+obytesapp"/>
+        <data android:scheme="voddly"/>
+        <data android:scheme="exp+voddly"/>
       </intent-filter>
     </activity>
   </application>

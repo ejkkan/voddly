@@ -1,4 +1,4 @@
-package com.iptvtest.development
+package com.voddly.development
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
