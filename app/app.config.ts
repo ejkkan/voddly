@@ -41,9 +41,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: Env.BUNDLE_ID,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      NSLocalNetworkUsageDescription:
+        'This app uses the local network to play media streams from your playlists and media servers.',
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: true,
         NSAllowsLocalNetworking: true,
+        NSExceptionDomains: {
+          '89.37.117.6': {
+            NSIncludesSubdomains: true,
+            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
+          },
+        },
       },
     },
   },

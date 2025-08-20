@@ -106,12 +106,29 @@ export class XtreamClient {
   }
 
   async json<T = any>(url: string, opts?: FetchOptions): Promise<T> {
-    const text = await fetchWithTimeout(url, opts).then((r) => r.text());
+    let response: Response;
+    try {
+      response = await fetchWithTimeout(url, opts);
+    } catch (err) {
+      if (__DEV__) console.log('[xtream] fetch failed', { url, err: String(err) });
+      throw err;
+    }
+    let text: string;
+    try {
+      text = await response.text();
+    } catch (err) {
+      if (__DEV__) console.log('[xtream] read body failed', { url, err: String(err) });
+      throw err;
+    }
     try {
       return JSON.parse(text) as T;
-    } catch {
-      // Some servers return invalid JSON sporadically. Treat as empty.
-      return [] as unknown as T;
+    } catch (err) {
+      if (__DEV__)
+        console.log('[xtream] invalid JSON', {
+          url,
+          sample: text.slice(0, 200),
+        });
+      throw new Error('Invalid JSON from server');
     }
   }
 
@@ -170,37 +187,66 @@ export class XtreamClient {
     series: any[];
     channels: any[];
   }> {
-    const [liveCategories, vodCategories, seriesCategories] = await Promise.all(
-      [
-        this.getLiveCategories().catch(() => []),
-        this.getVodCategories().catch(() => []),
-        this.getSeriesCategories().catch(() => []),
-      ]
-    );
+    const catResults = await Promise.allSettled([
+      this.getLiveCategories(),
+      this.getVodCategories(),
+      this.getSeriesCategories(),
+    ]);
+    const [liveCatRes, vodCatRes, seriesCatRes] = catResults;
+    const liveCategories =
+      liveCatRes.status === 'fulfilled' && Array.isArray(liveCatRes.value)
+        ? liveCatRes.value
+        : [];
+    const vodCategories =
+      vodCatRes.status === 'fulfilled' && Array.isArray(vodCatRes.value)
+        ? vodCatRes.value
+        : [];
+    const seriesCategories =
+      seriesCatRes.status === 'fulfilled' && Array.isArray(seriesCatRes.value)
+        ? seriesCatRes.value
+        : [];
 
     const categories = [
-      ...(Array.isArray(liveCategories) ? liveCategories : []).map(
-        (cat: any) => ({ ...cat, type: 'live' as const })
-      ),
-      ...(Array.isArray(vodCategories) ? vodCategories : []).map(
-        (cat: any) => ({ ...cat, type: 'vod' as const })
-      ),
-      ...(Array.isArray(seriesCategories) ? seriesCategories : []).map(
-        (cat: any) => ({ ...cat, type: 'series' as const })
-      ),
+      ...liveCategories.map((cat: any) => ({ ...cat, type: 'live' as const })),
+      ...vodCategories.map((cat: any) => ({ ...cat, type: 'vod' as const })),
+      ...seriesCategories.map((cat: any) => ({ ...cat, type: 'series' as const })),
     ];
 
-    const [liveStreams, vodStreams, seriesList] = await Promise.all([
-      this.getLiveStreams().catch(() => []),
-      this.getVodStreams().catch(() => []),
-      this.getSeriesList().catch(() => []),
+    const streamResults = await Promise.allSettled([
+      this.getLiveStreams(),
+      this.getVodStreams(),
+      this.getSeriesList(),
     ]);
+    const [liveRes, vodRes, seriesRes] = streamResults;
+    const liveStreams =
+      liveRes.status === 'fulfilled' && Array.isArray(liveRes.value)
+        ? liveRes.value
+        : [];
+    const vodStreams =
+      vodRes.status === 'fulfilled' && Array.isArray(vodRes.value)
+        ? vodRes.value
+        : [];
+    const seriesList =
+      seriesRes.status === 'fulfilled' && Array.isArray(seriesRes.value)
+        ? seriesRes.value
+        : [];
+
+    const catFailures = catResults.filter((r) => r.status === 'rejected').length;
+    const streamFailures = streamResults.filter((r) => r.status === 'rejected').length;
+    if (catFailures === catResults.length && streamFailures === streamResults.length) {
+      if (__DEV__)
+        console.log('[xtream] all catalog fetches failed', {
+          catErrors: catResults.map((r) => (r.status === 'rejected' ? String(r.reason) : null)),
+          streamErrors: streamResults.map((r) => (r.status === 'rejected' ? String(r.reason) : null)),
+        });
+      throw new Error('Failed to fetch catalog from Xtream server');
+    }
 
     return {
       categories,
-      movies: Array.isArray(vodStreams) ? vodStreams : [],
-      series: Array.isArray(seriesList) ? seriesList : [],
-      channels: Array.isArray(liveStreams) ? liveStreams : [],
+      movies: vodStreams,
+      series: seriesList,
+      channels: liveStreams,
     } as const;
   }
 }

@@ -50,10 +50,6 @@
     <dict>
       <key>NSAllowsArbitraryLoads</key>
       <true/>
-      <key>NSAllowsArbitraryLoadsInWebContent</key>
-      <true/>
-      <key>NSAllowsArbitraryLoadsForMedia</key>
-      <true/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
       <key>NSExceptionDomains</key>
@@ -69,6 +65,8 @@
     </dict>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>This app uses the local network to play media streams from your playlists and media servers.</string>
     <key>NSUserActivityTypes</key>
     <array>
       <string>$(PRODUCT_BUNDLE_IDENTIFIER).expo.index_route</string>

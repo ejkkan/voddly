@@ -7,31 +7,31 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		00178BF20DDEA560A4C4F486 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45F6FE3899CB125390C26CF3 /* ExpoModulesProvider.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		2ED6BA3BB319A5F02E17D34C /* libPods-iptvtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 3DA5BBB9F5F9EBE52CFE035E /* libPods-iptvtest.a */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		773363472B934AF89AF83453 /* Inter.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 464EFF20F2D5463AA1E0E0DA /* Inter.ttf */; };
+		5A398AE02D934C66B8740B80 /* Inter.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 63C10C52CEC74DE6ADE41BA4 /* Inter.ttf */; };
+		7B0C29F66D117664F3A222D2 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F574BE31F083F1EC1B2A7341 /* ExpoModulesProvider.swift */; };
+		A300086FA96144D783760A0B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 8F396C8DCD3B68FE0AF34B1B /* PrivacyInfo.xcprivacy */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		BC594CD3910F1DC047FE3D46 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F649E16FE7B5055F11851697 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
-		F1BEAD7589F166CDE9D0B559 /* libPods-iptvtest.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6406CA0A6457BB3E64F650C7 /* libPods-iptvtest.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* iptvtest.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = iptvtest.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = iptvtest/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = iptvtest/Info.plist; sourceTree = "<group>"; };
-		343CCC516E4104A60236E69C /* Pods-iptvtest.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.debug.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.debug.xcconfig"; sourceTree = "<group>"; };
-		45F6FE3899CB125390C26CF3 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-iptvtest/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		464EFF20F2D5463AA1E0E0DA /* Inter.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Inter.ttf; path = ../assets/fonts/Inter.ttf; sourceTree = "<group>"; };
-		6406CA0A6457BB3E64F650C7 /* libPods-iptvtest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-iptvtest.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		3C45405D1DF74A5C8DE9F38D /* Pods-iptvtest.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.debug.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.debug.xcconfig"; sourceTree = "<group>"; };
+		3DA5BBB9F5F9EBE52CFE035E /* libPods-iptvtest.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-iptvtest.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		63C10C52CEC74DE6ADE41BA4 /* Inter.ttf */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = Inter.ttf; path = ../assets/fonts/Inter.ttf; sourceTree = "<group>"; };
+		6E3A279A740B3948F61B9C6B /* Pods-iptvtest.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.release.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.release.xcconfig"; sourceTree = "<group>"; };
+		8F396C8DCD3B68FE0AF34B1B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = iptvtest/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = iptvtest/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		BDC0BA8C6B5FB3F36C63C572 /* Pods-iptvtest.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-iptvtest.release.xcconfig"; path = "Target Support Files/Pods-iptvtest/Pods-iptvtest.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = iptvtest/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* iptvtest-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "iptvtest-Bridging-Header.h"; path = "iptvtest/iptvtest-Bridging-Header.h"; sourceTree = "<group>"; };
-		F649E16FE7B5055F11851697 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = iptvtest/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		F574BE31F083F1EC1B2A7341 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-iptvtest/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -39,7 +39,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F1BEAD7589F166CDE9D0B559 /* libPods-iptvtest.a in Frameworks */,
+				2ED6BA3BB319A5F02E17D34C /* libPods-iptvtest.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -55,15 +55,7 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				F649E16FE7B5055F11851697 /* PrivacyInfo.xcprivacy */,
-			);
-			name = iptvtest;
-			sourceTree = "<group>";
-		};
-		1E11C3B915247D5EE53FBC31 /* iptvtest */ = {
-			isa = PBXGroup;
-			children = (
-				45F6FE3899CB125390C26CF3 /* ExpoModulesProvider.swift */,
+				8F396C8DCD3B68FE0AF34B1B /* PrivacyInfo.xcprivacy */,
 			);
 			name = iptvtest;
 			sourceTree = "<group>";
@@ -72,17 +64,17 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				6406CA0A6457BB3E64F650C7 /* libPods-iptvtest.a */,
+				3DA5BBB9F5F9EBE52CFE035E /* libPods-iptvtest.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
-		51FFF890B2555CA4055D5A3D /* ExpoModulesProviders */ = {
+		56D09B4DA070669F656A81BC /* iptvtest */ = {
 			isa = PBXGroup;
 			children = (
-				1E11C3B915247D5EE53FBC31 /* iptvtest */,
+				F574BE31F083F1EC1B2A7341 /* ExpoModulesProvider.swift */,
 			);
-			name = ExpoModulesProviders;
+			name = iptvtest;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -99,9 +91,9 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				8A72A7424DAD4B5BAC06F673 /* Resources */,
-				8E4233889C16ACB903E32F19 /* Pods */,
-				51FFF890B2555CA4055D5A3D /* ExpoModulesProviders */,
+				EE10B713D1D744A3B37D052E /* Resources */,
+				E549B67F98A496647D6C27AC /* Pods */,
+				C6937C990C6ECA61C33F5922 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -116,25 +108,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		8A72A7424DAD4B5BAC06F673 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				464EFF20F2D5463AA1E0E0DA /* Inter.ttf */,
-			);
-			name = Resources;
-			path = "";
-			sourceTree = "<group>";
-		};
-		8E4233889C16ACB903E32F19 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				343CCC516E4104A60236E69C /* Pods-iptvtest.debug.xcconfig */,
-				BDC0BA8C6B5FB3F36C63C572 /* Pods-iptvtest.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
 			isa = PBXGroup;
 			children = (
@@ -142,6 +115,33 @@
 			);
 			name = Supporting;
 			path = iptvtest/Supporting;
+			sourceTree = "<group>";
+		};
+		C6937C990C6ECA61C33F5922 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				56D09B4DA070669F656A81BC /* iptvtest */,
+			);
+			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		E549B67F98A496647D6C27AC /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				3C45405D1DF74A5C8DE9F38D /* Pods-iptvtest.debug.xcconfig */,
+				6E3A279A740B3948F61B9C6B /* Pods-iptvtest.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
+		EE10B713D1D744A3B37D052E /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				63C10C52CEC74DE6ADE41BA4 /* Inter.ttf */,
+			);
+			name = Resources;
+			path = "";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -152,13 +152,13 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "iptvtest" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				386B5DC9EFAEBF0F4C3B486D /* [Expo] Configure project */,
+				5A17D0FAAF645FFD948438D4 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				F055BAD126A845F3C4E4C4D6 /* [CP] Embed Pods Frameworks */,
+				BFC1BE2FA42247DCA93804A5 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -208,8 +208,8 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				773363472B934AF89AF83453 /* Inter.ttf in Resources */,
-				BC594CD3910F1DC047FE3D46 /* PrivacyInfo.xcprivacy in Resources */,
+				5A398AE02D934C66B8740B80 /* Inter.ttf in Resources */,
+				A300086FA96144D783760A0B /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,7 +253,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		386B5DC9EFAEBF0F4C3B486D /* [Expo] Configure project */ = {
+		5A17D0FAAF645FFD948438D4 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -316,17 +316,19 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-iptvtest/Pods-iptvtest-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		F055BAD126A845F3C4E4C4D6 /* [CP] Embed Pods Frameworks */ = {
+		BFC1BE2FA42247DCA93804A5 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-iptvtest/Pods-iptvtest-frameworks.sh",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/MobileVLCKit/MobileVLCKit.framework/MobileVLCKit",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/hermes-engine/Pre-built/hermes.framework/hermes",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/MobileVLCKit.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/hermes.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -342,7 +344,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				00178BF20DDEA560A4C4F486 /* ExpoModulesProvider.swift in Sources */,
+				7B0C29F66D117664F3A222D2 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -351,7 +353,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 343CCC516E4104A60236E69C /* Pods-iptvtest.debug.xcconfig */;
+			baseConfigurationReference = 3C45405D1DF74A5C8DE9F38D /* Pods-iptvtest.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -387,7 +389,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BDC0BA8C6B5FB3F36C63C572 /* Pods-iptvtest.release.xcconfig */;
+			baseConfigurationReference = 6E3A279A740B3948F61B9C6B /* Pods-iptvtest.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
