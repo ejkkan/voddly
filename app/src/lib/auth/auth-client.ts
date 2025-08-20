@@ -50,7 +50,7 @@ async function doFetch(path: string, init?: RequestInit) {
   const method = (init?.method || 'GET').toUpperCase();
   try {
     // helpful dev log
-    console.log('[auth] fetch', method, `${base}${rel}`);
+    // Debug log removed
   } catch {}
 
   // Only set JSON content-type for non-GET/HEAD requests

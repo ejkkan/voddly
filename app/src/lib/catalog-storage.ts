@@ -25,6 +25,7 @@ export interface CatalogStats {
 export class MobileCatalogStorage {
   async storeSourceCatalog(sourceId: string, data: CatalogData): Promise<void> {
     const db = await openDb();
+    if (__DEV__) console.log('[store] begin', sourceId);
     const safeData: CatalogData = {
       categories: data.categories || [],
       movies: data.movies || [],
@@ -55,8 +56,16 @@ export class MobileCatalogStorage {
       await this.insertChannels(db, srcId, safeData.channels || []);
 
       await db.execAsync('COMMIT');
+      if (__DEV__)
+        console.log('[store] commit', {
+          categories: safeData.categories?.length || 0,
+          movies: safeData.movies?.length || 0,
+          series: safeData.series?.length || 0,
+          channels: safeData.channels?.length || 0,
+        });
     } catch (e) {
       await db.execAsync('ROLLBACK');
+      if (__DEV__) console.log('[store] rollback', e);
       throw e;
     }
   }

@@ -9,9 +9,8 @@ import {
   Pressable,
 } from '@/components/ui';
 import { useSourceCredentials } from '@/lib/source-credentials';
-import { constructStreamUrl } from '@/lib/stream-url';
-import { apiClient } from '@/lib/api-client';
 import { openDb } from '@/lib/db';
+import { useFetchRemoteMovie } from '@/hooks/useFetchRemoteMovie';
 
 type ItemRow = {
   id: string;
@@ -33,24 +32,52 @@ export default function MovieDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [item, setItem] = useState<ItemRow | null>(null);
   const [loading, setLoading] = useState(true);
-  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { prepareContentPlayback, getCredentials } = useSourceCredentials();
+  const { prepareContentPlayback } = useSourceCredentials();
+  const {
+    fetchRemote,
+    isFetching: fetching,
+    error: fetchError,
+  } = useFetchRemoteMovie();
 
   useEffect(() => {
     let mounted = true;
     const run = async () => {
       try {
         setLoading(true);
-        if (!id) return;
+        if (!id) {
+          if (mounted) setLoading(false);
+          return;
+        }
         const db = await openDb();
         const row = await db.getFirstAsync<ItemRow>(
           `SELECT * FROM content_items WHERE id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
-      } finally {
         if (mounted) setLoading(false);
+        // Fetch remote in background and refresh if changed
+        if (row) {
+          fetchRemote({
+            id: row.id,
+            sourceId: row.source_id,
+            sourceItemId: row.source_item_id,
+          }).then(async (ok) => {
+            try {
+              if (!ok || !mounted) return;
+              const db2 = await openDb();
+              const updated = await db2.getFirstAsync<ItemRow>(
+                `SELECT * FROM content_items WHERE id = $id`,
+                { $id: String(row.id) }
+              );
+              if (mounted) setItem(updated ?? row);
+            } catch {
+              // ignore refresh errors
+            }
+          });
+        }
+      } finally {
+        // loading ended after local read
       }
     };
     run();
@@ -81,26 +108,23 @@ export default function MovieDetails() {
 
   const handleFetchFresh = async () => {
     if (!item) return;
-    if (fetching) return;
-    setFetching(true);
-    setError(null);
-    try {
-      // Get credentials and inspect basic stream metadata via Encore helper endpoints if needed later
-      const creds = await getCredentials(item.source_id, {
-        title: 'Fetch Fresh Data',
-        message: 'Enter your passphrase to fetch fresh metadata',
-      });
-      // Optionally call backend routes to enrich data later. For now, noop.
-      void creds;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to fetch fresh data');
-    } finally {
-      setFetching(false);
+    const ok = await fetchRemote({
+      id: item.id,
+      sourceId: item.source_id,
+      sourceItemId: item.source_item_id,
+    });
+    if (ok) {
+      const db = await openDb();
+      const row = await db.getFirstAsync<ItemRow>(
+        `SELECT * FROM content_items WHERE id = $id`,
+        { $id: String(item.id) }
+      );
+      setItem(row ?? null);
     }
   };
 
   return (
-    <SafeAreaView>
+    <SafeAreaView className="flex-1">
       <ScrollView className="flex-1 bg-white dark:bg-black">
         <View className="p-4">
           <Pressable className="mb-3" onPress={() => router.back()}>
@@ -160,13 +184,18 @@ export default function MovieDetails() {
                   onPress={handleFetchFresh}
                 >
                   <Text className="text-neutral-900 dark:text-neutral-50">
-                    {fetching ? 'Fetching…' : 'Fetch Fresh'}
+                    {fetching ? 'Fetching…' : 'Fetch Remote'}
                   </Text>
                 </Pressable>
               </View>
               {error ? (
                 <Text className="mt-2 text-red-600 dark:text-red-400">
                   {error}
+                </Text>
+              ) : null}
+              {fetchError ? (
+                <Text className="mt-2 text-red-600 dark:text-red-400">
+                  {fetchError}
                 </Text>
               ) : null}
               {/* Extra info from original payload if available */}

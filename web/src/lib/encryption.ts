@@ -1,3 +1,4 @@
+import * as argon2 from "argon2-browser";
 import { passphraseCache } from "./passphrase-cache";
 
 export class AccountEncryption {
@@ -55,26 +56,22 @@ export class AccountEncryption {
   }
 
   /**
-   * Derive encryption key from passphrase using PBKDF2
+   * Derive encryption key from passphrase using Argon2id (fast, secure)
    */
   async deriveKey(passphrase: string, salt: Uint8Array): Promise<CryptoKey> {
-    const encoder = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
+    const result = await argon2.hash({
+      pass: new TextEncoder().encode(passphrase),
+      salt,
+      type: argon2.ArgonType.Argon2id,
+      time: 3, // opslimit (time cost)
+      mem: 64 * 1024, // memory in KiB (64 MiB)
+      parallelism: 1,
+      hashLen: 32,
+    });
+    const keyBytes = new Uint8Array(result.hash as ArrayBuffer);
+    return crypto.subtle.importKey(
       "raw",
-      encoder.encode(passphrase),
-      "PBKDF2",
-      false,
-      ["deriveBits", "deriveKey"],
-    );
-
-    return crypto.subtle.deriveKey(
-      {
-        name: "PBKDF2",
-        salt: salt,
-        iterations: 500000, // High iteration count for 6-char passphrases
-        hash: "SHA-256",
-      },
-      keyMaterial,
+      keyBytes,
       { name: "AES-GCM", length: 256 },
       false,
       ["encrypt", "decrypt"],
@@ -176,6 +173,9 @@ export class AccountEncryption {
       wrapped_master_key: string;
       salt: string;
       iv: string;
+      kdf?: string;
+      opslimit?: number;
+      memlimit?: number;
     },
     passphrase?: string,
   ): Promise<CryptoKey> {
@@ -205,13 +205,41 @@ export class AccountEncryption {
       // Derive personal key from passphrase
       const salt = this.base64ToBuffer(keyData.salt);
       console.log("🔐 getMasterKey: Salt decoded, length:", salt.length);
+      console.log("🔐 getMasterKey: Salt decoded, length:", salt.length);
 
-      const personalKey = await this.deriveKey(pass, salt);
+      // Argon2id-only path
+      const personalKeyRaw = await (async () => {
+        const ops = keyData.opslimit ?? 3;
+        const memBytes = keyData.memlimit ?? 64 * 1024 * 1024;
+        const result = await argon2.hash({
+          pass: new TextEncoder().encode(pass),
+          salt,
+          type: argon2.ArgonType.Argon2id,
+          time: ops,
+          mem: Math.max(8 * 1024, Math.floor(memBytes / 1024)),
+          parallelism: 1,
+          hashLen: 32,
+        });
+        return new Uint8Array(result.hash as ArrayBuffer);
+      })();
+      const personalKey = await crypto.subtle.importKey(
+        "raw",
+        personalKeyRaw,
+        { name: "AES-GCM", length: 256 },
+        false,
+        ["encrypt", "decrypt"],
+      );
       console.log("✅ getMasterKey: Personal key derived successfully");
 
       // Unwrap master key
       const wrapped = this.base64ToBuffer(keyData.wrapped_master_key);
       const iv = this.base64ToBuffer(keyData.iv);
+      console.log(
+        "🔐 getMasterKey: Wrapped length:",
+        wrapped.length,
+        "IV length:",
+        iv.length,
+      );
 
       console.log(
         "🔐 getMasterKey: Attempting to decrypt master key, wrapped length:",
@@ -381,7 +409,15 @@ export class AccountEncryption {
    * Helper: Convert base64 to buffer
    */
   private base64ToBuffer(base64: string): Uint8Array {
-    const binary = atob(base64);
+    if (!base64 || typeof base64 !== "string") {
+      throw new Error("Invalid base64 input");
+    }
+    // Normalize: remove whitespace, convert URL-safe to standard, add padding
+    const normalized = base64.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/");
+    const pad =
+      normalized.length % 4 === 0 ? "" : "=".repeat(4 - (normalized.length % 4));
+    const b64 = normalized + pad;
+    const binary = atob(b64);
     const buffer = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) {
       buffer[i] = binary.charCodeAt(i);

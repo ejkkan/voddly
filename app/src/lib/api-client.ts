@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 
 import auth from '@/lib/auth/auth-client';
 import Client, { Environment } from '@/lib/encore-client';
-console.log('Env', Env.API_URL);
+// Debug log removed
 
 function normalizeDevHost(url: string): string {
   if (!url) return url;

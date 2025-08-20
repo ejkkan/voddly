@@ -10,6 +10,9 @@ import {
 } from '@/components/ui';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { openDb } from '@/lib/db';
+import { useFetchRemoteSeries } from '@/hooks/useFetchRemoteSeries';
+import { SeriesEpisodesCarousels } from '@/components/series/SeriesEpisodesCarousels';
+import { SeasonsList } from '@/components/series/SeasonsList';
 
 type ItemRow = {
   id: string;
@@ -23,6 +26,8 @@ type ItemRow = {
   release_date?: string | null;
   rating?: number | null;
   rating_5based?: number | null;
+  last_modified?: string | null;
+  original_payload_json?: string | null;
 };
 
 export default function SeriesDetails() {
@@ -31,22 +36,49 @@ export default function SeriesDetails() {
   const [item, setItem] = useState<ItemRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [episodesRefreshKey, setEpisodesRefreshKey] = useState(0);
   const { prepareContentPlayback } = useSourceCredentials();
+  const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteSeries();
 
   useEffect(() => {
     let mounted = true;
     const run = async () => {
       try {
         setLoading(true);
-        if (!id) return;
+        if (!id) {
+          if (mounted) setLoading(false);
+          return;
+        }
         const db = await openDb();
         const row = await db.getFirstAsync<ItemRow>(
           `SELECT * FROM content_items WHERE id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
-      } finally {
         if (mounted) setLoading(false);
+        if (row) {
+          // Fetch remote in the background and refresh when done
+          fetchRemote({
+            id: row.id,
+            sourceId: row.source_id,
+            sourceItemId: row.source_item_id,
+          }).then(async (ok) => {
+            try {
+              if (!ok || !mounted) return;
+              const db2 = await openDb();
+              const updated = await db2.getFirstAsync<ItemRow>(
+                `SELECT * FROM content_items WHERE id = $id`,
+                { $id: String(row.id) }
+              );
+              if (mounted) setItem(updated ?? row);
+              if (mounted) setEpisodesRefreshKey((v) => v + 1);
+            } catch {
+              // ignore refresh errors (e.g., DB closed during navigation)
+            }
+          });
+        }
+      } finally {
+        // loading ended after local read
       }
     };
     run();
@@ -74,7 +106,7 @@ export default function SeriesDetails() {
   };
 
   return (
-    <SafeAreaView>
+    <SafeAreaView className="flex-1">
       <ScrollView className="flex-1 bg-white dark:bg-black">
         <View className="p-4">
           <Pressable className="mb-3" onPress={() => router.back()}>
@@ -124,16 +156,103 @@ export default function SeriesDetails() {
                 >
                   <Text className="text-white">Play</Text>
                 </Pressable>
+                <Pressable
+                  className="rounded-xl border border-neutral-300 px-4 py-2 dark:border-neutral-700"
+                  onPress={async () => {
+                    if (!item) return;
+                    const ok = await fetchRemote({
+                      id: item.id,
+                      sourceId: item.source_id,
+                      sourceItemId: item.source_item_id,
+                    });
+                    if (ok) {
+                      const db = await openDb();
+                      const row = await db.getFirstAsync<ItemRow>(
+                        `SELECT * FROM content_items WHERE id = $id`,
+                        { $id: String(item.id) }
+                      );
+                      setItem(row ?? null);
+                      setEpisodesRefreshKey((v) => v + 1);
+                    }
+                  }}
+                >
+                  <Text className="text-neutral-900 dark:text-neutral-50">
+                    {isFetching ? 'Fetching…' : 'Fetch Remote'}
+                  </Text>
+                </Pressable>
               </View>
               {error ? (
                 <Text className="mt-2 text-red-600 dark:text-red-400">
                   {error}
                 </Text>
               ) : null}
+              {fetchError ? (
+                <Text className="mt-2 text-red-600 dark:text-red-400">
+                  {fetchError}
+                </Text>
+              ) : null}
               {item.description ? (
                 <Text className="mt-3 text-neutral-800 dark:text-neutral-200">
                   {item.description}
                 </Text>
+              ) : null}
+              {item?.original_payload_json
+                ? (() => {
+                    try {
+                      const raw = JSON.parse(
+                        item.original_payload_json || '{}'
+                      );
+                      const info = raw?.info || {};
+                      const plot = info?.plot;
+                      const genre = info?.genre;
+                      const cast = info?.cast;
+                      const director = info?.director;
+                      const episodeRunTime = info?.episode_run_time;
+                      return (
+                        <View className="mt-4 gap-2">
+                          {!item.description && plot ? (
+                            <Text className="text-neutral-700 dark:text-neutral-300">
+                              {String(plot)}
+                            </Text>
+                          ) : null}
+                          <View className="flex-row flex-wrap gap-x-4 gap-y-1">
+                            {episodeRunTime ? (
+                              <Text className="text-neutral-600 dark:text-neutral-400">
+                                Episode runtime: {String(episodeRunTime)} min
+                              </Text>
+                            ) : null}
+                            {genre ? (
+                              <Text className="text-neutral-600 dark:text-neutral-400">
+                                Genre: {String(genre)}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {cast ? (
+                            <Text className="text-neutral-600 dark:text-neutral-400">
+                              Cast: {String(cast)}
+                            </Text>
+                          ) : null}
+                          {director ? (
+                            <Text className="text-neutral-600 dark:text-neutral-400">
+                              Director: {String(director)}
+                            </Text>
+                          ) : null}
+                        </View>
+                      );
+                    } catch {
+                      return null;
+                    }
+                  })()
+                : null}
+              {item ? (
+                <SeasonsList seriesItemId={item.id} onSeasonPress={() => {}} />
+              ) : null}
+              {item ? (
+                <SeriesEpisodesCarousels
+                  seriesItemId={item.id}
+                  sourceId={item.source_id}
+                  refreshKey={episodesRefreshKey}
+                />
               ) : null}
             </View>
           )}

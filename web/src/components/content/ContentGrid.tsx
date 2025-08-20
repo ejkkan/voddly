@@ -1,7 +1,7 @@
-import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
+import { CatalogStorage } from "~/lib/catalog-storage";
 import { ContentCard } from "./ContentCard";
-import { CatalogStorage, type ContentItem } from "~/lib/catalog-storage";
 
 interface ContentGridProps {
   sourceId: string;
@@ -9,36 +9,20 @@ interface ContentGridProps {
 }
 
 export function ContentGrid({ sourceId, contentType }: ContentGridProps) {
-  const [items, setItems] = React.useState<ContentItem[] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+  const type =
+    contentType === "movies" ? "movie" : contentType === "series" ? "series" : "live";
+  const query = useQuery({
+    queryKey: ["content-grid", sourceId, type],
+    queryFn: async () => {
+      const storage = new CatalogStorage();
+      await storage.init();
+      return storage.queryContent(sourceId, { type });
+    },
+    enabled: !!sourceId,
+    refetchInterval: 2000,
+  });
 
-  React.useEffect(() => {
-    let isCancelled = false;
-    const storage = new CatalogStorage();
-
-    async function load() {
-      try {
-        setIsLoading(true);
-        setError(null);
-        await storage.init();
-        const type = contentType === "movies" ? "movie" : contentType === "series" ? "series" : "live";
-        const results = await storage.queryContent(sourceId, { type });
-        if (!isCancelled) setItems(results);
-      } catch (e) {
-        if (!isCancelled) setError(e instanceof Error ? e.message : "Failed to load content");
-      } finally {
-        if (!isCancelled) setIsLoading(false);
-      }
-    }
-
-    load();
-    return () => {
-      isCancelled = true;
-    };
-  }, [sourceId, contentType]);
-
-  if (isLoading) {
+  if (query.isLoading) {
     return (
       <div className="flex justify-center py-12">
         <LoadingSpinner size="lg" />
@@ -46,7 +30,7 @@ export function ContentGrid({ sourceId, contentType }: ContentGridProps) {
     );
   }
 
-  if (error) {
+  if (query.error) {
     return (
       <div className="flex justify-center py-12">
         <div className="space-y-2 text-center">
@@ -59,6 +43,7 @@ export function ContentGrid({ sourceId, contentType }: ContentGridProps) {
     );
   }
 
+  const items = query.data || [];
   if (!items || items.length === 0) {
     return (
       <div className="flex justify-center py-12">

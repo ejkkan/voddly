@@ -1,7 +1,12 @@
 'use client';
 
+import { Platform } from 'react-native';
+import { MMKV } from 'react-native-mmkv';
+
 import { apiClient } from '@/lib/api-client';
+import { aesGcmDecrypt, decodeBase64, encodeBase64 } from '@/lib/crypto-utils';
 import { passphraseCache } from '@/lib/passphrase-cache';
+import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
 
 export type SourceCredentials = {
   server: string;
@@ -24,6 +29,11 @@ export type SourceInfo = {
     salt: string;
     iv: string;
     iterations?: number;
+    // Optional new fields for sodium-based scheme
+    kdf?: 'pbkdf2' | 'argon2id';
+    opslimit?: number;
+    memlimit?: number;
+    wrap_algo?: 'aes-gcm-256' | 'xchacha20poly1305';
   };
   account: { id: string; name: string };
 };
@@ -60,30 +70,8 @@ export class SourceCredentialsManager {
   }
 
   async findSourceInfo(sourceId: string): Promise<SourceInfo> {
-    const accounts = await apiClient.user.getAccounts();
-    for (const account of accounts.accounts || []) {
-      try {
-        const { sources, keyData } = await apiClient.user.getSources(
-          account.id
-        );
-        const source = (sources || []).find((s) => s.id === String(sourceId));
-        if (source && keyData) {
-          return {
-            source: {
-              id: source.id,
-              name: source.name,
-              encrypted_config: source.encrypted_config,
-              config_iv: source.config_iv,
-            },
-            keyData,
-            account: { id: account.id, name: account.name },
-          };
-        }
-      } catch {
-        continue;
-      }
-    }
-    throw new Error('Source not found in any account');
+    const targetId = String(sourceId).split(':')[0];
+    return resolveSourceInfo(targetId);
   }
 
   async getSourceCredentials(
@@ -97,73 +85,227 @@ export class SourceCredentialsManager {
       accountName: info.account.name,
       validateFn: options.validatePassphrase,
     });
-
-    // Derive and unwrap using WebCrypto (same approach used in playlists.tsx)
-    const b64ToBytes = (b64: string) => {
-      try {
-        const bin = atob(b64);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return bytes;
-      } catch {
-        const fixed = b64.replace(/-/g, '+').replace(/_/g, '/');
-        const pad =
-          fixed.length % 4 === 0 ? '' : '='.repeat(4 - (fixed.length % 4));
-        const bin = atob(fixed + pad);
-        const bytes = new Uint8Array(bin.length);
-        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-        return bytes;
-      }
-    };
-
-    const salt = b64ToBytes(info.keyData.salt);
-    const iv = b64ToBytes(info.keyData.iv);
-    const wrapped = b64ToBytes(info.keyData.wrapped_master_key);
-    const encoder = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(passphrase),
-      'PBKDF2',
-      false,
-      ['deriveKey']
-    );
-    const personalKey = await crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt,
-        iterations: info.keyData.iterations || 500000,
-        hash: 'SHA-256',
-      },
-      keyMaterial,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt']
-    );
-    const masterKeyBytes = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      personalKey,
-      wrapped
-    );
-    const masterKey = await crypto.subtle.importKey(
-      'raw',
-      masterKeyBytes,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['decrypt']
-    );
-
-    const cfgIv = b64ToBytes(info.source.config_iv);
-    const cfgEnc = b64ToBytes(info.source.encrypted_config);
-    const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: cfgIv },
-      masterKey,
-      cfgEnc
-    );
-    const credentials = JSON.parse(
-      new TextDecoder().decode(new Uint8Array(decrypted))
-    );
-    return credentials as SourceCredentials;
+    const { salt, iv, wrapped } = validateAndParseKeyData(info.keyData);
+    const masterKeyBytes = await getOrDeriveMasterKey({
+      accountId: info.account.id,
+      passphrase,
+      keyData: info.keyData,
+      salt,
+      iv,
+      wrapped,
+    });
+    validateSourceConfig(info.source);
+    return this.decryptSourceConfigWithKey(info, masterKeyBytes);
   }
+  // Helper to decrypt config JSON given an unwrapped master key
+  async decryptSourceConfigWithKey(
+    info: SourceInfo,
+    masterKeyBytes: Uint8Array
+  ): Promise<SourceCredentials> {
+    const cfgIv = decodeBase64(String(info.source.config_iv || ''));
+    const cfgEnc = decodeBase64(String(info.source.encrypted_config || ''));
+    if (cfgIv.length === 0)
+      throw new Error('Invalid source config: missing IV');
+    if (cfgIv.length !== 12)
+      throw new Error(
+        `Invalid source config: IV must be 12 bytes, got ${cfgIv.length}`
+      );
+    if (cfgEnc.length === 0)
+      throw new Error('Invalid source config: missing encrypted payload');
+    // minimal logging removed
+    try {
+      const plain = aesGcmDecrypt(masterKeyBytes, cfgIv, cfgEnc);
+      const credentials = JSON.parse(
+        new TextDecoder().decode(new Uint8Array(plain))
+      );
+      return credentials as SourceCredentials;
+    } catch (err: any) {
+      // no verbose logging
+      throw new Error(
+        'Failed to decrypt source config: ' + String(err?.message || err)
+      );
+    }
+  }
+}
+
+// Helpers split out for readability and testability
+async function resolveSourceInfo(targetId: string): Promise<SourceInfo> {
+  const accounts = await apiClient.user.getAccounts();
+  for (const account of accounts.accounts || []) {
+    try {
+      const { sources, keyData } = await apiClient.user.getSources(account.id);
+      const list = sources || [];
+      const source = list.find((s) => s.id === targetId || s.name === targetId);
+      if (source && keyData) {
+        return {
+          source: {
+            id: source.id,
+            name: source.name,
+            encrypted_config: source.encrypted_config,
+            config_iv: source.config_iv,
+          },
+          keyData,
+          account: { id: account.id, name: account.name },
+        };
+      }
+      if (!source && keyData && list.length === 1) {
+        const only = list[0];
+        return {
+          source: {
+            id: only.id,
+            name: only.name,
+            encrypted_config: only.encrypted_config,
+            config_iv: only.config_iv,
+          },
+          keyData,
+          account: { id: account.id, name: account.name },
+        };
+      }
+    } catch {
+      continue;
+    }
+  }
+  throw new Error('Source not found in any account');
+}
+
+async function deriveArgon2idKey(
+  passphrase: string,
+  salt: Uint8Array,
+  keyData: { opslimit?: number; memlimit?: number }
+): Promise<Uint8Array> {
+  if (Platform.OS === 'web') {
+    const sodiumMod = await import('libsodium-wrappers-sumo');
+    const sodium = (sodiumMod as any).default ?? sodiumMod;
+    await (sodium as any).ready;
+    const ops =
+      keyData.opslimit ??
+      (sodium as any).crypto_pwhash_OPSLIMIT_MODERATE ??
+      (sodium as any).crypto_pwhash_OPSLIMIT_INTERACTIVE;
+    const memBytes =
+      keyData.memlimit ??
+      (sodium as any).crypto_pwhash_MEMLIMIT_MODERATE ??
+      (sodium as any).crypto_pwhash_MEMLIMIT_INTERACTIVE;
+    const alg =
+      typeof (sodium as any).crypto_pwhash_ALG_ARGON2ID13 === 'number'
+        ? (sodium as any).crypto_pwhash_ALG_ARGON2ID13
+        : (sodium as any).crypto_pwhash_ALG_DEFAULT;
+    return (sodium as any).crypto_pwhash(
+      32,
+      passphrase,
+      salt,
+      ops,
+      memBytes,
+      alg
+    );
+  }
+  const sodiumMod = await import('react-native-libsodium');
+  const sodium = (sodiumMod as any).default ?? sodiumMod;
+  if (!(globalThis as any).__sodiumReady) {
+    if (typeof sodium.loadSumoVersion === 'function') sodium.loadSumoVersion();
+    if (sodium.ready && typeof sodium.ready.then === 'function')
+      await sodium.ready;
+  }
+  const ops =
+    keyData.opslimit ??
+    (sodium as any).crypto_pwhash_OPSLIMIT_MODERATE ??
+    sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE;
+  const memBytes =
+    keyData.memlimit ??
+    (sodium as any).crypto_pwhash_MEMLIMIT_MODERATE ??
+    sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE;
+  if (salt.length !== 16) throw new Error('invalid salt length');
+  const algNative =
+    typeof (sodium as any).crypto_pwhash_ALG_ARGON2ID13 === 'number'
+      ? (sodium as any).crypto_pwhash_ALG_ARGON2ID13
+      : sodium.crypto_pwhash_ALG_DEFAULT;
+  return sodium.crypto_pwhash(32, passphrase, salt, ops, memBytes, algNative);
+}
+
+function validateAndParseKeyData(keyData: SourceInfo['keyData']): {
+  salt: Uint8Array;
+  iv: Uint8Array;
+  wrapped: Uint8Array;
+} {
+  const salt = decodeBase64(String(keyData.salt || ''));
+  const iv = decodeBase64(String(keyData.iv || ''));
+  const wrapped = decodeBase64(String(keyData.wrapped_master_key || ''));
+  if (salt.length === 0) throw new Error('Invalid key data: missing salt');
+  if (iv.length === 0) throw new Error('Invalid key data: missing IV');
+  if (iv.length !== 12)
+    throw new Error(`Invalid key data: IV must be 12 bytes, got ${iv.length}`);
+  if (wrapped.length === 0)
+    throw new Error('Invalid key data: missing wrapped key');
+  return { salt, iv, wrapped };
+}
+
+function validateSourceConfig(source: SourceInfo['source']): void {
+  const cfgIv = decodeBase64(String(source.config_iv || ''));
+  const cfgEnc = decodeBase64(String(source.encrypted_config || ''));
+  if (cfgIv.length === 0) throw new Error('Invalid source config: missing IV');
+  if (cfgIv.length !== 12)
+    throw new Error(
+      `Invalid source config: IV must be 12 bytes, got ${cfgIv.length}`
+    );
+  if (cfgEnc.length === 0)
+    throw new Error('Invalid source config: missing encrypted payload');
+}
+
+type MasterKeyInputs = {
+  accountId: string;
+  passphrase: string;
+  keyData: SourceInfo['keyData'];
+  salt: Uint8Array;
+  iv: Uint8Array;
+  wrapped: Uint8Array;
+};
+
+async function getOrDeriveMasterKey(
+  args: MasterKeyInputs
+): Promise<Uint8Array> {
+  const { accountId, passphrase, keyData, salt, iv, wrapped } = args;
+  const storage = new MMKV();
+  const cacheKeyPersist = `mk:${accountId}`;
+  try {
+    const packed = storage.getString(cacheKeyPersist);
+    if (packed) {
+      const obj = JSON.parse(packed) as { b64: string; exp: number };
+      if (Date.now() < obj.exp) {
+        const keyBytes = decodeBase64(obj.b64);
+        return keyBytes;
+      }
+    }
+  } catch {}
+  type CacheEntry = { key: Uint8Array; expiresAt: number };
+  const MASTER_KEY_CACHE_TTL_MS = 5 * 60 * 1000;
+  const g = globalThis as any;
+  g.__masterKeyCache = g.__masterKeyCache || new Map<string, CacheEntry>();
+  const cacheKey = `acct:${accountId}`;
+  const nowTs = Date.now();
+  const cached: CacheEntry | undefined = g.__masterKeyCache.get(cacheKey);
+  if (cached && cached.expiresAt > nowTs) {
+    return cached.key;
+  }
+  if (keyData.kdf !== 'argon2id') {
+    throw new Error(
+      'Unsupported key derivation scheme. Please update the app.'
+    );
+  }
+  const personalKeyBytes = await deriveArgon2idKey(passphrase, salt, keyData);
+  const masterKeyBytes = aesGcmDecrypt(personalKeyBytes, iv, wrapped);
+  g.__masterKeyCache.set(cacheKey, {
+    key: masterKeyBytes,
+    expiresAt: nowTs + MASTER_KEY_CACHE_TTL_MS,
+  });
+  try {
+    storage.set(
+      cacheKeyPersist,
+      JSON.stringify({
+        b64: encodeBase64(masterKeyBytes),
+        exp: nowTs + MASTER_KEY_CACHE_TTL_MS,
+      })
+    );
+  } catch {}
+  return masterKeyBytes;
 }
 
 export function useSourceCredentials() {
@@ -174,39 +316,39 @@ export function useSourceCredentials() {
     ): Promise<SourceCredentials> => {
       const manager = new SourceCredentialsManager({
         getPassphrase: async (accountId, opts) => {
-          // Use in-memory cache first; otherwise prompt minimally (native UI TBD)
-          let cached = passphraseCache.get(accountId);
+          const cached = passphraseCache.get(accountId);
           if (cached) return cached;
-          const input =
-            typeof window !== 'undefined'
-              ? window.prompt(opts?.message || 'Enter passphrase')
-              : '';
-          if (!input || input.length < 6)
-            throw new Error('Passphrase required');
-          passphraseCache.set(accountId, input);
-          return input;
+          const resolver = getRegisteredPassphraseResolver();
+          if (!resolver) throw new Error('Passphrase required');
+          const p = await resolver(accountId, {
+            title: opts?.title,
+            message: opts?.message,
+            accountName: opts?.accountName,
+          });
+          return p;
         },
       });
       return manager.getSourceCredentials(sourceId, options);
     },
-    prepareContentPlayback: async (
-      sourceId: string,
-      contentId: string | number,
-      contentType: 'movie' | 'series' | 'live',
-      options?: SourceCredentialsOptions
-    ) => {
+    prepareContentPlayback: async (args: {
+      sourceId: string;
+      contentId: string | number;
+      contentType: 'movie' | 'series' | 'live';
+      options?: SourceCredentialsOptions;
+    }) => {
+      const { sourceId, contentId, contentType, options } = args;
       const creds = await new SourceCredentialsManager({
         getPassphrase: async (accountId, opts) => {
-          let cached = passphraseCache.get(accountId);
+          const cached = passphraseCache.get(accountId);
           if (cached) return cached;
-          const input =
-            typeof window !== 'undefined'
-              ? window.prompt(opts?.message || 'Enter passphrase')
-              : '';
-          if (!input || input.length < 6)
-            throw new Error('Passphrase required');
-          passphraseCache.set(accountId, input);
-          return input;
+          const resolver = getRegisteredPassphraseResolver();
+          if (!resolver) throw new Error('Passphrase required');
+          const p = await resolver(accountId, {
+            title: opts?.title,
+            message: opts?.message,
+            accountName: opts?.accountName,
+          });
+          return p;
         },
       }).getSourceCredentials(sourceId, options);
       return { credentials: creds, sourceId, contentId, contentType };

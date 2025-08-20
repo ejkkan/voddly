@@ -8,14 +8,38 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // @ts-ignore
 import { Stack } from 'expo-router';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import FlashMessage from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
+import { PassphraseProvider } from '@/components/passphrase/PassphraseProvider';
 // Removed APIProvider – old API layer not used anymore
 import { loadSelectedTheme } from '@/lib';
 import { DbProvider } from '@/lib/db/provider';
+
+// Install atob shim as early as possible on web to handle URL-safe base64 and missing padding
+
+// @ts-ignore
+if (
+  typeof window !== 'undefined' &&
+  typeof (window as any).atob === 'function'
+) {
+  const originalAtob = (window as any).atob.bind(window);
+  const shim = (input: string) => {
+    const s = String(input || '')
+      .replace(/\s+/g, '')
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+    const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
+    const normalized = s + pad;
+    return originalAtob(normalized);
+  };
+  (window as any).atob = shim;
+  (globalThis as any).atob = shim;
+
+  console.log('[polyfill] atob shim installed');
+}
 
 // ErrorBoundary export removed to avoid type issues in tooling
 
@@ -27,6 +51,42 @@ const queryClient = new QueryClient();
 loadSelectedTheme();
 
 export default function RootLayout() {
+  React.useEffect(() => {
+    // Initialize native sodium early on iOS/Android
+    (async () => {
+      try {
+        const sodiumMod = await import('react-native-libsodium');
+        const sodium = (sodiumMod as any).default ?? sodiumMod;
+        if (typeof sodium.loadSumoVersion === 'function') {
+          sodium.loadSumoVersion();
+        }
+        if (sodium.ready && typeof sodium.ready.then === 'function') {
+          await sodium.ready;
+        }
+        (globalThis as any).__sodiumReady = true;
+      } catch (e) {
+        // Ignore on web or if module not available
+      }
+    })();
+
+    // Web: patch atob to accept URL-safe base64 and missing padding
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const originalAtob = (window as any).atob?.bind(window) ?? null;
+      const shim = (input: string) => {
+        const s = String(input || '')
+          .replace(/\s+/g, '')
+          .replace(/-/g, '+')
+          .replace(/_/g, '/');
+        const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
+        const normalized = s + pad;
+        if (originalAtob) return originalAtob(normalized);
+        // Fallback: minimal decoder (unlikely to be used)
+        return Buffer.from(normalized, 'base64').toString('binary');
+      };
+      (window as any).atob = shim;
+      (globalThis as any).atob = shim;
+    }
+  }, []);
   return (
     <Providers>
       <Stack>
@@ -47,7 +107,9 @@ function Providers({ children }: { children: React.ReactNode }) {
       <KeyboardProvider>
         <QueryClientProvider client={queryClient}>
           <DbProvider>
-            <BottomSheetModalProvider>{children}</BottomSheetModalProvider>
+            <PassphraseProvider>
+              <BottomSheetModalProvider>{children}</BottomSheetModalProvider>
+            </PassphraseProvider>
           </DbProvider>
           <FlashMessage position="top" />
         </QueryClientProvider>

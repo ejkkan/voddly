@@ -162,8 +162,43 @@ export class CatalogStorage {
         await this.init();
       }
 
-      // Check size limit
-      const dataSize = new Blob([JSON.stringify(data)]).size;
+      // Normalize input and deduplicate per-source to avoid duplicate sections/items
+      const safeKey = (v: any) => String(v ?? "");
+      const dedupeBy = <T>(arr: T[] | undefined, getKey: (t: T) => string): T[] => {
+        const seen = new Set<string>();
+        const out: T[] = [];
+        for (const it of arr || []) {
+          const k = getKey(it);
+          if (!seen.has(k)) {
+            seen.add(k);
+            out.push(it);
+          }
+        }
+        return out;
+      };
+      const normalizedCategories = dedupeBy<any>(data.categories as any[], (c: any) => {
+        const type = String((c?.type || "").toLowerCase());
+        const id = safeKey(c?.category_id ?? c?.id ?? c?.name);
+        return `${type}:${id}`;
+      });
+      const normalizedMovies = dedupeBy<any>(data.movies as any[], (m: any) =>
+        safeKey(m?.stream_id ?? m?.id),
+      );
+      const normalizedSeries = dedupeBy<any>(data.series as any[], (s: any) =>
+        safeKey(s?.series_id ?? s?.id),
+      );
+      const normalizedChannels = dedupeBy<any>(data.channels as any[], (ch: any) =>
+        safeKey(ch?.stream_id ?? ch?.id),
+      );
+      const normalizedData: CatalogData = {
+        categories: normalizedCategories,
+        movies: normalizedMovies,
+        series: normalizedSeries,
+        channels: normalizedChannels,
+      };
+
+      // Check size limit against normalized payload
+      const dataSize = new Blob([JSON.stringify(normalizedData)]).size;
       console.log(`📏 Data size: ${(dataSize / 1024 / 1024).toFixed(2)} MB`);
 
       if (dataSize > this.MAX_SIZE) {
@@ -182,12 +217,12 @@ export class CatalogStorage {
         console.error("💥 Transaction aborted:", event);
       };
 
-      // Store raw catalog for reference
+      // Store normalized catalog for reference (overwrites existing)
       console.log(`📦 Storing catalog metadata...`);
       await this.promisifyRequest(
         tx.objectStore("catalogs").put({
           sourceId,
-          data,
+          data: normalizedData,
           updatedAt: new Date().toISOString(),
           sizeBytes: dataSize,
         }),
@@ -208,9 +243,9 @@ export class CatalogStorage {
       let totalItems = 0;
 
       // Add movies
-      if (data.movies && data.movies.length > 0) {
-        console.log(`🎬 Storing ${data.movies.length} movies...`);
-        for (const movie of data.movies) {
+      if (normalizedData.movies && normalizedData.movies.length > 0) {
+        console.log(`🎬 Storing ${normalizedData.movies.length} movies...`);
+        for (const movie of normalizedData.movies) {
           try {
             const tmdbId = this.extractMovieTmdbId(movie);
             const item: ContentItem = {
@@ -227,7 +262,8 @@ export class CatalogStorage {
             if (tmdbId) {
               console.log(`🎬 Stored movie "${item.title}" with TMDB ID: ${tmdbId}`);
             }
-            await this.promisifyRequest(contentStore.add(item));
+            // Upsert to be robust if duplicates slip through
+            await this.promisifyRequest(contentStore.put(item));
             totalItems++;
           } catch (error) {
             console.error(
@@ -240,9 +276,9 @@ export class CatalogStorage {
       }
 
       // Add series
-      if (data.series && data.series.length > 0) {
-        console.log(`📺 Storing ${data.series.length} series...`);
-        for (const series of data.series) {
+      if (normalizedData.series && normalizedData.series.length > 0) {
+        console.log(`📺 Storing ${normalizedData.series.length} series...`);
+        for (const series of normalizedData.series) {
           try {
             const tmdbId = this.extractSeriesTmdbId(series);
             const item: ContentItem = {
@@ -259,7 +295,7 @@ export class CatalogStorage {
             if (tmdbId) {
               console.log(`📺 Stored series "${item.title}" with TMDB ID: ${tmdbId}`);
             }
-            await this.promisifyRequest(contentStore.add(item));
+            await this.promisifyRequest(contentStore.put(item));
             totalItems++;
           } catch (error) {
             console.error(
@@ -272,9 +308,9 @@ export class CatalogStorage {
       }
 
       // Add live channels
-      if (data.channels && data.channels.length > 0) {
-        console.log(`📡 Storing ${data.channels.length} channels...`);
-        for (const channel of data.channels) {
+      if (normalizedData.channels && normalizedData.channels.length > 0) {
+        console.log(`📡 Storing ${normalizedData.channels.length} channels...`);
+        for (const channel of normalizedData.channels) {
           try {
             const tmdbId = this.extractChannelTmdbId(channel);
             const item: ContentItem = {
@@ -291,7 +327,7 @@ export class CatalogStorage {
             if (tmdbId) {
               console.log(`📡 Stored channel "${item.title}" with TMDB ID: ${tmdbId}`);
             }
-            await this.promisifyRequest(contentStore.add(item));
+            await this.promisifyRequest(contentStore.put(item));
             totalItems++;
           } catch (error) {
             console.error(

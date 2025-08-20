@@ -15,6 +15,7 @@ import { passphraseCache } from '@/lib/passphrase-cache';
 import { Env } from '@env';
 import auth from '@/lib/auth/auth-client';
 import { MobileCatalogStorage } from '@/lib/catalog-storage';
+import { XtreamClient } from '@/lib/xtream-client';
 
 export default function AddPlaylist() {
   const router = useRouter();
@@ -54,25 +55,11 @@ export default function AddPlaylist() {
         passphraseCache.set(res.accountId, passphrase);
         // Directly fetch catalog from source and store locally
         const sourceId = res.sourceId;
-        const buildXtreamUrl = (
-          action: string,
-          params: Record<string, string | number> = {}
-        ) => {
-          const base = serverUrl.endsWith('/')
-            ? serverUrl.slice(0, -1)
-            : serverUrl;
-          const url = new URL(`${base}/player_api.php`);
-          const search = new URLSearchParams({
-            username,
-            password,
-            action,
-          });
-          for (const [key, value] of Object.entries(params)) {
-            search.set(key, String(value));
-          }
-          url.search = search.toString();
-          return url.toString();
-        };
+        const client = new XtreamClient({
+          server: serverUrl,
+          username,
+          password,
+        });
         const [
           liveCategories,
           vodCategories,
@@ -81,24 +68,12 @@ export default function AddPlaylist() {
           vodStreams,
           seriesList,
         ] = await Promise.all([
-          fetch(buildXtreamUrl('get_live_categories'))
-            .then((r) => r.json())
-            .catch(() => []),
-          fetch(buildXtreamUrl('get_vod_categories'))
-            .then((r) => r.json())
-            .catch(() => []),
-          fetch(buildXtreamUrl('get_series_categories'))
-            .then((r) => r.json())
-            .catch(() => []),
-          fetch(buildXtreamUrl('get_live_streams'))
-            .then((r) => r.json())
-            .catch(() => []),
-          fetch(buildXtreamUrl('get_vod_streams'))
-            .then((r) => r.json())
-            .catch(() => []),
-          fetch(buildXtreamUrl('get_series'))
-            .then((r) => r.json())
-            .catch(() => []),
+          client.getLiveCategories().catch(() => []),
+          client.getVodCategories().catch(() => []),
+          client.getSeriesCategories().catch(() => []),
+          client.getLiveStreams().catch(() => []),
+          client.getVodStreams().catch(() => []),
+          client.getSeriesList().catch(() => []),
         ]);
         const categories = [
           ...(Array.isArray(liveCategories) ? liveCategories : []).map(

@@ -54,7 +54,8 @@ export class SourceCredentialsManager {
    * Find which account contains a specific source
    */
   async findSourceInfo(sourceId: string): Promise<SourceInfo> {
-    console.log("🔍 Finding source info for:", sourceId);
+    const targetId = String(sourceId).split(":")[0];
+    console.log("🔍 Finding source info for:", sourceId, "→ normalized:", targetId);
     const accountsData = await apiClient.user.getAccounts();
     console.log(
       "📋 Available accounts:",
@@ -68,14 +69,27 @@ export class SourceCredentialsManager {
       );
       try {
         const { sources, keyData } = await apiClient.user.getSources(account.id);
+        console.log("📦 getSources raw for account", account.id, {
+          numSources: sources?.length ?? 0,
+          hasKeyData: !!keyData,
+          keyDataMeta: keyData
+            ? {
+                kdf: (keyData as any).kdf,
+                opslimit: (keyData as any).opslimit,
+                memlimit: (keyData as any).memlimit,
+              }
+            : null,
+        });
         console.log(
           `📂 Account ${account.name} has ${sources?.length || 0} sources:`,
           sources?.map((s) => ({ id: s.id, name: s.name, active: s.is_active })),
         );
 
-        const source = sources?.find((s) => s.id === String(sourceId));
+        const source =
+          sources?.find((s) => s.id === targetId) ||
+          sources?.find((s) => s.name === targetId);
         console.log(
-          `🎯 Source match for ${sourceId}:`,
+          `🎯 Source match for ${targetId}:`,
           source ? `Found: ${source.name}` : "Not found",
         );
 
@@ -102,8 +116,11 @@ export class SourceCredentialsManager {
       }
     }
 
-    console.error("❌ Source not found in any account after checking all accounts");
-    throw new Error("Source not found in any account");
+    console.error("❌ Source not found in any account after checking all accounts", {
+      targetId,
+      accountsTried: accountsData.accounts.map((a) => a.id),
+    });
+    throw new Error(`Source not found in any account (target=${targetId})`);
   }
 
   /**

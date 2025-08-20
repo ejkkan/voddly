@@ -47,15 +47,16 @@ export async function fetchPreviewByType(
   );
   const items = rows.map(mapRowToUiItem);
   // Debug: inspect what we fetched
-  // eslint-disable-next-line no-console
-  console.log(`[db/ui] fetchPreviewByType(${type}, limit=${limit}) ->`, items);
+
+  // Debug log removed
   return items;
 }
 
 export async function fetchCategoriesWithPreviews(
   type: CatalogItemType,
   limitPerCategory = 20,
-  maxCategories = 6
+  maxCategories = 6,
+  categoryOffset = 0
 ): Promise<
   {
     categoryId: string;
@@ -67,16 +68,31 @@ export async function fetchCategoriesWithPreviews(
   // Map item type to category.type stored during import
   const categoryType = type === 'movie' ? 'vod' : type;
   // Pick some categories for this type
-  const cats = (await db.getAllAsync(
-    `SELECT c.id, c.name
+  const baseQuery = `SELECT c.id, c.name
      FROM categories c
      WHERE c.type = $catType AND c.source_id IN (
        SELECT DISTINCT source_id FROM content_items WHERE type = $itemType
      )
-     ORDER BY c.name ASC
-     LIMIT $maxCats`,
-    { $catType: categoryType, $itemType: type, $maxCats: maxCategories }
-  )) as unknown as Array<{ id: string; name: string }>;
+     ORDER BY c.name ASC`;
+  const catsParams: Record<string, unknown> = {
+    $catType: categoryType,
+    $itemType: type,
+  };
+  const catsQuery =
+    typeof maxCategories === 'number' && maxCategories > 0
+      ? `${baseQuery} LIMIT $maxCats OFFSET $catOffset`
+      : baseQuery;
+  if (typeof maxCategories === 'number' && maxCategories > 0) {
+    catsParams.$maxCats = maxCategories;
+    catsParams.$catOffset = categoryOffset || 0;
+  }
+  const cats = (await db.getAllAsync(
+    catsQuery,
+    catsParams as any
+  )) as unknown as {
+    id: string;
+    name: string;
+  }[];
   const results: {
     categoryId: string;
     name: string;
@@ -96,12 +112,29 @@ export async function fetchCategoriesWithPreviews(
     const items = rows.map(mapRowToUiItem);
     results.push({ categoryId: c.id, name: c.name, items });
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    `[db/ui] fetchCategoriesWithPreviews(${type}) ->`,
-    results.map((r) => ({ name: r.name, count: r.items.length }))
-  );
+
+  // Debug log removed
   return results;
+}
+
+export async function fetchCategoryItems(
+  type: CatalogItemType,
+  categoryId: string,
+  limit = 25,
+  offset = 0
+): Promise<UiCatalogItem[]> {
+  const db = await openDb();
+  const rows = await db.getAllAsync(
+    `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
+            ic.category_id
+     FROM content_items i
+     JOIN content_item_categories ic ON ic.item_id = i.id
+     WHERE ic.category_id = $category_id AND i.type = $type
+     ORDER BY datetime(i.added_at) DESC, i.title ASC
+     LIMIT $limit OFFSET $offset`,
+    { $category_id: categoryId, $type: type, $limit: limit, $offset: offset }
+  );
+  return rows.map(mapRowToUiItem);
 }
 
 export async function fetchDashboardPreviews(limit = 10): Promise<{
@@ -114,18 +147,6 @@ export async function fetchDashboardPreviews(limit = 10): Promise<{
     fetchPreviewByType('series', limit),
     fetchPreviewByType('live', limit),
   ]);
-  // Debug: inspect dashboard previews
-  // eslint-disable-next-line no-console
-  console.log('[db/ui] fetchDashboardPreviews ->', {
-    moviesLength: movies.length,
-    seriesLength: series.length,
-    liveLength: live.length,
-    sample: {
-      movie: movies[0] ?? null,
-      series: series[0] ?? null,
-      live: live[0] ?? null,
-    },
-  });
   return { movies, series, live };
 }
 
@@ -143,12 +164,12 @@ export async function backfillMissingItemCategories(): Promise<number> {
      )`
   );
   let inserted = 0;
-  for (const r of rows as Array<{
+  for (const r of rows as {
     id: string;
     source_id: string;
     type: CatalogItemType;
     original_payload_json?: string;
-  }>) {
+  }[]) {
     try {
       const payload = r.original_payload_json
         ? JSON.parse(r.original_payload_json)
@@ -170,7 +191,7 @@ export async function backfillMissingItemCategories(): Promise<number> {
       // ignore malformed payloads
     }
   }
-  // eslint-disable-next-line no-console
-  console.log(`[db/ui] backfillMissingItemCategories -> inserted ${inserted}`);
+
+  // Debug log removed
   return inserted;
 }

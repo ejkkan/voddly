@@ -2,6 +2,7 @@ import { api, APIError } from 'encore.dev/api';
 import { userDB } from '../db';
 import { getAuthData } from '~encore/auth';
 import * as crypto from 'crypto';
+import argon2 from 'argon2';
 
 // ============================================
 // TYPES
@@ -62,6 +63,10 @@ interface MemberKeyRow {
   salt: string;
   iv: string;
   iterations: number;
+  kdf?: 'argon2id' | 'pbkdf2' | null;
+  opslimit?: number | null;
+  memlimit?: number | null;
+  wrap_algo?: 'aes-gcm-256' | null;
 }
 
 // ============================================
@@ -102,9 +107,20 @@ export const createAccount = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive owner's personal key from their passphrase
+    // Derive owner's personal key from their passphrase using Argon2id
     const salt = crypto.randomBytes(16);
-    const ownerKey = crypto.pbkdf2Sync(passphrase, salt, 500000, 32, 'sha256');
+    // Align with libsodium MODERATE defaults
+    const ARGON2_OPSLIMIT = 3; // time cost
+    const ARGON2_MEMLIMIT_BYTES = 64 * 1024 * 1024; // 64 MiB
+    const ownerKey = await argon2.hash(Buffer.from(passphrase, 'utf8'), {
+      type: argon2.argon2id,
+      raw: true,
+      hashLength: 32,
+      salt,
+      timeCost: ARGON2_OPSLIMIT,
+      memoryCost: ARGON2_MEMLIMIT_BYTES / 1024, // KiB
+      parallelism: 1,
+    });
 
     // Wrap (encrypt) the master key with owner's personal key
     const iv = crypto.randomBytes(12);
@@ -154,14 +170,18 @@ export const createAccount = api(
       // Store owner's wrapped master key
       await userDB.exec`
         INSERT INTO member_keys (
-          account_id, user_id, wrapped_master_key, salt, iv, iterations
+          account_id, user_id, wrapped_master_key, salt, iv, iterations, kdf, opslimit, memlimit, wrap_algo
         ) VALUES (
           ${accountId}, 
           ${auth.userID},
           ${wrapped.toString('base64')},
           ${salt.toString('base64')},
           ${iv.toString('base64')},
-          500000
+          0,
+          'argon2id',
+          ${ARGON2_OPSLIMIT},
+          ${ARGON2_MEMLIMIT_BYTES},
+          'aes-gcm-256'
         )
       `;
 
@@ -276,7 +296,7 @@ export const getSources = api(
 
     // Get member's wrapped key for client-side decryption
     const keyData = await userDB.queryRow<MemberKeyRow>`
-      SELECT wrapped_master_key, salt, iv, iterations
+      SELECT wrapped_master_key, salt, iv, iterations, kdf, opslimit, memlimit, wrap_algo
       FROM member_keys
       WHERE account_id = ${accountId} AND user_id = ${auth.userID}
     `;
@@ -398,22 +418,31 @@ export const inviteMember = api(
 
     // Get inviter's wrapped master key
     const keyData = await userDB.queryRow<MemberKeyRow>`
-      SELECT wrapped_master_key, salt, iv
+      SELECT wrapped_master_key, salt, iv, kdf, opslimit, memlimit
       FROM member_keys
       WHERE account_id = ${accountId} AND user_id = ${auth.userID}
     `;
 
     if (!keyData) throw APIError.internal('Key data not found');
 
-    // Decrypt master key using inviter's passphrase
+    // Decrypt master key using inviter's passphrase with Argon2id
     const salt = Buffer.from(keyData.salt, 'base64');
-    const inviterKey = crypto.pbkdf2Sync(
-      passphrase,
+    if (keyData.kdf !== 'argon2id') {
+      throw APIError.failedPrecondition(
+        'Legacy member key format not supported'
+      );
+    }
+    const timeCost = keyData.opslimit ?? 3;
+    const memBytes = keyData.memlimit ?? 64 * 1024 * 1024;
+    const inviterKey = await argon2.hash(Buffer.from(passphrase, 'utf8'), {
+      type: argon2.argon2id,
+      raw: true,
+      hashLength: 32,
       salt,
-      500000,
-      32,
-      'sha256'
-    );
+      timeCost,
+      memoryCost: Math.max(8 * 1024, Math.floor(memBytes / 1024)),
+      parallelism: 1,
+    });
 
     const decipher = crypto.createDecipheriv(
       'aes-256-gcm',
@@ -562,13 +591,17 @@ export const acceptInvite = api(
 
     // Wrap master key with new member's passphrase
     const salt = crypto.randomBytes(16);
-    const memberKey = crypto.pbkdf2Sync(
-      newPassphrase,
+    const ARGON2_OPSLIMIT = 3; // time cost
+    const ARGON2_MEMLIMIT_BYTES = 64 * 1024 * 1024; // 64 MiB
+    const memberKey = await argon2.hash(Buffer.from(newPassphrase, 'utf8'), {
+      type: argon2.argon2id,
+      raw: true,
+      hashLength: 32,
       salt,
-      500000,
-      32,
-      'sha256'
-    );
+      timeCost: ARGON2_OPSLIMIT,
+      memoryCost: ARGON2_MEMLIMIT_BYTES / 1024,
+      parallelism: 1,
+    });
 
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv('aes-256-gcm', memberKey, iv);
@@ -590,20 +623,29 @@ export const acceptInvite = api(
       // Store their wrapped key
       await userDB.exec`
         INSERT INTO member_keys (
-          account_id, user_id, wrapped_master_key, salt, iv, iterations
+          account_id, user_id, wrapped_master_key, salt, iv, iterations, kdf, opslimit, memlimit, wrap_algo
         ) VALUES (
           ${invite.account_id},
           ${auth.userID},
           ${wrapped.toString('base64')},
           ${salt.toString('base64')},
           ${iv.toString('base64')},
-          500000
+          0,
+          'argon2id',
+          ${ARGON2_OPSLIMIT},
+          ${ARGON2_MEMLIMIT_BYTES},
+          'aes-gcm-256'
         )
         ON CONFLICT (account_id, user_id) 
         DO UPDATE SET 
           wrapped_master_key = EXCLUDED.wrapped_master_key,
           salt = EXCLUDED.salt,
-          iv = EXCLUDED.iv
+          iv = EXCLUDED.iv,
+          iterations = EXCLUDED.iterations,
+          kdf = EXCLUDED.kdf,
+          opslimit = EXCLUDED.opslimit,
+          memlimit = EXCLUDED.memlimit,
+          wrap_algo = EXCLUDED.wrap_algo
       `;
 
       // Mark invite as used

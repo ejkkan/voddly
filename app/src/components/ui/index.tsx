@@ -17,6 +17,7 @@ export * from './utils';
 // export base components from react-native
 export {
   ActivityIndicator,
+  FlatList,
   Pressable,
   ScrollView,
   TouchableOpacity,

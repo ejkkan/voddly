@@ -5,8 +5,32 @@ export type DatabaseHandle = SQLite.SQLiteDatabase;
 export async function migrateDbIfNeeded(db: DatabaseHandle) {
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   await createCoreSchema(db);
+  await ensureExtraColumns(db);
   await createIndexes(db);
   await createFts(db);
+}
+
+// Danger: wipes all data. Keeps schema intact and re-applies FKs/indices
+export async function resetDatabase(db: DatabaseHandle) {
+  await db.execAsync('PRAGMA foreign_keys = ON; BEGIN');
+  try {
+    await db.execAsync(`
+      DELETE FROM content_item_categories;
+      DELETE FROM movies_ext;
+      DELETE FROM series_ext;
+      DELETE FROM episodes_ext;
+      DELETE FROM live_ext;
+      DELETE FROM content_items;
+      DELETE FROM categories;
+      DELETE FROM sources;
+    `);
+    await db.execAsync('COMMIT');
+    // Reclaim space
+    await db.execAsync('VACUUM');
+  } catch (e) {
+    await db.execAsync('ROLLBACK');
+    throw e;
+  }
 }
 
 async function createCoreSchema(db: DatabaseHandle) {
@@ -41,6 +65,41 @@ async function createCategoriesTable(db: DatabaseHandle) {
       UNIQUE (source_id, source_category_id)
     );
   `);
+}
+
+async function ensureExtraColumns(db: DatabaseHandle) {
+  // Helper to conditionally add columns if they don't exist
+  const hasColumn = async (table: string, column: string): Promise<boolean> => {
+    const rows = await db.getAllAsync<{ name: string }>(
+      `PRAGMA table_info(${table})`
+    );
+    return (rows || []).some((r) => String(r.name) === column);
+  };
+
+  // content_items: tmdb_id for cross-type linking
+  if (!(await hasColumn('content_items', 'tmdb_id'))) {
+    await db.execAsync(`ALTER TABLE content_items ADD COLUMN tmdb_id TEXT`);
+  }
+
+  // movies_ext: tech and bitrate info
+  if (!(await hasColumn('movies_ext', 'bitrate'))) {
+    await db.execAsync(`ALTER TABLE movies_ext ADD COLUMN bitrate INTEGER`);
+  }
+  if (!(await hasColumn('movies_ext', 'video_codec'))) {
+    await db.execAsync(`ALTER TABLE movies_ext ADD COLUMN video_codec TEXT`);
+  }
+  if (!(await hasColumn('movies_ext', 'audio_codec'))) {
+    await db.execAsync(`ALTER TABLE movies_ext ADD COLUMN audio_codec TEXT`);
+  }
+  if (!(await hasColumn('movies_ext', 'width'))) {
+    await db.execAsync(`ALTER TABLE movies_ext ADD COLUMN width INTEGER`);
+  }
+  if (!(await hasColumn('movies_ext', 'height'))) {
+    await db.execAsync(`ALTER TABLE movies_ext ADD COLUMN height INTEGER`);
+  }
+  if (!(await hasColumn('movies_ext', 'tech_json'))) {
+    await db.execAsync(`ALTER TABLE movies_ext ADD COLUMN tech_json TEXT`);
+  }
 }
 
 async function createContentItemsTable(db: DatabaseHandle) {

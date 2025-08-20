@@ -10,6 +10,7 @@ import {
 } from '@/components/ui';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { openDb } from '@/lib/db';
+import { useFetchRemoteLive } from '@/hooks/useFetchRemoteLive';
 
 type ItemRow = {
   id: string;
@@ -28,21 +29,46 @@ export default function LiveDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { prepareContentPlayback } = useSourceCredentials();
+  const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteLive();
 
   useEffect(() => {
     let mounted = true;
     const run = async () => {
       try {
         setLoading(true);
-        if (!id) return;
+        if (!id) {
+          if (mounted) setLoading(false);
+          return;
+        }
         const db = await openDb();
         const row = await db.getFirstAsync<ItemRow>(
           `SELECT id, source_id, source_item_id, type, title, poster_url, rating FROM content_items WHERE id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
-      } finally {
         if (mounted) setLoading(false);
+        if (row) {
+          // Background refresh
+          fetchRemote({
+            id: row.id,
+            sourceId: row.source_id,
+            sourceItemId: row.source_item_id,
+          }).then(async (ok) => {
+            try {
+              if (!ok || !mounted) return;
+              const db2 = await openDb();
+              const updated = await db2.getFirstAsync<ItemRow>(
+                `SELECT id, source_id, source_item_id, type, title, poster_url, rating FROM content_items WHERE id = $id`,
+                { $id: String(row.id) }
+              );
+              if (mounted) setItem(updated ?? row);
+            } catch {
+              // ignore refresh errors
+            }
+          });
+        }
+      } finally {
+        // loading ended after local read
       }
     };
     run();
@@ -70,7 +96,7 @@ export default function LiveDetails() {
   };
 
   return (
-    <SafeAreaView>
+    <SafeAreaView className="flex-1">
       <ScrollView className="flex-1 bg-white dark:bg-black">
         <View className="p-4">
           <Pressable className="mb-3" onPress={() => router.back()}>
@@ -112,10 +138,38 @@ export default function LiveDetails() {
                 >
                   <Text className="text-white">Start Watching</Text>
                 </Pressable>
+                <Pressable
+                  className="rounded-xl border border-neutral-300 px-4 py-2 dark:border-neutral-700"
+                  onPress={async () => {
+                    if (!item) return;
+                    const ok = await fetchRemote({
+                      id: item.id,
+                      sourceId: item.source_id,
+                      sourceItemId: item.source_item_id,
+                    });
+                    if (ok) {
+                      const db = await openDb();
+                      const row = await db.getFirstAsync<ItemRow>(
+                        `SELECT id, source_id, source_item_id, type, title, poster_url, rating FROM content_items WHERE id = $id`,
+                        { $id: String(item.id) }
+                      );
+                      setItem(row ?? null);
+                    }
+                  }}
+                >
+                  <Text className="text-neutral-900 dark:text-neutral-50">
+                    {isFetching ? 'Fetching…' : 'Fetch Remote'}
+                  </Text>
+                </Pressable>
               </View>
               {error ? (
                 <Text className="mt-2 text-red-600 dark:text-red-400">
                   {error}
+                </Text>
+              ) : null}
+              {fetchError ? (
+                <Text className="mt-2 text-red-600 dark:text-red-400">
+                  {fetchError}
                 </Text>
               ) : null}
             </View>

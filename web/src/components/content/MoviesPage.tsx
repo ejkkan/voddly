@@ -1,10 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import * as React from "react";
 import { LoadingSpinner } from "~/components/ui/LoadingSpinner";
 import { CatalogStorage } from "~/lib/catalog-storage";
 import { ContentHeader } from "./ContentHeader";
 import { ContentSection } from "./ContentSection";
-import { InfiniteContentGrid } from "./InfiniteContentGrid";
+import { InfiniteCategorySections } from "./InfiniteCategorySections";
 import { SearchDialog } from "./SearchDialog";
 
 export function MoviesPage() {
@@ -13,30 +14,29 @@ export function MoviesPage() {
   const [error, setError] = React.useState<string | null>(null);
   const [searchOpen, setSearchOpen] = React.useState<boolean>(false);
 
+  const storageQuery = useQuery({
+    queryKey: ["storage-info"],
+    queryFn: async () => {
+      const storage = new CatalogStorage();
+      await storage.init();
+      return storage.getStorageInfo();
+    },
+    refetchInterval: (data) => {
+      // Poll more frequently until we find a source with data
+      const hasData = (data?.sources || []).some((s: any) => (s.size || 0) > 0);
+      return hasData ? 0 : 2000;
+    },
+  });
+
   React.useEffect(() => {
-    let isCancelled = false;
-    const storage = new CatalogStorage();
-
-    async function pickSource() {
-      try {
-        setLoading(true);
-        await storage.init();
-        const info = await storage.getStorageInfo();
-        const first = info.sources.find((s) => (s.size || 0) > 0) || info.sources[0];
-        if (!isCancelled) setSourceId(first?.sourceId ?? null);
-      } catch (e) {
-        if (!isCancelled)
-          setError(e instanceof Error ? e.message : "Failed to load sources");
-      } finally {
-        if (!isCancelled) setLoading(false);
-      }
-    }
-
-    pickSource();
-    return () => {
-      isCancelled = true;
-    };
-  }, []);
+    const info = storageQuery.data;
+    if (!info) return;
+    // Prefer a source that already has cached data
+    const firstWithData = info.sources.find((s: any) => (s.size || 0) > 0);
+    const first = firstWithData || info.sources[0];
+    if (first && !sourceId) setSourceId(first.sourceId);
+    if (!storageQuery.isLoading) setLoading(false);
+  }, [storageQuery.data, storageQuery.isLoading, sourceId]);
 
   if (loading) {
     return (
@@ -74,26 +74,8 @@ export function MoviesPage() {
             ]}
           />
 
-          {/* Carousels */}
-          <div className="space-y-10">
-            <ContentSection
-              title="Trending"
-              description="Most watched right now"
-              playlistId={String(sourceId)}
-              contentType="movies"
-              viewAllHref="/app/movies"
-            />
-            <ContentSection
-              title="Popular"
-              description="Top picks for you"
-              playlistId={String(sourceId)}
-              contentType="movies"
-              viewAllHref="/app/movies"
-            />
-          </div>
-
-          {/* Grid */}
-          <InfiniteContentGrid sourceId={String(sourceId)} contentType="movies" />
+          {/* Infinite category sections */}
+          <InfiniteCategorySections sourceId={String(sourceId)} contentType="movies" />
         </div>
       </div>
 

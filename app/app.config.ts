@@ -41,6 +41,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: Env.BUNDLE_ID,
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: true,
+        NSAllowsLocalNetworking: true,
+      },
     },
   },
   experiments: {
@@ -52,12 +56,26 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       backgroundColor: '#2E3C4B',
     },
     package: Env.PACKAGE,
+    // Cleartext traffic allowed via AndroidManifest tweak (set below in plugins)
   },
   web: {
     favicon: './assets/favicon.png',
     bundler: 'metro',
   },
   plugins: [
+    ['react-native-libsodium', {}],
+    [
+      'expo-build-properties',
+      {
+        android: {
+          usesCleartextTraffic: true, // ? enable HTTP requests
+        },
+        ios: {
+          usesCleartextTraffic: true,
+          flipper: true,
+        },
+      },
+    ],
     [
       'expo-sqlite',
       {
@@ -92,6 +110,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     'expo-localization',
     'expo-router',
+    'expo-secure-store',
     ['app-icon-badge', appIconBadgeConfig],
     ['react-native-edge-to-edge'],
   ],

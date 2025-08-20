@@ -3,5 +3,6 @@
   "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
   "newArchEnabled": "true",
   "expo.sqlite.enableFTS": "true",
-  "expo.sqlite.useSQLCipher": "true"
+  "expo.sqlite.useSQLCipher": "true",
+  "apple.privacyManifestAggregationEnabled": "true"
 }
