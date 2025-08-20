@@ -37,7 +37,7 @@ require('dotenv').config({
 
 const BUNDLE_ID = 'com.voddly'; // ios bundle id
 const PACKAGE = 'com.voddly'; // android package name
-const NAME = 'voddly'; // app name
+const NAME = 'Voddly'; // app name
 const EXPO_ACCOUNT_OWNER = 'ejkkan'; // expo account owner
 const EAS_PROJECT_ID = '96bde828-e000-48be-8919-c85fbc41098d'; // eas project id
 const SCHEME = 'voddly'; // app scheme

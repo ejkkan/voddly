@@ -1,7 +1,8 @@
 import React from 'react';
-import { Platform, StatusBar, Dimensions } from 'react-native';
-import { View, Text, Pressable } from '@/components/ui';
+import { Dimensions, Platform, StatusBar } from 'react-native';
 import { VLCPlayer } from 'react-native-vlc-media-player';
+
+import { Pressable, Text, View } from '@/components/ui';
 
 type Props = {
   url: string;
@@ -74,7 +75,16 @@ export function VlcPlayerView(props: Props) {
         <VLCPlayer
           ref={playerRef}
           style={{ width: '100%', height: '100%', backgroundColor: 'black' }}
-          source={{ uri: url }}
+          source={{
+            uri: url,
+            initType: 2,
+            initOptions: [
+              // '--rtsp-tcp',
+              '--network-caching=1000',
+              // '--no-audio',
+              '--verbose=2',
+            ],
+          }}
           autoplay={true}
           paused={paused}
           autoAspectRatio={true}
@@ -110,18 +120,18 @@ export function VlcPlayerView(props: Props) {
 
       {/* Top bar */}
       {showControls && (
-        <View className="absolute left-0 right-0 top-0">
+        <View className="absolute inset-x-0 top-0">
           <View className="flex-row items-center p-3">
             {showBack ? (
               <Pressable
-                className="rounded-md bg-white/10 px-3 py-2 mr-2"
+                className="mr-2 rounded-md bg-white/10 px-3 py-2"
                 onPress={onBack}
               >
                 <Text className="text-white">Back</Text>
               </Pressable>
             ) : null}
             {title ? (
-              <Text className="text-white text-sm" numberOfLines={1}>
+              <Text className="text-sm text-white" numberOfLines={1}>
                 {title}
               </Text>
             ) : null}
@@ -131,8 +141,8 @@ export function VlcPlayerView(props: Props) {
 
       {/* Bottom controls */}
       {showControls && (
-        <View className="absolute left-0 right-0 bottom-0 p-3">
-          <View className="flex-row items-center justify-between mb-2">
+        <View className="absolute inset-x-0 bottom-0 p-3">
+          <View className="mb-2 flex-row items-center justify-between">
             <Pressable
               className="rounded-md bg-white/10 px-3 py-2"
               onPress={() => setPaused((p) => !p)}
@@ -150,7 +160,7 @@ export function VlcPlayerView(props: Props) {
           </View>
 
           <View className="flex-row items-center">
-            <Text className="text-white text-xs mr-2" style={{ width: 48 }}>
+            <Text className="mr-2 text-xs text-white" style={{ width: 48 }}>
               {fmt(currentTime)}
             </Text>
             <View
@@ -171,7 +181,7 @@ export function VlcPlayerView(props: Props) {
               />
             </View>
             <Text
-              className="text-white text-xs ml-2"
+              className="ml-2 text-xs text-white"
               style={{ width: 48, textAlign: 'right' }}
             >
               {fmt(duration)}
@@ -180,7 +190,7 @@ export function VlcPlayerView(props: Props) {
 
           {/* Tracks controls */}
           {(audioTracks.length > 0 || textTracks.length > 0) && (
-            <View className="flex-row items-center justify-start gap-2 mt-2">
+            <View className="mt-2 flex-row items-center justify-start gap-2">
               {audioTracks.length > 0 ? (
                 <Pressable
                   className="rounded-md bg-white/10 px-3 py-2"
@@ -196,7 +206,7 @@ export function VlcPlayerView(props: Props) {
                     setSelectedAudioTrackId(list[nextIdx]?.id);
                   }}
                 >
-                  <Text className="text-white text-xs">
+                  <Text className="text-xs text-white">
                     {(() => {
                       const current = audioTracks.find(
                         (t) => t.id === selectedAudioTrackId
@@ -222,7 +232,7 @@ export function VlcPlayerView(props: Props) {
                     setSelectedTextTrackId(list[nextIdx]?.id);
                   }}
                 >
-                  <Text className="text-white text-xs">
+                  <Text className="text-xs text-white">
                     {(() => {
                       const current = textTracks.find(
                         (t) => t.id === selectedTextTrackId
@@ -236,7 +246,7 @@ export function VlcPlayerView(props: Props) {
             </View>
           )}
 
-          <View className="flex-row items-center justify-between mt-2">
+          <View className="mt-2 flex-row items-center justify-between">
             <Pressable
               className="rounded-md bg-white/10 px-3 py-2"
               onPress={() => onSeek(Math.max(0, currentTime - 15))}
@@ -265,10 +275,10 @@ export function VlcPlayerView(props: Props) {
             ) : null}
           </View>
           {hasError ? (
-            <Text className="text-red-400 text-xs mt-2">{hasError}</Text>
+            <Text className="mt-2 text-xs text-red-400">{hasError}</Text>
           ) : null}
           {isLoading ? (
-            <Text className="text-white/80 text-xs mt-2">Buffering…</Text>
+            <Text className="mt-2 text-xs text-white/80">Buffering…</Text>
           ) : null}
         </View>
       )}
