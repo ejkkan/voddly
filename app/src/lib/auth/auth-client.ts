@@ -70,7 +70,7 @@ async function doFetch(path: string, init?: RequestInit) {
     headers,
     ...(method === 'GET' || method === 'HEAD' ? { body: undefined } : {}),
   };
-
+  console.log('safeInit', `${base}${rel}`, safeInit);
   const res = await fetch(`${base}${rel}`, safeInit);
 
   const setCookie = extractSetCookie(res.headers);

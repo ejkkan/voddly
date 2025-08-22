@@ -4,10 +4,13 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
+    "ensure-proxy-4000": "SO=$(command -v socat || echo /opt/homebrew/bin/socat || echo /usr/local/bin/socat); pgrep -f 'TCP-LISTEN:4000,bind=0.0.0.0' >/dev/null || \"$SO\" TCP-LISTEN:4000,bind=0.0.0.0,reuseaddr,fork TCP:127.0.0.1:4000 >/dev/null 2>&1 &",
+    "start:lan": "pnpm run ensure-proxy-4000 && cross-env EXPO_ROUTER_APP_ROOT=src/app APP_ENV=staging EXPO_NO_DOTENV=1 expo start",
     "start": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo start",
     "prebuild": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 EXPO_TV=0 pnpm expo prebuild",
     "android": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo run:android",
     "ios": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo run:ios",
+    "ios:lan": "pnpm run ensure-proxy-4000 && cross-env EXPO_ROUTER_APP_ROOT=src/app APP_ENV=staging EXPO_NO_DOTENV=1 expo run:ios",
     "web": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo start --web",
     "xcode": "xed -b ios",
     "doctor": "npx expo-doctor@latest",

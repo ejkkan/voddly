@@ -6,7 +6,7 @@ import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
 
 type AppHref =
   | '/(app)/dashboard'
-  | '/(app)/movies'
+  | '/(app)/test'
   | '/(app)/series'
   | '/(app)/live'
   | '/(app)/playlists'
@@ -19,8 +19,8 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/(app)/dashboard' },
-  { label: 'Movies', href: '/(app)/movies' },
   { label: 'Series', href: '/(app)/series' },
+  { label: 'VODs', href: '/(app)/test' },
   { label: 'Live', href: '/(app)/live' },
   { label: 'Playlists', href: '/(app)/playlists' },
   { label: 'Settings', href: '/(app)/settings' },

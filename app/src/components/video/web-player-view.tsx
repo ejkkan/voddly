@@ -1,5 +1,6 @@
 /* eslint-disable */
 import React from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import apiClient from '@/lib/api-client';
 import { View, Text, Pressable } from '@/components/ui';
 // Lazy-load Shaka at runtime to avoid type/module issues
@@ -21,6 +22,8 @@ export function WebPlayerView(props: Props) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const playerRef = React.useRef<any>(null);
   const progressiveFallbackTriedRef = React.useRef<boolean>(false);
+  const progressiveAlternateTriedRef = React.useRef<boolean>(false);
+  const progressiveRetryCountRef = React.useRef<number>(0);
 
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -28,7 +31,6 @@ export function WebPlayerView(props: Props) {
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
   const [showControls, setShowControls] = React.useState(true);
-  const [audioIssue, setAudioIssue] = React.useState<null | 'no-audio'>(null);
 
   const [audioLanguages, setAudioLanguages] = React.useState<string[]>([]);
   const [selectedAudioLang, setSelectedAudioLang] = React.useState<
@@ -56,8 +58,36 @@ export function WebPlayerView(props: Props) {
   const createdObjectUrlsRef = React.useRef<string[]>([]);
   const autoplayTriedRef = React.useRef<boolean>(false);
   const pendingPlayRef = React.useRef<Promise<void> | null>(null);
+  const audioCheckIntervalRef = React.useRef<any>(null);
   const SUBS_DISABLED = true; // Temporarily disable subtitle fetching/UI per request
   const AUDIO_FIX_ENABLED = false; // Hide MP4 fallback button by default (provider often doesn't serve MP4)
+
+  // Stop playback when the screen loses focus (e.g., navigating via sidebar)
+  useFocusEffect(
+    React.useCallback(() => {
+      return () => {
+        try {
+          const v = videoRef.current as HTMLVideoElement | null;
+          if (!v) return;
+          try {
+            v.pause();
+          } catch (e) {
+            console.log(e, 'Error pausing video');
+          }
+          try {
+            (v as any).src = '';
+            v.removeAttribute('src');
+            v.load();
+          } catch (e) {
+            console.log(e, 'Error pausing video');
+          }
+        } catch (e) {
+          console.log(e, 'Error pausing video');
+          console.log('Error pausing video');
+        }
+      };
+    }, [])
+  );
 
   // Debug logging helpers
   const logVideoState = React.useCallback((label: string) => {
@@ -80,6 +110,9 @@ export function WebPlayerView(props: Props) {
   }, []);
 
   React.useEffect(() => {
+    // Reset autoplay attempt for new URL
+    autoplayTriedRef.current = false;
+    pendingPlayRef.current = null;
     const video = videoRef.current as HTMLVideoElement | null;
     if (!video) return;
 
@@ -101,6 +134,11 @@ export function WebPlayerView(props: Props) {
     const onWaiting = () => {
       setIsLoading(true);
       logVideoState('onWaiting');
+    };
+    const onStalled = () => {
+      setIsLoading(true);
+      logVideoState('onStalled');
+      // Do not force reloads; allow the browser to proceed to canplay if possible
     };
     const onCanPlay = () => {
       setIsLoading(false);
@@ -147,6 +185,13 @@ export function WebPlayerView(props: Props) {
     const onLoadedMeta = () => {
       logVideoState('onLoadedMetadata');
     };
+    const onVisibility = () => {
+      try {
+        if (document.visibilityState === 'hidden') {
+          video.pause();
+        }
+      } catch {}
+    };
 
     const init = async () => {
       try {
@@ -160,8 +205,14 @@ export function WebPlayerView(props: Props) {
         })();
         const ext = (urlPath.split('.').pop() || '').toLowerCase();
         const isManifest = ext === 'm3u8' || ext === 'mpd';
+        const isHls = ext === 'm3u8';
+        const canNativeHls =
+          isHls &&
+          typeof video.canPlayType === 'function' &&
+          video.canPlayType('application/vnd.apple.mpegurl') !== '';
+        const useShaka = isManifest && !(isHls && canNativeHls);
 
-        if (isManifest) {
+        if (useShaka) {
           if (!ShakaNS) {
             // Use a literal dynamic import so the bundler includes the module
             // @ts-ignore - types not needed for runtime import
@@ -201,10 +252,12 @@ export function WebPlayerView(props: Props) {
         video.addEventListener('play', onPlay);
         video.addEventListener('pause', onPause);
         video.addEventListener('waiting', onWaiting);
+        video.addEventListener('stalled', onStalled);
         video.addEventListener('canplay', onCanPlay);
         video.addEventListener('error', onVideoError as any);
         video.addEventListener('volumechange', onVolumeChange);
         video.addEventListener('loadedmetadata', onLoadedMeta);
+        document.addEventListener('visibilitychange', onVisibility);
 
         setIsLoading(true);
         // Initialize mute UI state
@@ -226,7 +279,7 @@ export function WebPlayerView(props: Props) {
           isProgressive,
         });
 
-        if (isManifest && player) {
+        if (useShaka && player) {
           await player.load(url);
         } else {
           // Minimal progressive playback: set src directly, no type hints, no crossOrigin
@@ -238,34 +291,25 @@ export function WebPlayerView(props: Props) {
           try {
             (video as any).preload = 'auto';
           } catch {}
+          // Assign the provided URL as-is
           (video as HTMLVideoElement).src = url;
           progressiveFallbackTriedRef.current = false;
-          video.load();
+          progressiveRetryCountRef.current = 0;
+          progressiveAlternateTriedRef.current = false;
           logVideoState('after set src and load');
-          // Watch for lack of audio decode (common for E-AC-3 in browsers)
+          // Kick-start autoplay on next frame, muted to satisfy browser policies
+          requestAnimationFrame(() => {
+            try {
+              (video as any).muted = true;
+              void (video as HTMLVideoElement).play();
+            } catch {}
+          });
+          // Clear any previous audio check interval
           try {
-            setAudioIssue(null);
-            const v = video;
-            let checks = 0;
-            const maxChecks = 10; // ~5s at 500ms
-            const timer = setInterval(() => {
-              if (!v) {
-                clearInterval(timer);
-                return;
-              }
-              checks += 1;
-              const decoded = (v as any).webkitAudioDecodedByteCount || 0;
-              const muted = !!v.muted;
-              const vol = v.volume ?? 1;
-              if (decoded > 0) {
-                clearInterval(timer);
-                return;
-              }
-              if (checks >= maxChecks && !muted && vol > 0) {
-                clearInterval(timer);
-                setAudioIssue('no-audio');
-              }
-            }, 500);
+            if (audioCheckIntervalRef.current) {
+              clearInterval(audioCheckIntervalRef.current);
+              audioCheckIntervalRef.current = null;
+            }
           } catch {}
         }
 
@@ -313,11 +357,17 @@ export function WebPlayerView(props: Props) {
 
     return () => {
       cancelled = true;
+      try {
+        document.removeEventListener('visibilitychange', onVisibility);
+      } catch {}
       video.removeEventListener('timeupdate', onTime);
       video.removeEventListener('durationchange', onDuration);
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('waiting', onWaiting);
+      try {
+        video.removeEventListener('stalled', onStalled);
+      } catch {}
       video.removeEventListener('canplay', onCanPlay);
       try {
         player?.destroy?.();
@@ -339,6 +389,22 @@ export function WebPlayerView(props: Props) {
       } catch {}
       try {
         if (progressiveWatchdog) clearTimeout(progressiveWatchdog);
+      } catch {}
+      try {
+        if (audioCheckIntervalRef.current) {
+          clearInterval(audioCheckIntervalRef.current);
+          audioCheckIntervalRef.current = null;
+        }
+      } catch {}
+      // Proactively pause and release media element resources
+      try {
+        video.pause();
+      } catch {}
+      try {
+        (video as any).src = '';
+        while (video.firstChild) video.removeChild(video.firstChild);
+        video.removeAttribute('src');
+        video.load();
       } catch {}
     };
   }, [url]);
@@ -380,15 +446,18 @@ export function WebPlayerView(props: Props) {
     }
     return vtt;
   };
-
+  console.log('url', url);
   return (
     <View className="flex-1 bg-black">
       <Pressable className="flex-1" onPress={() => setShowControls((v) => !v)}>
         <video
+          key={url}
           ref={videoRef}
           className="h-full w-full object-contain"
           playsInline
-          muted={false}
+          autoPlay
+          muted
+          preload="auto"
         />
       </Pressable>
 
@@ -947,36 +1016,7 @@ export function WebPlayerView(props: Props) {
               </Pressable>
             ) : null}
           </View>
-          {audioIssue === 'no-audio' ? (
-            <View className="mt-2">
-              <Text className="text-yellow-300 text-xs mb-2">
-                Audio isn’t supported by this browser for this file. Please use
-                the app for full playback, or open in VLC from the details page.
-              </Text>
-              <View className="flex-row">
-                <Pressable
-                  className="rounded-md bg-white/10 px-3 py-2 mr-2"
-                  onPress={() => {
-                    try {
-                      window.open(url, '_blank');
-                    } catch {}
-                  }}
-                >
-                  <Text className="text-white text-xs">Open in new tab</Text>
-                </Pressable>
-                <Pressable
-                  className="rounded-md bg-white/10 px-3 py-2"
-                  onPress={async () => {
-                    try {
-                      await navigator.clipboard?.writeText(url);
-                    } catch {}
-                  }}
-                >
-                  <Text className="text-white text-xs">Copy URL</Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : isLoading ? (
+          {isLoading ? (
             <Text className="text-white/80 text-xs mt-2">Buffering…</Text>
           ) : null}
           {hasError ? (

@@ -4,7 +4,12 @@ import { Platform } from 'react-native';
 import { MMKV } from 'react-native-mmkv';
 
 import { apiClient } from '@/lib/api-client';
-import { aesGcmDecrypt, decodeBase64, encodeBase64 } from '@/lib/crypto-utils';
+import {
+  aesGcmDecrypt,
+  decodeBase64,
+  encodeBase64,
+  xchacha20Poly1305Decrypt,
+} from '@/lib/crypto-utils';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
 
@@ -79,23 +84,42 @@ export class SourceCredentialsManager {
     options: SourceCredentialsOptions = {}
   ): Promise<SourceCredentials> {
     const info = await this.findSourceInfo(sourceId);
-    const passphrase = await this.getPassphrase(info.account.id, {
-      title: options.title || 'Decrypt Source',
-      message: options.message || 'Enter your passphrase to decrypt the source',
-      accountName: info.account.name,
-      validateFn: options.validatePassphrase,
-    });
-    const { salt, iv, wrapped } = validateAndParseKeyData(info.keyData);
-    const masterKeyBytes = await getOrDeriveMasterKey({
-      accountId: info.account.id,
-      passphrase,
-      keyData: info.keyData,
-      salt,
-      iv,
-      wrapped,
-    });
-    validateSourceConfig(info.source);
-    return this.decryptSourceConfigWithKey(info, masterKeyBytes);
+    const attempt = async (
+      forcePrompt: boolean
+    ): Promise<SourceCredentials> => {
+      const passphrase = await this.getPassphrase(info.account.id, {
+        title: options.title || 'Decrypt Source',
+        message:
+          options.message || 'Enter your passphrase to decrypt the source',
+        accountName: info.account.name,
+        validateFn: options.validatePassphrase,
+      });
+      const { salt, iv, wrapped } = validateAndParseKeyData(info.keyData);
+      const masterKeyBytes = await getOrDeriveMasterKey({
+        accountId: info.account.id,
+        passphrase,
+        keyData: info.keyData,
+        salt,
+        iv,
+        wrapped,
+      });
+      validateSourceConfig(info.source);
+      return this.decryptSourceConfigWithKey(info, masterKeyBytes);
+    };
+    try {
+      return await attempt(false);
+    } catch (e: any) {
+      // On crypto errors, clear caches and force re-prompt
+      try {
+        passphraseCache.remove(info.account.id);
+      } catch {}
+      try {
+        const g = globalThis as any;
+        if (g.__masterKeyCache)
+          g.__masterKeyCache.delete(`acct:${info.account.id}`);
+      } catch {}
+      return attempt(true);
+    }
   }
   // Helper to decrypt config JSON given an unwrapped master key
   async decryptSourceConfigWithKey(
@@ -106,15 +130,20 @@ export class SourceCredentialsManager {
     const cfgEnc = decodeBase64(String(info.source.encrypted_config || ''));
     if (cfgIv.length === 0)
       throw new Error('Invalid source config: missing IV');
-    if (cfgIv.length !== 12)
+    // Accept 12-byte (GCM) and 24-byte (XChaCha20) nonces
+    if (cfgIv.length !== 12 && cfgIv.length !== 24)
       throw new Error(
-        `Invalid source config: IV must be 12 bytes, got ${cfgIv.length}`
+        `Invalid source config: IV must be 12 or 24 bytes, got ${cfgIv.length}`
       );
     if (cfgEnc.length === 0)
       throw new Error('Invalid source config: missing encrypted payload');
     // minimal logging removed
     try {
-      const plain = aesGcmDecrypt(masterKeyBytes, cfgIv, cfgEnc);
+      const alg = String(info.keyData.wrap_algo || 'aes-gcm-256');
+      const plain =
+        alg === 'xchacha20poly1305'
+          ? xchacha20Poly1305Decrypt(masterKeyBytes, cfgIv, cfgEnc)
+          : aesGcmDecrypt(masterKeyBytes, cfgIv, cfgEnc);
       const credentials = JSON.parse(
         new TextDecoder().decode(new Uint8Array(plain))
       );
@@ -231,8 +260,11 @@ function validateAndParseKeyData(keyData: SourceInfo['keyData']): {
   const wrapped = decodeBase64(String(keyData.wrapped_master_key || ''));
   if (salt.length === 0) throw new Error('Invalid key data: missing salt');
   if (iv.length === 0) throw new Error('Invalid key data: missing IV');
-  if (iv.length !== 12)
-    throw new Error(`Invalid key data: IV must be 12 bytes, got ${iv.length}`);
+  // Accept 12-byte (GCM) and 24-byte (XChaCha20) nonces
+  if (iv.length !== 12 && iv.length !== 24)
+    throw new Error(
+      `Invalid key data: IV must be 12 or 24 bytes, got ${iv.length}`
+    );
   if (wrapped.length === 0)
     throw new Error('Invalid key data: missing wrapped key');
   return { salt, iv, wrapped };
@@ -242,9 +274,9 @@ function validateSourceConfig(source: SourceInfo['source']): void {
   const cfgIv = decodeBase64(String(source.config_iv || ''));
   const cfgEnc = decodeBase64(String(source.encrypted_config || ''));
   if (cfgIv.length === 0) throw new Error('Invalid source config: missing IV');
-  if (cfgIv.length !== 12)
+  if (cfgIv.length !== 12 && cfgIv.length !== 24)
     throw new Error(
-      `Invalid source config: IV must be 12 bytes, got ${cfgIv.length}`
+      `Invalid source config: IV must be 12 or 24 bytes, got ${cfgIv.length}`
     );
   if (cfgEnc.length === 0)
     throw new Error('Invalid source config: missing encrypted payload');

@@ -179,6 +179,27 @@ export async function fetchDashboardPreviews(
   return { movies, series, live };
 }
 
+export async function fetchRandomByType(
+  type: CatalogItemType,
+  limit = 10,
+  accountId?: string
+): Promise<UiCatalogItem[]> {
+  const db = await openDb();
+  const rows = await db.getAllAsync(
+    `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
+            ic.category_id
+     FROM content_items i
+     LEFT JOIN content_item_categories ic ON ic.item_id = i.id
+     WHERE i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
+     ORDER BY RANDOM()
+     LIMIT $limit`,
+    accountId
+      ? { $type: type, $limit: limit, $account_id: accountId }
+      : { $type: type, $limit: limit }
+  );
+  return rows.map(mapRowToUiItem);
+}
+
 /**
  * Backfill missing content_item_categories links by reading original payloads.
  * Returns number of links inserted.

@@ -6,8 +6,46 @@ import { WebPlayerView } from '@/components/video/web-player-view';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
 
-export default function Player() {
+function PlayerContent({
+  url,
+  contentType,
+}: {
+  url?: string;
+  contentType?: 'movie' | 'series' | 'live';
+}) {
   const router = useRouter();
+  return (
+    <View className="flex-1 items-stretch justify-center">
+      {!url ? null : (
+        <WebPlayerView
+          url={url}
+          title={undefined}
+          showBack
+          onBack={() => router.back()}
+          movieId={undefined}
+          tmdbId={undefined}
+          type={contentType}
+        />
+      )}
+    </View>
+  );
+}
+
+function BackBar() {
+  const router = useRouter();
+  return (
+    <View className="p-3">
+      <Pressable
+        onPress={() => router.back()}
+        className="rounded-md bg-white/10 px-3 py-2"
+      >
+        <Text className="text-white">Back</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+export default function Player() {
   const params = useLocalSearchParams<{
     playlist?: string;
     movie?: string;
@@ -23,11 +61,11 @@ export default function Player() {
     return null;
   }, [params.movie, params.series, params.live]);
 
-  const [state, setState] = React.useState<{
-    loading: boolean;
-    error?: string | null;
-    url?: string;
-  }>({ loading: true });
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [url, setUrl] = React.useState<string | undefined>(undefined);
+
+  // Note: keep logic simple; rely on containerExtension fix only
 
   React.useEffect(() => {
     let mounted = true;
@@ -45,56 +83,39 @@ export default function Player() {
           password: creds.password,
           contentId: Number(content.id),
           contentType: content.type,
+          // Prefer provider-indicated container when available
           containerExtension: creds.containerExtension,
           videoCodec: creds.videoCodec,
           audioCodec: creds.audioCodec,
         });
         if (!mounted) return;
-        setState({ loading: false, url: streamingUrl });
+        setUrl(streamingUrl);
+        setLoading(false);
       } catch (e) {
         if (!mounted) return;
-        setState({
-          loading: false,
-          error: e instanceof Error ? e.message : 'Failed to build stream URL',
-        });
+        setError(e instanceof Error ? e.message : 'Failed to build stream URL');
+        setLoading(false);
       }
     };
-    run();
+    void run();
     return () => {
       mounted = false;
     };
-  }, [params.playlist, content?.id, content?.type]);
+  }, [params.playlist, content, content?.id, content?.type, getCredentials]);
+
+  const body = loading ? (
+    <Text className="text-center text-white">Loading player…</Text>
+  ) : error ? (
+    <Text className="text-center text-red-400">{error}</Text>
+  ) : (
+    <PlayerContent url={url} contentType={content?.type} />
+  );
 
   return (
     <SafeAreaView className="flex-1">
       <View className="flex-1 bg-black">
-        <View className="p-3">
-          <Pressable
-            onPress={() => router.back()}
-            className="rounded-md bg-white/10 px-3 py-2"
-          >
-            <Text className="text-white">Back</Text>
-          </Pressable>
-        </View>
-        <View className="flex-1 items-stretch justify-center">
-          {state.loading ? (
-            <Text className="text-center text-white">Loading player…</Text>
-          ) : state.error ? (
-            <Text className="text-center text-red-400">{state.error}</Text>
-          ) : state.url ? (
-            <WebPlayerView
-              url={state.url}
-              title={undefined}
-              showBack
-              onBack={() => router.back()}
-              movieId={
-                content?.type === 'movie' ? String(content.id) : undefined
-              }
-              tmdbId={undefined}
-              type={content?.type}
-            />
-          ) : null}
-        </View>
+        <BackBar />
+        {body}
       </View>
     </SafeAreaView>
   );

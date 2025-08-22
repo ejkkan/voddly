@@ -1,9 +1,9 @@
-/* eslint-disable react/no-unstable-nested-components */
-import React, { useCallback, useEffect } from 'react';
 import { Redirect, SplashScreen, Stack } from 'expo-router';
+import React, { useCallback, useEffect } from 'react';
+
+import { AppShell } from '@/components/navigation/app-shell';
 import { useIsFirstTime } from '@/lib';
 import { useSession } from '@/lib/auth/hooks';
-import { AppShell } from '@/components/navigation/app-shell';
 
 export const unstable_settings = {
   initialRouteName: 'dashboard',
@@ -41,6 +41,7 @@ export default function ProtectedLayout() {
         <Stack.Screen name="live" />
         <Stack.Screen name="playlists" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="test" />
       </Stack>
     </AppShell>
   );

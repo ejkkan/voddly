@@ -113,6 +113,8 @@ export default function MovieDetails() {
         },
       });
       // Navigate to player route (to be implemented) with identifiers
+      console.log('sourceId', sourceId);
+      console.log('sourceItemId', String(sourceItemId));
       router.push({
         pathname: '/(app)/player',
         params: { playlist: sourceId, movie: String(sourceItemId) },

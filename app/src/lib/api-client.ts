@@ -64,7 +64,7 @@ class EncoreAPI {
     tmdbId?: number;
   }): Promise<{
     success: boolean;
-    tracks?: Array<{
+    tracks?: {
       id: string;
       language_code: string;
       language_name: string;
@@ -73,7 +73,7 @@ class EncoreAPI {
       trackIndex: number;
       codecId: string;
       format: string;
-    }>;
+    }[];
     error?: string;
   }> {
     const res = await fetch(`${this.baseUrl}/subtitles/extract-original`, {
@@ -120,7 +120,7 @@ class EncoreAPI {
     languageCode: string,
     params?: { tmdb_id?: number }
   ): Promise<{
-    variants: Array<{
+    variants: {
       id: string;
       language_code: string;
       language_name: string;
@@ -129,7 +129,7 @@ class EncoreAPI {
       name?: string;
       download_count?: number;
       uploader?: string;
-    }>;
+    }[];
   }> {
     const url = new URL(
       `${this.baseUrl}/subtitles/${encodeURIComponent(movieId)}/variants/${encodeURIComponent(languageCode)}`

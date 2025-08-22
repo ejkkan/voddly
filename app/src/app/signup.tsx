@@ -1,4 +1,3 @@
-import { Env } from '@env';
 import { Link, Redirect, router } from 'expo-router';
 import React from 'react';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -7,7 +6,6 @@ import { type FormType, SignupForm } from '@/components/signup-form';
 import { Button, SafeAreaView, ScrollView, Text, View } from '@/components/ui';
 import { useSession, useSignUp } from '@/lib/auth/hooks';
 
-console.log('Env', Env.API_URL);
 export default function SignUp() {
   const { data: session } = useSession();
   const signUp = useSignUp();

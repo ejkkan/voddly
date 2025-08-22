@@ -1,6 +1,7 @@
 'use client';
 
 import { gcm } from '@noble/ciphers/aes';
+import { xchacha20poly1305 } from '@noble/ciphers/chacha';
 import { toBytes } from '@noble/ciphers/utils';
 import { toByteArray, fromByteArray } from 'base64-js';
 
@@ -33,4 +34,18 @@ export function aesGcmDecrypt(
   // then decrypts combined ciphertext||tag
   const aes = gcm(keyBytes, nonce, additionalData);
   return aes.decrypt(ciphertextWithTag);
+}
+
+export function xchacha20Poly1305Decrypt(
+  keyBytes: Uint8Array,
+  nonce: Uint8Array,
+  ciphertextWithTag: Uint8Array,
+  additionalData?: Uint8Array
+): Uint8Array {
+  if (!nonce || nonce.length === 0)
+    throw new Error('XChaCha20-Poly1305: missing nonce');
+  if (!ciphertextWithTag || ciphertextWithTag.length === 0)
+    throw new Error('XChaCha20-Poly1305: missing ciphertext');
+  const aead = xchacha20poly1305(keyBytes, nonce, additionalData);
+  return aead.decrypt(ciphertextWithTag);
 }
