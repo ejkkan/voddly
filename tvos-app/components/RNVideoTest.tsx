@@ -9,7 +9,7 @@ import '@/global.css';
 
 const DEFAULT_SOURCE =
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-const ALT_SOURCE = 'http://89.37.117.6:2095/movie/ngArk2Up/aSh3J7M/1352705.mkv';
+const ALT_SOURCE = 'http://89.37.117.6:2095/movie/ngArk2Up/aSh3J7M/471479.mkv'; // 'http://89.37.117.6:2095/movie/ngArk2Up/aSh3J7M/1352705.mkv';
 
 export default function RNVideoTest() {
   const { orientation } = useScreenDimensions();
