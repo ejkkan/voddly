@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "NativewindMultiplatform",
-    "slug": "NativewindMultiplatform",
-    "scheme": "nativewindmultiplatform",
+    "name": "Voddly TV",
+    "slug": "voddlytv",
+    "scheme": "voddlytv",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash.png"
@@ -51,17 +51,24 @@
     "android": {
       "edgeToEdgeEnabled": true,
       "newArchEnabled": true,
-      "package": "com.ejkkan.NativewindMultiplatform"
+      "package": "com.voddlytv"
     },
     "ios": {
       "newArchEnabled": true,
       "supportsTablet": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "This app uses the local network to play media streams from your playlists and media servers.",
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": false,
+          "NSAllowsArbitraryLoads": true,
+          "NSAllowsArbitraryLoadsInWebContent": true,
+          "NSAllowsArbitraryLoadsForMedia": true,
           "NSAllowsLocalNetworking": true,
           "NSExceptionDomains": {
+            "commondatastorage.googleapis.com": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            },
             "89.37.117.6": {
               "NSIncludesSubdomains": true,
               "NSTemporaryExceptionAllowsInsecureHTTPLoads": true
@@ -69,7 +76,7 @@
           }
         }
       },
-      "bundleIdentifier": "com.ejkkan.NativewindMultiplatform"
+      "bundleIdentifier": "com.voddlytv"
     }
   }
 }

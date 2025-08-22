@@ -39,9 +39,9 @@ export default function About() {
         >{`nativewind: ${nativewindVersion}`}</ThemedText>
         <ThemedLink
           textType={ThemedTextType.tiny}
-          href="https://github.com/react-native-tvos/NativewindMultiplatform"
+          href="https://github.com/react-native-tvos/voddlytv"
         >
-          https://github.com/react-native-tvos/NativewindMultiplatform
+          https://github.com/react-native-tvos/voddlytv
         </ThemedLink>
         <ThemedLink href={homePageLink}>Dismiss</ThemedLink>
       </View>

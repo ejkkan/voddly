@@ -8,7 +8,7 @@ import { ThemedText, ThemedTextType } from './ThemedText';
 import '@/global.css';
 
 const DEFAULT_SOURCE =
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
 const ALT_SOURCE = 'http://89.37.117.6:2095/movie/ngArk2Up/aSh3J7M/471479.mkv'; // 'http://89.37.117.6:2095/movie/ngArk2Up/aSh3J7M/1352705.mkv';
 
 export default function RNVideoTest() {
@@ -30,6 +30,7 @@ export default function RNVideoTest() {
   }, [orientation]);
 
   const onError = useCallback((e: any) => {
+    console.log('haha:', e);
     try {
       const { error, errorString, target } = e ?? {};
       const code = error?.code ?? target?.error?.code;
@@ -44,7 +45,8 @@ export default function RNVideoTest() {
         .join(' | ');
       setLastError(summary);
       console.log('react-native-video onError:', e, summary);
-    } catch {
+    } catch (e) {
+      console.log('react-native-video onError:', e);
       setLastError('Playback error');
     }
   }, []);
