@@ -180,6 +180,43 @@ export default function SeriesDetails() {
                     {isFetching ? 'Fetching…' : 'Fetch Remote'}
                   </Text>
                 </Pressable>
+                <Pressable
+                  className="rounded-xl border border-neutral-300 px-4 py-2 dark:border-neutral-700"
+                  onPress={async () => {
+                    try {
+                      if (!item) return;
+                      const db = await openDb();
+                      const base = await db.getFirstAsync<any>(
+                        `SELECT * FROM content_items WHERE id = $id`,
+                        { $id: String(item.id) }
+                      );
+                      const seriesExt = await db.getFirstAsync<any>(
+                        `SELECT * FROM series_ext WHERE item_id = $id`,
+                        { $id: String(item.id) }
+                      );
+                      const episodesSample = await db.getAllAsync<any>(
+                        `SELECT id, season_number, episode_number, stream_id, container_extension FROM episodes_ext WHERE series_item_id = $id ORDER BY season_number ASC, episode_number ASC LIMIT 5`,
+                        { $id: String(item.id) }
+                      );
+                      const episodesCountRow = await db.getFirstAsync<any>(
+                        `SELECT COUNT(1) as cnt FROM episodes_ext WHERE series_item_id = $id`,
+                        { $id: String(item.id) }
+                      );
+                      console.log('[Series DB]', {
+                        base,
+                        seriesExt,
+                        episodesCount: episodesCountRow?.cnt ?? 0,
+                        episodesSample,
+                      });
+                    } catch (e) {
+                      console.log('Log DB (series) failed', e);
+                    }
+                  }}
+                >
+                  <Text className="text-neutral-900 dark:text-neutral-50">
+                    Log from DB
+                  </Text>
+                </Pressable>
               </View>
               {error ? (
                 <Text className="mt-2 text-red-600 dark:text-red-400">

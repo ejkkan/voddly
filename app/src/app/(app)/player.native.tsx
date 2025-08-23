@@ -11,6 +11,7 @@ import {
 import { VlcPlayerView } from '@/components/video/VlcPlayerView';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
+import { openDb } from '@/lib/db';
 
 // eslint-disable-next-line max-lines-per-function
 export default function Player() {
@@ -59,15 +60,48 @@ export default function Player() {
           title: 'Play Content',
           message: 'Enter your passphrase to decrypt the source',
         });
+        // Prefer locally stored movie container extension (per item) if available
+        let containerExtension: string | undefined;
+        let videoCodec: string | undefined = creds.videoCodec;
+        let audioCodec: string | undefined = creds.audioCodec;
+        if (content.type === 'movie') {
+          try {
+            const db = await openDb();
+            const rows = await db.getAllAsync<{
+              container_extension: string | null;
+              video_codec: string | null;
+              audio_codec: string | null;
+            }>(
+              `SELECT me.container_extension, me.video_codec, me.audio_codec
+               FROM movies_ext me
+               JOIN content_items ci ON ci.id = me.item_id
+               WHERE ci.source_id = $source_id
+                 AND ci.source_item_id = $source_item_id
+                 AND ci.type = 'movie'
+               LIMIT 1`,
+              {
+                $source_id: String(params.playlist),
+                $source_item_id: String(content.id),
+              }
+            );
+            const first = rows && rows[0];
+            if (first) {
+              if (first.container_extension)
+                containerExtension = String(first.container_extension);
+              if (first.video_codec) videoCodec = String(first.video_codec);
+              if (first.audio_codec) audioCodec = String(first.audio_codec);
+            }
+          } catch {}
+        }
         const { streamingUrl } = constructStreamUrl({
           server: creds.server,
           username: creds.username,
           password: creds.password,
           contentId: Number(content.id),
           contentType: content.type,
-          containerExtension: creds.containerExtension,
-          videoCodec: creds.videoCodec,
-          audioCodec: creds.audioCodec,
+          containerExtension,
+          videoCodec,
+          audioCodec,
         });
         if (!mounted) return;
         setState({ loading: false, url: streamingUrl });

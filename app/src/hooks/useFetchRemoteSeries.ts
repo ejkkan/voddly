@@ -112,14 +112,17 @@ export function useFetchRemoteSeries() {
             const lastModEp = ep.added
               ? new Date(Number(ep.added) * 1000).toISOString()
               : null;
+            const containerExtension =
+              String(ep.container_extension ?? '').trim() || null;
             await db.runAsync(
-              `INSERT INTO episodes_ext (id, series_item_id, season_number, episode_number, title, description, air_date, stream_id, last_modified, original_payload_json)
-               VALUES ($id, $series_item_id, $season_number, $episode_number, $title, $description, $air_date, $stream_id, $last_modified, $payload)
+              `INSERT INTO episodes_ext (id, series_item_id, season_number, episode_number, title, description, air_date, stream_id, container_extension, last_modified, original_payload_json)
+               VALUES ($id, $series_item_id, $season_number, $episode_number, $title, $description, $air_date, $stream_id, $container_extension, $last_modified, $payload)
                ON CONFLICT(id) DO UPDATE SET
                  title = excluded.title,
                  description = COALESCE(excluded.description, episodes_ext.description),
                  air_date = COALESCE(excluded.air_date, episodes_ext.air_date),
                  stream_id = COALESCE(excluded.stream_id, episodes_ext.stream_id),
+                 container_extension = COALESCE(excluded.container_extension, episodes_ext.container_extension),
                  last_modified = COALESCE(excluded.last_modified, episodes_ext.last_modified),
                  original_payload_json = excluded.original_payload_json
               `,
@@ -132,6 +135,7 @@ export function useFetchRemoteSeries() {
                 $description: descriptionEp || null,
                 $air_date: airDate,
                 $stream_id: streamId,
+                $container_extension: containerExtension,
                 $last_modified: lastModEp,
                 $payload: JSON.stringify(ep),
               }

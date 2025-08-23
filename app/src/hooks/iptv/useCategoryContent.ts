@@ -17,6 +17,7 @@ export function useIptvCategoryContent(
     queryKey: ['iptv', provider, 'category', contentType, sourceId, categoryId],
     queryFn: async () => {
       if (!sourceId || categoryId == null) throw new Error('Missing params');
+      const tKey = `[iptv][category][${provider}][${contentType}] source=${sourceId} category=${String(categoryId)}`;
       const creds = await getCredentials(sourceId, {
         title: 'Decrypt Source',
         message: 'Enter your passphrase to fetch category content',
@@ -28,17 +29,26 @@ export function useIptvCategoryContent(
             throw new Error(
               'Provider does not support live streams by category'
             );
-          return client.getLiveStreamsByCategory(categoryId);
+          if (__DEV__) console.time(`${tKey} getLiveStreamsByCategory`);
+          return client.getLiveStreamsByCategory(categoryId).finally(() => {
+            if (__DEV__) console.timeEnd(`${tKey} getLiveStreamsByCategory`);
+          });
         case 'movie':
           if (!client.getVodStreamsByCategory)
             throw new Error(
               'Provider does not support VOD streams by category'
             );
-          return client.getVodStreamsByCategory(categoryId);
+          if (__DEV__) console.time(`${tKey} getVodStreamsByCategory`);
+          return client.getVodStreamsByCategory(categoryId).finally(() => {
+            if (__DEV__) console.timeEnd(`${tKey} getVodStreamsByCategory`);
+          });
         case 'series':
           if (!client.getSeriesByCategory)
             throw new Error('Provider does not support series by category');
-          return client.getSeriesByCategory(categoryId);
+          if (__DEV__) console.time(`${tKey} getSeriesByCategory`);
+          return client.getSeriesByCategory(categoryId).finally(() => {
+            if (__DEV__) console.timeEnd(`${tKey} getSeriesByCategory`);
+          });
       }
     },
     enabled: !!sourceId && categoryId != null,

@@ -1,4 +1,4 @@
-import { userDB } from '../../user/db';
+import { metadataDB } from '../../metadata/db';
 import log from 'encore.dev/log';
 import { OpenSubtitlesProvider } from './providers/opensubtitles';
 import { SubDLProvider } from './providers/subdl';
@@ -125,8 +125,8 @@ export class SubtitleService {
     let query;
 
     if (tmdbId) {
-      query = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 
+      query = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles 
         WHERE tmdb_id = ${tmdbId} 
         AND language_code = ${languageCode}
         ORDER BY 
@@ -134,8 +134,8 @@ export class SubtitleService {
           created_at DESC
       `;
     } else {
-      query = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 
+      query = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles 
         WHERE movie_id = ${movieId} 
         AND language_code = ${languageCode}
         ORDER BY 
@@ -159,8 +159,8 @@ export class SubtitleService {
     variantId: string
   ): Promise<SubtitleContent | null> {
     // Get the specific variant from database
-    const variant = await userDB.queryRow<StoredSubtitle>`
-      SELECT * FROM movie_subtitles_v2 WHERE id = ${variantId}
+    const variant = await metadataDB.queryRow<StoredSubtitle>`
+      SELECT * FROM subtitles WHERE id = ${variantId}
     `;
 
     if (!variant) {
@@ -390,8 +390,8 @@ export class SubtitleService {
     const subtitles: StoredSubtitle[] = [];
 
     if (tmdbId) {
-      const tmdbResults = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 WHERE tmdb_id = ${tmdbId}
+      const tmdbResults = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles WHERE tmdb_id = ${tmdbId}
       `;
 
       for await (const subtitle of tmdbResults) {
@@ -400,8 +400,8 @@ export class SubtitleService {
     }
 
     if (subtitles.length === 0) {
-      const results = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 WHERE movie_id = ${movieId}
+      const results = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles WHERE movie_id = ${movieId}
       `;
 
       for await (const subtitle of results) {
@@ -420,8 +420,8 @@ export class SubtitleService {
     let query;
 
     if (tmdbId) {
-      query = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 
+      query = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles 
         WHERE tmdb_id = ${tmdbId} 
         AND language_code = ${languageCode} 
         AND content IS NOT NULL
@@ -429,8 +429,8 @@ export class SubtitleService {
         LIMIT 1
       `;
     } else {
-      query = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 
+      query = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles 
         WHERE movie_id = ${movieId} 
         AND language_code = ${languageCode} 
         AND content IS NOT NULL
@@ -454,16 +454,16 @@ export class SubtitleService {
     let query;
 
     if (tmdbId) {
-      query = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 
+      query = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles 
         WHERE tmdb_id = ${tmdbId} 
         AND language_code = ${languageCode}
         ORDER BY created_at DESC
         LIMIT 1
       `;
     } else {
-      query = userDB.query<StoredSubtitle>`
-        SELECT * FROM movie_subtitles_v2 
+      query = metadataDB.query<StoredSubtitle>`
+        SELECT * FROM subtitles 
         WHERE movie_id = ${movieId} 
         AND language_code = ${languageCode}
         ORDER BY created_at DESC
@@ -485,8 +485,8 @@ export class SubtitleService {
   ): Promise<void> {
     for (const meta of metadata) {
       try {
-        await userDB.exec`
-          INSERT INTO movie_subtitles_v2 (
+        await metadataDB.exec`
+          INSERT INTO subtitles (
             movie_id, tmdb_id, language_code, language_name, 
             source, source_id, metadata
           )
@@ -515,8 +515,8 @@ export class SubtitleService {
     metadata: SubtitleMetadata,
     content: string
   ): Promise<void> {
-    await userDB.exec`
-      INSERT INTO movie_subtitles_v2 (
+    await metadataDB.exec`
+      INSERT INTO subtitles (
         movie_id, tmdb_id, language_code, language_name, 
         source, source_id, content, metadata
       )
@@ -539,8 +539,8 @@ export class SubtitleService {
     subtitleId: string,
     content: string
   ): Promise<void> {
-    await userDB.exec`
-      UPDATE movie_subtitles_v2 
+    await metadataDB.exec`
+      UPDATE subtitles 
       SET content = ${content}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ${subtitleId}
     `;

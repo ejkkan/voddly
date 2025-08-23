@@ -1,3 +1,3 @@
 export * from './useAccounts';
-export * from './useUiCatalog';
+export * from './use-ui-catalog';
 export * from './useDashboard';

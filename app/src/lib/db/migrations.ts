@@ -116,6 +116,15 @@ async function ensureExtraColumns(db: DatabaseHandle) {
   if (!(await hasColumn('movies_ext', 'tech_json'))) {
     await db.execAsync(`ALTER TABLE movies_ext ADD COLUMN tech_json TEXT`);
   }
+
+  // episodes_ext: ensure container_extension exists
+  if (!(await hasColumn('episodes_ext', 'container_extension'))) {
+    try {
+      await db.execAsync(
+        `ALTER TABLE episodes_ext ADD COLUMN container_extension TEXT`
+      );
+    } catch {}
+  }
 }
 
 async function createContentItemsTable(db: DatabaseHandle) {
@@ -187,6 +196,7 @@ async function createEpisodesTable(db: DatabaseHandle) {
       description TEXT,
       air_date TEXT,
       stream_id TEXT,
+      container_extension TEXT,
       last_modified TEXT,
       original_payload_json TEXT NOT NULL,
       UNIQUE (series_item_id, season_number, episode_number)
@@ -212,6 +222,8 @@ async function createIndexes(db: DatabaseHandle) {
     CREATE INDEX IF NOT EXISTS idx_items_source ON content_items(source_id);
     CREATE INDEX IF NOT EXISTS idx_items_source_key ON content_items(source_id, source_item_id);
     CREATE INDEX IF NOT EXISTS idx_items_account_source_type ON content_items(account_id, source_id, type);
+    CREATE INDEX IF NOT EXISTS idx_items_type_added_at ON content_items(type, added_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_items_account_type_added_at ON content_items(account_id, type, added_at DESC);
     CREATE INDEX IF NOT EXISTS idx_categories_source ON categories(source_id, source_category_id);
     CREATE INDEX IF NOT EXISTS idx_categories_account_source ON categories(account_id, source_id, source_category_id);
     CREATE INDEX IF NOT EXISTS idx_sources_account ON sources(account_id, id);

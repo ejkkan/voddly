@@ -1,18 +1,21 @@
+/* eslint-disable simple-import-sort/imports */
+/* eslint-disable max-lines-per-function */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { SafeAreaView, View, Text, FlatList } from '@/components/ui';
+
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
+import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
+import { useUiSections } from '@/hooks/ui';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
-import { useUiPreview, useUiSections } from '@/hooks/ui';
 
 type Section = {
   categoryId?: string;
   title: string;
-  data: Array<{ id: string; title: string; imageUrl?: string | null }>;
+  data: { id: string; title: string; imageUrl?: string | null }[];
 };
 
-export default function Series() {
+export default function VODs() {
   const router = useRouter();
   const [sections, setSections] = useState<Section[]>([]);
   const [catOffset, setCatOffset] = useState(0);
@@ -20,13 +23,11 @@ export default function Series() {
   const [initialLoaded, setInitialLoaded] = useState(false);
   const loadingRowsRef = useRef<Record<string, boolean>>({});
 
-  const sectionsQuery = useUiSections('series', {
-    limitPerCategory: 20,
-    maxCategories: 10,
-    categoryOffset: 0,
+  const sectionsQuery = useUiSections('movie', {
+    limitPerCategory: 2,
+    maxCategories: 4,
+    categoryOffset: 1,
   });
-
-  const previewQuery = useUiPreview('series', 10);
 
   useEffect(() => {
     if (sectionsQuery.isPending || sectionsQuery.isError) return;
@@ -40,41 +41,16 @@ export default function Series() {
         imageUrl: i.imageUrl,
       })),
     }));
-    if (mapped.length === 0 || mapped.every((s) => s.data.length === 0)) {
-      if (previewQuery.data) {
-        setSections([
-          {
-            title: 'Recently Added',
-            data: previewQuery.data.map((i) => ({
-              id: i.id,
-              title: i.title,
-              imageUrl: i.imageUrl,
-            })),
-          },
-        ]);
-        setInitialLoaded(true);
-      }
-    } else {
-      setSections(mapped);
-      setCatOffset(10);
-      setInitialLoaded(true);
-    }
-  }, [
-    sectionsQuery.isPending,
-    sectionsQuery.isError,
-    sectionsQuery.data,
-    previewQuery.data,
-  ]);
+    setSections(mapped);
+    setCatOffset(mapped.length);
+    setInitialLoaded(true);
+  }, [sectionsQuery.isPending, sectionsQuery.isError, sectionsQuery.data]);
+
   const loadMoreCategories = useCallback(async () => {
     if (loadingCats || !initialLoaded) return;
     setLoadingCats(true);
     try {
-      const cats = await fetchCategoriesWithPreviews(
-        'series',
-        20,
-        5,
-        catOffset
-      );
+      const cats = await fetchCategoriesWithPreviews('movie', 20, 5, catOffset);
       if (!cats || cats.length === 0) return;
       setSections((prev) =>
         prev.concat(
@@ -108,7 +84,7 @@ export default function Series() {
         const current = sections[sectionIndex];
         const { fetchCategoryItems } = await import('@/lib/db/ui');
         const more = await fetchCategoryItems(
-          'series',
+          'movie',
           categoryId,
           25,
           current.data.length
@@ -155,7 +131,7 @@ export default function Series() {
                 title={row.title}
                 posterUrl={row.imageUrl}
                 onPress={(id) =>
-                  router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
+                  router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
                 }
               />
             )}
@@ -166,7 +142,7 @@ export default function Series() {
         ListHeaderComponent={
           <View className="px-6 py-4">
             <Text className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
-              Series
+              VODs
             </Text>
           </View>
         }

@@ -6,15 +6,14 @@ import { fetchDashboardPreviews } from '@/lib/db/ui';
 import { useActiveAccountId } from './useAccounts';
 
 export function useDashboardPreviews(limit = 10) {
-  const { accountId } = useActiveAccountId();
+  const { accountId, isLoading: accountsLoading } = useActiveAccountId();
   return useQuery({
     queryKey: ['ui', 'dashboard', limit, accountId ?? null],
-    queryFn: async () => {
-      try {
-        return await fetchDashboardPreviews(limit, accountId);
-      } catch {
-        return await fetchDashboardPreviews(limit, undefined);
-      }
-    },
+    enabled: !accountsLoading,
+    queryFn: () => fetchDashboardPreviews(limit, accountId || undefined),
+    staleTime: 300_000,
+    gcTime: 900_000,
+    refetchOnWindowFocus: false,
+    keepPreviousData: true,
   });
 }

@@ -5,6 +5,9 @@ import apiClient from '@/lib/api-client';
 import { View, Text, Pressable } from '@/components/ui';
 // Lazy-load Shaka at runtime to avoid type/module issues
 let ShakaNS: any = null;
+const STARTUP_PLAY_TIMEOUT_MS = 3500;
+const STALL_RECOVERY_TIMEOUT_MS = 2500;
+const MAX_SOFT_RELOAD_ATTEMPTS = 2;
 
 type Props = {
   url: string;
@@ -24,6 +27,48 @@ export function WebPlayerView(props: Props) {
   const progressiveFallbackTriedRef = React.useRef<boolean>(false);
   const progressiveAlternateTriedRef = React.useRef<boolean>(false);
   const progressiveRetryCountRef = React.useRef<number>(0);
+  const stalledReloadTimerRef = React.useRef<any>(null);
+  const hasTriedRouteReloadRef = React.useRef<boolean>(false);
+  const recoveryTimerRef = React.useRef<any>(null);
+  const startupTimerRef = React.useRef<any>(null);
+  const lastTimeEmitRef = React.useRef<number>(0);
+  const waitingReloadTimerRef = React.useRef<any>(null);
+  const lastProgressMsRef = React.useRef<number>(0);
+  const softReloadTriedRef = React.useRef<boolean>(false);
+  const softReloadAttemptsRef = React.useRef<number>(0);
+
+  // Track whether this screen is currently active/focused
+  const isActiveRef = React.useRef<boolean>(true);
+  const setInactiveAndCleanup = React.useCallback(() => {
+    isActiveRef.current = false;
+    try {
+      if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+    } catch {}
+    try {
+      if (startupTimerRef.current) clearTimeout(startupTimerRef.current);
+    } catch {}
+    try {
+      if (stalledReloadTimerRef.current)
+        clearTimeout(stalledReloadTimerRef.current);
+    } catch {}
+    try {
+      if (waitingReloadTimerRef.current)
+        clearTimeout(waitingReloadTimerRef.current);
+    } catch {}
+    try {
+      if (audioCheckIntervalRef.current) {
+        clearInterval(audioCheckIntervalRef.current);
+        audioCheckIntervalRef.current = null;
+      }
+    } catch {}
+    try {
+      if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    } catch {}
+    try {
+      playerRef.current?.destroy?.();
+    } catch {}
+  }, []);
 
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -59,13 +104,16 @@ export function WebPlayerView(props: Props) {
   const autoplayTriedRef = React.useRef<boolean>(false);
   const pendingPlayRef = React.useRef<Promise<void> | null>(null);
   const audioCheckIntervalRef = React.useRef<any>(null);
+  const rafIdRef = React.useRef<number | null>(null);
   const SUBS_DISABLED = true; // Temporarily disable subtitle fetching/UI per request
   const AUDIO_FIX_ENABLED = false; // Hide MP4 fallback button by default (provider often doesn't serve MP4)
 
   // Stop playback when the screen loses focus (e.g., navigating via sidebar)
   useFocusEffect(
     React.useCallback(() => {
+      isActiveRef.current = true;
       return () => {
+        setInactiveAndCleanup();
         try {
           const v = videoRef.current as HTMLVideoElement | null;
           if (!v) return;
@@ -86,7 +134,7 @@ export function WebPlayerView(props: Props) {
           console.log('Error pausing video');
         }
       };
-    }, [])
+    }, [setInactiveAndCleanup])
   );
 
   // Debug logging helpers
@@ -120,7 +168,23 @@ export function WebPlayerView(props: Props) {
     let player: any;
     let progressiveWatchdog: any;
 
-    const onTime = () => setCurrentTime(video.currentTime || 0);
+    const onTime = () => {
+      const nowSec = video.currentTime || 0;
+      const last = lastTimeEmitRef.current || 0;
+      // Throttle UI updates to ~4 Hz to reduce rerenders
+      if (Math.abs(nowSec - last) >= 0.25 || nowSec < last) {
+        lastTimeEmitRef.current = nowSec;
+        setCurrentTime(nowSec);
+      }
+      // Record progress and cancel any pending reloads when playback advances
+      try {
+        lastProgressMsRef.current = Date.now();
+        if (stalledReloadTimerRef.current)
+          clearTimeout(stalledReloadTimerRef.current);
+        if (waitingReloadTimerRef.current)
+          clearTimeout(waitingReloadTimerRef.current);
+      } catch {}
+    };
     const onDuration = () => setDuration(video.duration || 0);
     const onPlay = () => {
       setIsPlaying(true);
@@ -134,16 +198,106 @@ export function WebPlayerView(props: Props) {
     const onWaiting = () => {
       setIsLoading(true);
       logVideoState('onWaiting');
+      try {
+        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+      } catch {}
+      recoveryTimerRef.current = setTimeout(() => {
+        if (!isActiveRef.current) return;
+        const since = Date.now() - (lastProgressMsRef.current || 0);
+        if (since < STALL_RECOVERY_TIMEOUT_MS) return;
+        // First try a soft reload up to MAX_SOFT_RELOAD_ATTEMPTS times
+        if (softReloadAttemptsRef.current < MAX_SOFT_RELOAD_ATTEMPTS) {
+          softReloadAttemptsRef.current += 1;
+          try {
+            const v = videoRef.current;
+            if (v) {
+              try {
+                v.pause();
+              } catch {}
+              try {
+                v.removeAttribute('src');
+                v.load();
+              } catch {}
+              try {
+                (v as HTMLVideoElement).src = url;
+                (v as any).preload = 'auto';
+              } catch {}
+              try {
+                (v as any).muted = true;
+                void v.play();
+              } catch {}
+              lastProgressMsRef.current = Date.now();
+            }
+          } catch {}
+          return;
+        }
+        // Hard reload once after max attempts
+        if (!hasTriedRouteReloadRef.current) {
+          hasTriedRouteReloadRef.current = true;
+          try {
+            if (isActiveRef.current && typeof window !== 'undefined')
+              window.location.reload();
+          } catch {}
+        }
+      }, STALL_RECOVERY_TIMEOUT_MS);
     };
     const onStalled = () => {
       setIsLoading(true);
       logVideoState('onStalled');
-      // Do not force reloads; allow the browser to proceed to canplay if possible
+      // Treat stalled like waiting; schedule the same recovery path
+      try {
+        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+      } catch {}
+      recoveryTimerRef.current = setTimeout(() => {
+        if (!isActiveRef.current) return;
+        const since = Date.now() - (lastProgressMsRef.current || 0);
+        if (since < STALL_RECOVERY_TIMEOUT_MS) return;
+        if (softReloadAttemptsRef.current < MAX_SOFT_RELOAD_ATTEMPTS) {
+          softReloadAttemptsRef.current += 1;
+          try {
+            const v = videoRef.current;
+            if (v) {
+              try {
+                v.pause();
+              } catch {}
+              try {
+                v.removeAttribute('src');
+                v.load();
+              } catch {}
+              try {
+                (v as HTMLVideoElement).src = url;
+                (v as any).preload = 'auto';
+              } catch {}
+              try {
+                (v as any).muted = true;
+                void v.play();
+              } catch {}
+              lastProgressMsRef.current = Date.now();
+            }
+          } catch {}
+          return;
+        }
+        if (!hasTriedRouteReloadRef.current) {
+          hasTriedRouteReloadRef.current = true;
+          try {
+            if (isActiveRef.current && typeof window !== 'undefined')
+              window.location.reload();
+          } catch {}
+        }
+      }, STALL_RECOVERY_TIMEOUT_MS);
     };
     const onCanPlay = () => {
       setIsLoading(false);
       try {
         if (progressiveWatchdog) clearTimeout(progressiveWatchdog);
+      } catch {}
+      try {
+        if (stalledReloadTimerRef.current)
+          clearTimeout(stalledReloadTimerRef.current);
+      } catch {}
+      try {
+        if (waitingReloadTimerRef.current)
+          clearTimeout(waitingReloadTimerRef.current);
       } catch {}
       progressiveWatchdog = null;
       logVideoState('onCanPlay');
@@ -298,12 +452,46 @@ export function WebPlayerView(props: Props) {
           progressiveAlternateTriedRef.current = false;
           logVideoState('after set src and load');
           // Kick-start autoplay on next frame, muted to satisfy browser policies
-          requestAnimationFrame(() => {
+          rafIdRef.current = requestAnimationFrame(() => {
             try {
               (video as any).muted = true;
               void (video as HTMLVideoElement).play();
             } catch {}
           });
+          // Startup watchdog: if we don't make progress quickly, attempt soft reload
+          try {
+            if (startupTimerRef.current) clearTimeout(startupTimerRef.current);
+          } catch {}
+          startupTimerRef.current = setTimeout(() => {
+            if (!isActiveRef.current) return;
+            const since = Date.now() - (lastProgressMsRef.current || 0);
+            if (since >= STARTUP_PLAY_TIMEOUT_MS) {
+              if (softReloadAttemptsRef.current < MAX_SOFT_RELOAD_ATTEMPTS) {
+                softReloadAttemptsRef.current += 1;
+                try {
+                  const v = videoRef.current;
+                  if (v) {
+                    try {
+                      v.pause();
+                    } catch {}
+                    try {
+                      v.removeAttribute('src');
+                      v.load();
+                    } catch {}
+                    try {
+                      (v as HTMLVideoElement).src = url;
+                      (v as any).preload = 'auto';
+                    } catch {}
+                    try {
+                      (v as any).muted = true;
+                      void v.play();
+                    } catch {}
+                    lastProgressMsRef.current = Date.now();
+                  }
+                } catch {}
+              }
+            }
+          }, STARTUP_PLAY_TIMEOUT_MS);
           // Clear any previous audio check interval
           try {
             if (audioCheckIntervalRef.current) {
@@ -370,6 +558,10 @@ export function WebPlayerView(props: Props) {
       } catch {}
       video.removeEventListener('canplay', onCanPlay);
       try {
+        if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      } catch {}
+      try {
         player?.destroy?.();
       } catch {}
       playerRef.current = null;
@@ -391,6 +583,16 @@ export function WebPlayerView(props: Props) {
         if (progressiveWatchdog) clearTimeout(progressiveWatchdog);
       } catch {}
       try {
+        if (stalledReloadTimerRef.current)
+          clearTimeout(stalledReloadTimerRef.current);
+      } catch {}
+      try {
+        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
+      } catch {}
+      try {
+        if (startupTimerRef.current) clearTimeout(startupTimerRef.current);
+      } catch {}
+      try {
         if (audioCheckIntervalRef.current) {
           clearInterval(audioCheckIntervalRef.current);
           audioCheckIntervalRef.current = null;
@@ -407,6 +609,14 @@ export function WebPlayerView(props: Props) {
         video.load();
       } catch {}
     };
+  }, [url]);
+
+  // Log URL only when it changes, not on every render
+  React.useEffect(() => {
+    console.log('url', url);
+    // Reset soft reload attempt for new URLs
+    softReloadTriedRef.current = false;
+    softReloadAttemptsRef.current = 0;
   }, [url]);
 
   const onSeek = React.useCallback(
@@ -446,7 +656,6 @@ export function WebPlayerView(props: Props) {
     }
     return vtt;
   };
-  console.log('url', url);
   return (
     <View className="flex-1 bg-black">
       <Pressable className="flex-1" onPress={() => setShowControls((v) => !v)}>

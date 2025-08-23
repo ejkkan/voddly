@@ -17,6 +17,7 @@ import { PassphraseProvider } from '@/components/passphrase/PassphraseProvider';
 // Removed APIProvider – old API layer not used anymore
 import { loadSelectedTheme } from '@/lib';
 import { DbProvider } from '@/lib/db/provider';
+import { AccountDbGuard } from '@/lib/db/AccountDbGuard';
 
 // Install atob shim as early as possible on web to handle URL-safe base64 and missing padding
 
@@ -91,7 +92,10 @@ function Providers({ children }: { children: React.ReactNode }) {
         <QueryClientProvider client={queryClient}>
           <DbProvider>
             <PassphraseProvider>
-              <BottomSheetModalProvider>{children}</BottomSheetModalProvider>
+              <BottomSheetModalProvider>
+                <AccountDbGuard />
+                {children}
+              </BottomSheetModalProvider>
             </PassphraseProvider>
           </DbProvider>
           <FlashMessage position="top" />

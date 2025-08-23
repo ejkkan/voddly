@@ -42,7 +42,7 @@ export async function fetchPreviewByType(
      FROM content_items i
      LEFT JOIN content_item_categories ic ON ic.item_id = i.id
      WHERE i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
-     ORDER BY datetime(i.added_at) DESC, i.title ASC
+     ORDER BY i.added_at DESC, i.title ASC
      LIMIT $limit`,
     accountId
       ? { $type: type, $limit: limit, $account_id: accountId }
@@ -88,8 +88,8 @@ export async function fetchCategoriesWithPreviews(
       ? `${baseQuery} LIMIT $maxCats OFFSET $catOffset`
       : baseQuery;
   if (typeof maxCategories === 'number' && maxCategories > 0) {
-    catsParams.$maxCats = maxCategories;
-    catsParams.$catOffset = categoryOffset || 0;
+    (catsParams as any).$maxCats = maxCategories;
+    (catsParams as any).$catOffset = categoryOffset || 0;
   }
   const cats = (await db.getAllAsync(
     catsQuery,
@@ -110,7 +110,7 @@ export async function fetchCategoriesWithPreviews(
        FROM content_items i
        JOIN content_item_categories ic ON ic.item_id = i.id
        WHERE ic.category_id = $category_id AND i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
-       ORDER BY datetime(i.added_at) DESC, i.title ASC
+       ORDER BY i.added_at DESC, i.title ASC
        LIMIT $limit`,
       accountId
         ? {
@@ -143,7 +143,7 @@ export async function fetchCategoryItems(
      FROM content_items i
      JOIN content_item_categories ic ON ic.item_id = i.id
      WHERE ic.category_id = $category_id AND i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
-     ORDER BY datetime(i.added_at) DESC, i.title ASC
+     ORDER BY i.added_at DESC, i.title ASC
      LIMIT $limit OFFSET $offset`,
     accountId
       ? {
@@ -201,47 +201,8 @@ export async function fetchRandomByType(
 }
 
 /**
- * Backfill missing content_item_categories links by reading original payloads.
- * Returns number of links inserted.
+ * Backfill removed for runtime performance. If needed, run as a one-off maintenance.
  */
 export async function backfillMissingItemCategories(): Promise<number> {
-  const db = await openDb();
-  const rows = await db.getAllAsync(
-    `SELECT i.id, i.source_id, i.type, i.original_payload_json
-     FROM content_items i
-     WHERE NOT EXISTS (
-       SELECT 1 FROM content_item_categories ic WHERE ic.item_id = i.id
-     )`
-  );
-  let inserted = 0;
-  for (const r of rows as {
-    id: string;
-    source_id: string;
-    type: CatalogItemType;
-    original_payload_json?: string;
-  }[]) {
-    try {
-      const payload = r.original_payload_json
-        ? JSON.parse(r.original_payload_json)
-        : null;
-      const rawCat =
-        payload?.category_id ??
-        payload?.categoryId ??
-        payload?.category ??
-        null;
-      if (rawCat == null) continue;
-      const catType = r.type === 'movie' ? 'vod' : r.type;
-      const categoryId = `${r.source_id}:${catType}:${String(rawCat)}`;
-      await db.runAsync(
-        `INSERT OR IGNORE INTO content_item_categories (item_id, category_id) VALUES ($item_id, $category_id)`,
-        { $item_id: r.id, $category_id: categoryId }
-      );
-      inserted++;
-    } catch {
-      // ignore malformed payloads
-    }
-  }
-
-  // Debug log removed
-  return inserted;
+  return 0;
 }

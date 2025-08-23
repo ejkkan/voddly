@@ -11,12 +11,16 @@ export function useIptvCatalog(provider: ProviderType, sourceId?: string) {
     queryKey: ['iptv', provider, 'catalog', sourceId],
     queryFn: async () => {
       if (!sourceId) throw new Error('Missing sourceId');
+      const tKey = `[iptv][catalog][${provider}] source=${sourceId}`;
       const creds = await getCredentials(sourceId, {
         title: 'Decrypt Source',
         message: 'Enter your passphrase to fetch catalog',
       });
       const client = getIptvClient(provider, creds);
-      return client.getCatalog();
+      if (__DEV__) console.time(`${tKey} getCatalog`);
+      return client.getCatalog().finally(() => {
+        if (__DEV__) console.timeEnd(`${tKey} getCatalog`);
+      });
     },
     enabled: !!sourceId,
     staleTime: 5 * 60 * 1000,

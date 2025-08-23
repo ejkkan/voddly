@@ -24,7 +24,7 @@ export default function Live() {
   const loadingRowsRef = useRef<Record<string, boolean>>({});
 
   const sectionsQuery = useUiSections('live', {
-    limitPerCategory: 10,
+    limitPerCategory: 20,
     maxCategories: 10,
     categoryOffset: 0,
   });
@@ -75,7 +75,7 @@ export default function Live() {
     if (loadingCats || !initialLoaded) return;
     setLoadingCats(true);
     try {
-      const cats = await fetchCategoriesWithPreviews('live', 10, 5, catOffset);
+      const cats = await fetchCategoriesWithPreviews('live', 20, 5, catOffset);
       if (!cats || cats.length === 0) return;
       setSections((prev) =>
         prev.concat(

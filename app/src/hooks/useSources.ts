@@ -21,14 +21,23 @@ export function useSources() {
   const sourcesQuery = useQuery({
     queryKey: ['sources'],
     queryFn: async () => {
-      const accounts = await apiClient.user.getAccounts();
+      const tKey = '[sources] accounts+sources';
+      if (__DEV__) console.time(`${tKey} getAccounts`);
+      const accounts = await apiClient.user.getAccounts().finally(() => {
+        if (__DEV__) console.timeEnd(`${tKey} getAccounts`);
+      });
       const first = accounts.accounts?.[0];
       if (!first)
         return {
           accountId: null as string | null,
           sources: [] as SourceSummary[],
         };
-      const { sources } = await apiClient.user.getSources(first.id);
+      if (__DEV__) console.time(`${tKey} getSources`);
+      const { sources } = await apiClient.user
+        .getSources(first.id)
+        .finally(() => {
+          if (__DEV__) console.timeEnd(`${tKey} getSources`);
+        });
       return { accountId: first.id as string, sources: sources || [] };
     },
   });
@@ -59,17 +68,23 @@ export function useSources() {
       });
 
       // Decrypt credentials
+      const tKey = `[sources][reload] provider=${provider} source=${sourceId}`;
       const creds = await manager.getSourceCredentials(sourceId, {
         title: 'Decrypt Source',
         message: 'Enter your passphrase to decrypt the source',
       });
 
       if (provider === 'xtream') {
+        if (__DEV__) console.time(`${tKey} getCatalog`);
         const data = await getIptvClient('xtream', {
           server: creds.server,
           username: creds.username,
           password: creds.password,
-        }).getCatalog();
+        })
+          .getCatalog()
+          .finally(() => {
+            if (__DEV__) console.timeEnd(`${tKey} getCatalog`);
+          });
         if (__DEV__)
           console.log('[reload] xtream fetched', {
             cats: data.categories.length,
@@ -83,9 +98,14 @@ export function useSources() {
           });
         await storage.storeSourceCatalog(accountId, sourceId, data);
       } else if (provider === 'm3u') {
+        if (__DEV__) console.time(`${tKey} getCatalog`);
         const data = await getIptvClient('m3u', {
           server: creds.server,
-        }).getCatalog();
+        })
+          .getCatalog()
+          .finally(() => {
+            if (__DEV__) console.timeEnd(`${tKey} getCatalog`);
+          });
         if (__DEV__)
           console.log('[reload] m3u fetched', {
             cats: data.categories.length,
@@ -155,10 +175,13 @@ export function useSources() {
       const entries: Record<string, { channels: number }> = {};
       for (const s of sourcesQuery.data?.sources || []) {
         try {
-          const st = await storage.getCatalogStats(
-            sourcesQuery.data?.accountId as string,
-            s.id
-          );
+          const sKey = `[sources][stats] account=${sourcesQuery.data?.accountId} source=${s.id}`;
+          if (__DEV__) console.time(`${sKey} getCatalogStats`);
+          const st = await storage
+            .getCatalogStats(sourcesQuery.data?.accountId as string, s.id)
+            .finally(() => {
+              if (__DEV__) console.timeEnd(`${sKey} getCatalogStats`);
+            });
           entries[s.id] = { channels: st.channels };
         } catch {}
       }

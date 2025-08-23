@@ -6,7 +6,7 @@ import {
   SubtitleSearchParams,
   SubtitleLanguage,
 } from '../../common/subtitles';
-import { userDB } from '../db';
+import { metadataDB } from '../../metadata/db';
 import { OpenSubtitlesProvider, SubDLProvider } from '../../common/subtitles';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -424,8 +424,8 @@ export const getSubtitleById = api(
     log.info(`🆔 Fetching subtitle by id ${id}`);
 
     // 1) Look up the row
-    const row = await userDB.queryRow<any>`
-      SELECT * FROM movie_subtitles_v2 WHERE id = ${id}
+    const row = await metadataDB.queryRow<any>`
+      SELECT * FROM subtitles WHERE id = ${id}
     `;
 
     if (!row) {
@@ -471,8 +471,8 @@ export const getSubtitleById = api(
       });
 
       // Persist content back onto this specific row
-      await userDB.exec`
-        UPDATE movie_subtitles_v2
+      await metadataDB.exec`
+        UPDATE subtitles
         SET content = ${content}, updated_at = CURRENT_TIMESTAMP
         WHERE id = ${row.id}
       `;
@@ -541,8 +541,8 @@ export const resolveSubtitles = api(
     // If a row is specified, fetch content for that exact row
     if (row_id) {
       log.info('🎯 resolveSubtitles: fetching content for row', { row_id });
-      const row = await userDB.queryRow<any>`
-        SELECT * FROM movie_subtitles_v2 WHERE id = ${row_id}
+      const row = await metadataDB.queryRow<any>`
+        SELECT * FROM subtitles WHERE id = ${row_id}
       `;
       if (!row)
         return { mode: 'content', subtitle: null } as ResolveSubtitlesResponse;
@@ -584,8 +584,8 @@ export const resolveSubtitles = api(
           source_id: row.source_id,
         });
 
-        await userDB.exec`
-          UPDATE movie_subtitles_v2
+        await metadataDB.exec`
+          UPDATE subtitles
           SET content = ${content}, updated_at = CURRENT_TIMESTAMP
           WHERE id = ${row.id}
         `;
@@ -628,18 +628,18 @@ export const resolveSubtitles = api(
       const rows: SubtitleRowItem[] = [];
 
       const queryFn = tmdb_id
-        ? userDB.query<any>`
+        ? metadataDB.query<any>`
             SELECT id, language_code, language_name, source, source_id,
                    content IS NOT NULL as has_content,
                    metadata
-            FROM movie_subtitles_v2
+            FROM subtitles
             WHERE tmdb_id = ${tmdb_id}
           `
-        : userDB.query<any>`
+        : metadataDB.query<any>`
             SELECT id, language_code, language_name, source, source_id,
                    content IS NOT NULL as has_content,
                    metadata
-            FROM movie_subtitles_v2
+            FROM subtitles
             WHERE movie_id = ${resolvedMovieId}
           `;
 
@@ -1095,8 +1095,8 @@ export const extractOriginalSubtitles = api(
       // Process each detected track
       for (const track of detectedTracks) {
         // Check if we already have this subtitle in our database
-        const existingSubtitle = await userDB.queryRow`
-          SELECT id FROM movie_subtitles_v2 WHERE movie_id = ${movieId} AND language_code = ${track.language} AND source = 'original'
+        const existingSubtitle = await metadataDB.queryRow`
+          SELECT id FROM subtitles WHERE movie_id = ${movieId} AND language_code = ${track.language} AND source = 'original'
         `;
 
         let subtitleId: string;
@@ -1110,8 +1110,8 @@ export const extractOriginalSubtitles = api(
           });
         } else {
           // Insert new subtitle entry without content initially
-          const insertResult = await userDB.queryRow`
-            INSERT INTO movie_subtitles_v2 (movie_id, tmdb_id, language_code, language_name, source, source_id, content) 
+          const insertResult = await metadataDB.queryRow`
+            INSERT INTO subtitles (movie_id, tmdb_id, language_code, language_name, source, source_id, content) 
             VALUES (${movieId}, ${tmdbId || null}, ${track.language}, ${
             track.languageName
           }, 'original', ${`${movieId}_${track.language}_${track.index}`}, NULL) 
@@ -1201,8 +1201,8 @@ export const extractOriginalSubtitleContent = api(
       });
 
       // Check if we already have content
-      const existingContent = await userDB.queryRow`
-        SELECT content FROM movie_subtitles_v2 WHERE id = ${subtitleId}
+      const existingContent = await metadataDB.queryRow`
+        SELECT content FROM subtitles WHERE id = ${subtitleId}
       `;
 
       if (existingContent?.content) {
@@ -1224,8 +1224,8 @@ export const extractOriginalSubtitleContent = api(
       );
 
       // Store the extracted content
-      await userDB.exec`
-        UPDATE movie_subtitles_v2 SET content = ${extractedContent}, updated_at = CURRENT_TIMESTAMP WHERE id = ${subtitleId}
+      await metadataDB.exec`
+        UPDATE subtitles SET content = ${extractedContent}, updated_at = CURRENT_TIMESTAMP WHERE id = ${subtitleId}
       `;
 
       log.info('✅ Original subtitle content extracted and stored', {
