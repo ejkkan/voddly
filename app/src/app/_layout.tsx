@@ -52,23 +52,6 @@ loadSelectedTheme();
 
 export default function RootLayout() {
   React.useEffect(() => {
-    // Initialize native sodium early on iOS/Android
-    (async () => {
-      try {
-        const sodiumMod = await import('react-native-libsodium');
-        const sodium = (sodiumMod as any).default ?? sodiumMod;
-        if (typeof sodium.loadSumoVersion === 'function') {
-          sodium.loadSumoVersion();
-        }
-        if (sodium.ready && typeof sodium.ready.then === 'function') {
-          await sodium.ready;
-        }
-        (globalThis as any).__sodiumReady = true;
-      } catch (e) {
-        // Ignore on web or if module not available
-      }
-    })();
-
     // Web: patch atob to accept URL-safe base64 and missing padding
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const originalAtob = (window as any).atob?.bind(window) ?? null;

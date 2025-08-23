@@ -6,7 +6,7 @@
   "scripts": {
     "ensure-proxy-4000": "SO=$(command -v socat || echo /opt/homebrew/bin/socat || echo /usr/local/bin/socat); pgrep -f 'TCP-LISTEN:4000,bind=0.0.0.0' >/dev/null || \"$SO\" TCP-LISTEN:4000,bind=0.0.0.0,reuseaddr,fork TCP:127.0.0.1:4000 >/dev/null 2>&1 &",
     "start:lan": "pnpm run ensure-proxy-4000 && cross-env EXPO_ROUTER_APP_ROOT=src/app APP_ENV=staging EXPO_NO_DOTENV=1 expo start",
-    "start": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo start",
+    "start": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo start -c",
     "prebuild": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 EXPO_TV=0 pnpm expo prebuild",
     "android": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo run:android",
     "ios": "cross-env EXPO_ROUTER_APP_ROOT=src/app EXPO_NO_DOTENV=1 expo run:ios",
@@ -80,8 +80,6 @@
     "expo-system-ui": "~5.0.11",
     "expo-video": "~2.2.2",
     "i18next": "^23.14.0",
-    "libsodium-wrappers": "^0.7.15",
-    "libsodium-wrappers-sumo": "^0.7.15",
     "lodash.memoize": "^4.1.2",
     "moti": "^0.29.0",
     "nativewind": "^4.1.21",
@@ -96,7 +94,6 @@
     "react-native-flash-message": "^0.4.2",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-keyboard-controller": "^1.17.4",
-    "react-native-libsodium": "^1.4.0",
     "react-native-mmkv": "~3.1.0",
     "react-native-reanimated": "~3.17.5",
     "react-native-restart": "0.0.27",
@@ -180,7 +177,6 @@
   },
   "pnpm": {
     "trustedDependencies": [
-      "react-native-libsodium",
       "react-native-argon2"
     ]
   },

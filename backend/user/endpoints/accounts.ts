@@ -107,19 +107,18 @@ export const createAccount = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive owner's personal key from their passphrase using Argon2id
+    // Derive owner's personal key from their passphrase using PBKDF2-SHA256
     const salt = crypto.randomBytes(16);
-    // Align with libsodium MODERATE defaults
-    const ARGON2_OPSLIMIT = 3; // time cost
-    const ARGON2_MEMLIMIT_BYTES = 64 * 1024 * 1024; // 64 MiB
-    const ownerKey = await argon2.hash(Buffer.from(passphrase, 'utf8'), {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt,
-      timeCost: ARGON2_OPSLIMIT,
-      memoryCost: ARGON2_MEMLIMIT_BYTES / 1024, // KiB
-      parallelism: 1,
+    const PBKDF2_ITERATIONS = 150_000;
+    const ownerKey = await new Promise<Buffer>((resolve, reject) => {
+      crypto.pbkdf2(
+        Buffer.from(passphrase, 'utf8'),
+        salt,
+        PBKDF2_ITERATIONS,
+        32,
+        'sha256',
+        (err, derivedKey) => (err ? reject(err) : resolve(derivedKey))
+      );
     });
 
     // Wrap (encrypt) the master key with owner's personal key
@@ -177,10 +176,10 @@ export const createAccount = api(
           ${wrapped.toString('base64')},
           ${salt.toString('base64')},
           ${iv.toString('base64')},
-          0,
-          'argon2id',
-          ${ARGON2_OPSLIMIT},
-          ${ARGON2_MEMLIMIT_BYTES},
+          ${PBKDF2_ITERATIONS},
+          'pbkdf2',
+          NULL,
+          NULL,
           'aes-gcm-256'
         )
       `;
@@ -302,6 +301,110 @@ export const getSources = api(
     `;
 
     return { sources, keyData };
+  }
+);
+
+// Rewrap existing member key from Argon2id to PBKDF2 (one-time migration)
+export const rewrapMemberKey = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'POST',
+    path: '/accounts/:accountId/rewrap-key',
+  },
+  async (
+    { accountId }: { accountId: string },
+    { passphrase }: { passphrase: string }
+  ): Promise<{ ok: true }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+    if (!passphrase || passphrase.length < 6)
+      throw APIError.invalidArgument('Passphrase required');
+
+    // Verify membership
+    const member = await userDB.queryRow`
+      SELECT role FROM account_members
+      WHERE account_id = ${accountId} AND user_id = ${auth.userID}
+    `;
+    if (!member)
+      throw APIError.permissionDenied('Not a member of this account');
+
+    const keyData = await userDB.queryRow<MemberKeyRow>`
+      SELECT wrapped_master_key, salt, iv, iterations, kdf, opslimit, memlimit
+      FROM member_keys
+      WHERE account_id = ${accountId} AND user_id = ${auth.userID}
+    `;
+    if (!keyData) throw APIError.notFound('Key data not found');
+    if (keyData.kdf === 'pbkdf2') return { ok: true };
+
+    // Decrypt master key using legacy Argon2id
+    if (keyData.kdf !== 'argon2id') {
+      throw APIError.failedPrecondition('Unsupported legacy KDF');
+    }
+    const salt = Buffer.from(keyData.salt, 'base64');
+    const timeCost = keyData.opslimit ?? 3;
+    const memBytes = keyData.memlimit ?? 64 * 1024 * 1024;
+    const personalKey = await argon2.hash(Buffer.from(passphrase, 'utf8'), {
+      type: argon2.argon2id,
+      raw: true,
+      hashLength: 32,
+      salt,
+      timeCost,
+      memoryCost: Math.max(8 * 1024, Math.floor(memBytes / 1024)),
+      parallelism: 1,
+    });
+
+    const iv = Buffer.from(keyData.iv, 'base64');
+    const wrapped = Buffer.from(keyData.wrapped_master_key, 'base64');
+    const authTag = wrapped.slice(-16);
+    const ciphertext = wrapped.slice(0, -16);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', personalKey, iv);
+    decipher.setAuthTag(authTag);
+    let masterKey: Buffer;
+    try {
+      masterKey = Buffer.concat([
+        decipher.update(ciphertext),
+        decipher.final(),
+      ]);
+    } catch {
+      throw APIError.invalidArgument('Invalid passphrase');
+    }
+
+    // Rewrap with PBKDF2-SHA256
+    const newSalt = crypto.randomBytes(16);
+    const PBKDF2_ITERATIONS = 150_000;
+    const pbkKey = await new Promise<Buffer>((resolve, reject) => {
+      crypto.pbkdf2(
+        Buffer.from(passphrase, 'utf8'),
+        newSalt,
+        PBKDF2_ITERATIONS,
+        32,
+        'sha256',
+        (err, dk) => (err ? reject(err) : resolve(dk))
+      );
+    });
+    const newIv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', pbkKey, newIv);
+    const newWrapped = Buffer.concat([
+      cipher.update(masterKey),
+      cipher.final(),
+      cipher.getAuthTag(),
+    ]);
+
+    await userDB.exec`
+      UPDATE member_keys SET
+        wrapped_master_key = ${newWrapped.toString('base64')},
+        salt = ${newSalt.toString('base64')},
+        iv = ${newIv.toString('base64')},
+        iterations = ${PBKDF2_ITERATIONS},
+        kdf = 'pbkdf2',
+        opslimit = NULL,
+        memlimit = NULL,
+        wrap_algo = 'aes-gcm-256'
+      WHERE account_id = ${accountId} AND user_id = ${auth.userID}
+    `;
+
+    return { ok: true };
   }
 );
 
@@ -589,18 +692,18 @@ export const acceptInvite = api(
       decipher.final(),
     ]);
 
-    // Wrap master key with new member's passphrase
+    // Wrap master key with new member's passphrase using PBKDF2-SHA256
     const salt = crypto.randomBytes(16);
-    const ARGON2_OPSLIMIT = 3; // time cost
-    const ARGON2_MEMLIMIT_BYTES = 64 * 1024 * 1024; // 64 MiB
-    const memberKey = await argon2.hash(Buffer.from(newPassphrase, 'utf8'), {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt,
-      timeCost: ARGON2_OPSLIMIT,
-      memoryCost: ARGON2_MEMLIMIT_BYTES / 1024,
-      parallelism: 1,
+    const PBKDF2_ITERATIONS = 150_000;
+    const memberKey = await new Promise<Buffer>((resolve, reject) => {
+      crypto.pbkdf2(
+        Buffer.from(newPassphrase, 'utf8'),
+        salt,
+        PBKDF2_ITERATIONS,
+        32,
+        'sha256',
+        (err, dk) => (err ? reject(err) : resolve(dk))
+      );
     });
 
     const iv = crypto.randomBytes(12);
@@ -630,10 +733,10 @@ export const acceptInvite = api(
           ${wrapped.toString('base64')},
           ${salt.toString('base64')},
           ${iv.toString('base64')},
-          0,
-          'argon2id',
-          ${ARGON2_OPSLIMIT},
-          ${ARGON2_MEMLIMIT_BYTES},
+          ${PBKDF2_ITERATIONS},
+          'pbkdf2',
+          NULL,
+          NULL,
           'aes-gcm-256'
         )
         ON CONFLICT (account_id, user_id) 

@@ -45,7 +45,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         'This app uses the local network to play media streams from your playlists and media servers.',
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: true,
-        NSAllowsLocalNetworking: true,
       },
     },
   },
@@ -72,7 +71,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         supportsPictureInPicture: true,
       },
     ],
-    ['react-native-libsodium', {}],
     [
       'expo-build-properties',
       {

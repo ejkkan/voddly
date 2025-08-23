@@ -5,12 +5,11 @@
   "main": "expo-router/entry",
   "scripts": {
     "postinstall": "patch-package",
-    "prebuild": "DEBUG=\"expo:*\" expo prebuild --clean",
-    "prebuild:tv": "DEBUG=\"expo:*\" EXPO_TV=1 expo prebuild --clean",
-    "start": "expo start",
+    "prebuild": "DEBUG=\"expo:*\" EXPO_TV=1 expo prebuild --clean",
+    "start": "expo start -c",
     "web": "expo start --web",
     "android": "expo run:android",
-    "ios": "expo run:ios",
+    "ios": "expo run:ios -c",
     "build:web": "expo export --platform web",
     "deploy:web": "eas deploy --environment=development",
     "lint": "expo lint"

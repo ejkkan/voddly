@@ -85,7 +85,7 @@ export class SourceCredentialsManager {
   ): Promise<SourceCredentials> {
     const info = await this.findSourceInfo(sourceId);
     const attempt = async (
-      forcePrompt: boolean
+      _forcePrompt: boolean
     ): Promise<SourceCredentials> => {
       const passphrase = await this.getPassphrase(info.account.id, {
         title: options.title || 'Decrypt Source',
@@ -108,7 +108,7 @@ export class SourceCredentialsManager {
     };
     try {
       return await attempt(false);
-    } catch (e: any) {
+    } catch (_e: any) {
       // On crypto errors, clear caches and force re-prompt
       try {
         passphraseCache.remove(info.account.id);
@@ -197,57 +197,19 @@ async function resolveSourceInfo(targetId: string): Promise<SourceInfo> {
   throw new Error('Source not found in any account');
 }
 
-async function deriveArgon2idKey(
+async function derivePBKDF2Key(
   passphrase: string,
   salt: Uint8Array,
-  keyData: { opslimit?: number; memlimit?: number }
+  keyData: { iterations?: number }
 ): Promise<Uint8Array> {
-  if (Platform.OS === 'web') {
-    const sodiumMod = await import('libsodium-wrappers-sumo');
-    const sodium = (sodiumMod as any).default ?? sodiumMod;
-    await (sodium as any).ready;
-    const ops =
-      keyData.opslimit ??
-      (sodium as any).crypto_pwhash_OPSLIMIT_MODERATE ??
-      (sodium as any).crypto_pwhash_OPSLIMIT_INTERACTIVE;
-    const memBytes =
-      keyData.memlimit ??
-      (sodium as any).crypto_pwhash_MEMLIMIT_MODERATE ??
-      (sodium as any).crypto_pwhash_MEMLIMIT_INTERACTIVE;
-    const alg =
-      typeof (sodium as any).crypto_pwhash_ALG_ARGON2ID13 === 'number'
-        ? (sodium as any).crypto_pwhash_ALG_ARGON2ID13
-        : (sodium as any).crypto_pwhash_ALG_DEFAULT;
-    return (sodium as any).crypto_pwhash(
-      32,
-      passphrase,
-      salt,
-      ops,
-      memBytes,
-      alg
-    );
-  }
-  const sodiumMod = await import('react-native-libsodium');
-  const sodium = (sodiumMod as any).default ?? sodiumMod;
-  if (!(globalThis as any).__sodiumReady) {
-    if (typeof sodium.loadSumoVersion === 'function') sodium.loadSumoVersion();
-    if (sodium.ready && typeof sodium.ready.then === 'function')
-      await sodium.ready;
-  }
-  const ops =
-    keyData.opslimit ??
-    (sodium as any).crypto_pwhash_OPSLIMIT_MODERATE ??
-    sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE;
-  const memBytes =
-    keyData.memlimit ??
-    (sodium as any).crypto_pwhash_MEMLIMIT_MODERATE ??
-    sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE;
   if (salt.length !== 16) throw new Error('invalid salt length');
-  const algNative =
-    typeof (sodium as any).crypto_pwhash_ALG_ARGON2ID13 === 'number'
-      ? (sodium as any).crypto_pwhash_ALG_ARGON2ID13
-      : sodium.crypto_pwhash_ALG_DEFAULT;
-  return sodium.crypto_pwhash(32, passphrase, salt, ops, memBytes, algNative);
+  const iterations = keyData.iterations ?? 150_000;
+  const pwd = new TextEncoder().encode(passphrase);
+  // Using runtime import to avoid circular issues in tooling; main import at top is preferred
+  const { pbkdf2 } = await import('@noble/hashes/pbkdf2');
+  const { sha256 } = await import('@noble/hashes/sha256');
+  const derived = pbkdf2(sha256, pwd, salt, { c: iterations, dkLen: 32 });
+  return new Uint8Array(derived);
 }
 
 function validateAndParseKeyData(keyData: SourceInfo['keyData']): {
@@ -318,12 +280,12 @@ async function getOrDeriveMasterKey(
   if (cached && cached.expiresAt > nowTs) {
     return cached.key;
   }
-  if (keyData.kdf !== 'argon2id') {
+  if (keyData.kdf && keyData.kdf !== 'pbkdf2') {
     throw new Error(
-      'Unsupported key derivation scheme. Please update the app.'
+      'Unsupported key derivation scheme. Please migrate to PBKDF2.'
     );
   }
-  const personalKeyBytes = await deriveArgon2idKey(passphrase, salt, keyData);
+  const personalKeyBytes = await derivePBKDF2Key(passphrase, salt, keyData);
   const masterKeyBytes = aesGcmDecrypt(personalKeyBytes, iv, wrapped);
   g.__masterKeyCache.set(cacheKey, {
     key: masterKeyBytes,
