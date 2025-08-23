@@ -1,3 +1,5 @@
+const reanimatedPlugin = require.resolve('react-native-reanimated/plugin');
+
 module.exports = function (api) {
   api.cache(true);
   return {
@@ -27,7 +29,7 @@ module.exports = function (api) {
           ],
         },
       ],
-      'react-native-reanimated/plugin',
+      reanimatedPlugin,
     ],
   };
 };

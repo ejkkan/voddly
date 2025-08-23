@@ -46,12 +46,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSAppTransportSecurity: {
         NSAllowsArbitraryLoads: true,
         NSAllowsLocalNetworking: true,
-        NSExceptionDomains: {
-          '89.37.117.6': {
-            NSIncludesSubdomains: true,
-            NSTemporaryExceptionAllowsInsecureHTTPLoads: true,
-          },
-        },
       },
     },
   },
