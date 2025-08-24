@@ -1,16 +1,20 @@
-import React, { useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+
 import {
-  SafeAreaView,
-  View,
-  Text,
   Image,
-  ScrollView,
   Pressable,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
 } from '@/components/ui';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { openDb } from '@/lib/db';
 import { useFetchRemoteMovie } from '@/hooks/useFetchRemoteMovie';
+import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
+import { getApiRoot } from '@/lib/auth/auth-client';
+import { openDb } from '@/lib/db';
+import { useSourceCredentials } from '@/lib/source-credentials';
+import { normalizeImageUrl } from '@/lib/url-utils';
 
 type ItemRow = {
   id: string;
@@ -24,6 +28,7 @@ type ItemRow = {
   release_date?: string | null;
   rating?: number | null;
   rating_5based?: number | null;
+  tmdb_id?: string | null;
   original_payload_json?: string | null;
 };
 
@@ -35,7 +40,22 @@ export default function MovieDetails() {
   const [error, setError] = useState<string | null>(null);
   const { prepareContentPlayback } = useSourceCredentials();
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteMovie();
-
+  const lastFetchedTmdbRef = useRef<string | null>(null);
+  const baseApi = getApiRoot();
+  const sourceBase = useSourceBaseUrl(item?.source_id);
+  console.log('[normalizedBackdrop] sourceBase', sourceBase);
+  const normalizedBackdrop = useMemo(() => {
+    console.log('[normalizedBackdrop] item', JSON.stringify(item, null, 2));
+    if (!item) return null;
+    const base =
+      ((item as any).base_url as string | undefined) ||
+      (sourceBase.baseUrl as string | undefined);
+    return normalizeImageUrl(
+      item.backdrop_url || item.poster_url || null,
+      base
+    );
+  }, [item, sourceBase.baseUrl]);
+  console.log('[normalizedBackdrop] normalizedBackdrop', normalizedBackdrop);
   useEffect(() => {
     let mounted = true;
     const run = async () => {
@@ -46,13 +66,39 @@ export default function MovieDetails() {
           return;
         }
         const db = await openDb();
-        const row = await db.getFirstAsync<ItemRow>(
-          `SELECT * FROM content_items WHERE id = $id`,
+        const row = await db.getFirstAsync<
+          ItemRow & { base_url?: string | null }
+        >(
+          `SELECT i.*, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
         if (mounted) setLoading(false);
         if (row) {
+          // Trigger metadata fetch by TMDB if available (from column or payload)
+          try {
+            const fromCol = String((row as any)?.tmdb_id || '').trim();
+            const fromPayload = (() => {
+              try {
+                const raw = row?.original_payload_json
+                  ? JSON.parse(String(row.original_payload_json))
+                  : null;
+                const info = raw?.info || {};
+                return String(info?.tmdb_id ?? info?.tmdb ?? '').trim();
+              } catch {
+                return '';
+              }
+            })();
+            const tmdb = fromCol || fromPayload;
+            if (tmdb && lastFetchedTmdbRef.current !== tmdb) {
+              lastFetchedTmdbRef.current = tmdb;
+              const url = `${baseApi}/user/metadata?tmdb_id=${encodeURIComponent(tmdb)}&content_type=movie&append_to_response=${encodeURIComponent('videos,images,credits,external_ids')}`;
+              fetch(url, { method: 'GET', credentials: 'include' })
+                .then((r) => r.json())
+                .then((j) => console.log('[Metadata fetched]', j))
+                .catch(() => {});
+            }
+          } catch {}
           fetchRemote({
             id: row.id,
             sourceId: row.source_id,
@@ -61,11 +107,25 @@ export default function MovieDetails() {
             try {
               if (!ok || !mounted) return;
               const db2 = await openDb();
-              const updated = await db2.getFirstAsync<ItemRow>(
-                `SELECT * FROM content_items WHERE id = $id`,
+              const updated = await db2.getFirstAsync<
+                ItemRow & { base_url?: string | null }
+              >(
+                `SELECT i.*, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
                 { $id: String(row.id) }
               );
               if (mounted) setItem(updated ?? row);
+              // After background update, try metadata if tmdb_id became available
+              try {
+                const tmdbPost = String((updated as any)?.tmdb_id || '').trim();
+                if (tmdbPost && lastFetchedTmdbRef.current !== tmdbPost) {
+                  lastFetchedTmdbRef.current = tmdbPost;
+                  const url = `${baseApi}/user/metadata?tmdb_id=${encodeURIComponent(tmdbPost)}&content_type=movie&append_to_response=${encodeURIComponent('videos,images,credits,external_ids')}`;
+                  fetch(url, { method: 'GET', credentials: 'include' })
+                    .then((r) => r.json())
+                    .then((j) => console.log('[Metadata fetched]', j))
+                    .catch(() => {});
+                }
+              } catch {}
             } catch {
               // ignore refresh errors
             }
@@ -86,9 +146,14 @@ export default function MovieDetails() {
       if (!item) return;
       const sourceId = item.source_id;
       const movieId = item.source_item_id;
-      await prepareContentPlayback(sourceId, movieId, 'movie', {
-        title: 'Play Movie',
-        message: 'Enter your passphrase to play the movie',
+      await prepareContentPlayback({
+        sourceId,
+        contentId: movieId,
+        contentType: 'movie',
+        options: {
+          title: 'Play Movie',
+          message: 'Enter your passphrase to play the movie',
+        },
       });
       router.push({
         pathname: '/(app)/player',
@@ -117,9 +182,9 @@ export default function MovieDetails() {
           ) : (
             <View>
               <View className="overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-900">
-                {item.backdrop_url || item.poster_url ? (
+                {normalizedBackdrop ? (
                   <Image
-                    source={{ uri: item.backdrop_url || item.poster_url || '' }}
+                    source={{ uri: normalizedBackdrop || '' }}
                     contentFit="cover"
                     className="h-56 w-full md:h-72"
                   />

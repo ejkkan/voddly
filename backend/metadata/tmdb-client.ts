@@ -1,4 +1,9 @@
-import { ContentType, TMDBConfig, TMDBMovieDetails, TMDBTVDetails, TMDBSearchResult } from './types';
+import {
+  TMDBConfig,
+  TMDBMovieDetails,
+  TMDBTVDetails,
+  SearchResult,
+} from './types';
 
 export class TMDBClient {
   private config: TMDBConfig;
@@ -9,9 +14,12 @@ export class TMDBClient {
     this.baseUrl = config.baseUrl || 'https://api.themoviedb.org/3';
   }
 
-  private async makeRequest<T>(path: string, params?: Record<string, any>): Promise<T> {
+  private async makeRequest<T>(
+    path: string,
+    params?: Record<string, any>
+  ): Promise<T> {
     const url = new URL(`${this.baseUrl}${path}`);
-    
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -23,17 +31,25 @@ export class TMDBClient {
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.config.accessToken}`,
+        Authorization: `Bearer ${this.config.accessToken}`,
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ status_message: 'Unknown error' }));
-      throw new Error(`TMDB API error: ${error.status_message || response.statusText}`);
+      type TMDBError = { status_message?: string };
+      let errorBody: TMDBError | null = null;
+      try {
+        errorBody = (await response.json()) as TMDBError;
+      } catch {
+        errorBody = { status_message: 'Unknown error' } as TMDBError;
+      }
+      const statusMessage =
+        (errorBody && errorBody.status_message) || response.statusText;
+      throw new Error(`TMDB API error: ${statusMessage}`);
     }
 
-    return response.json();
+    return (await response.json()) as T;
   }
 
   async getMovieDetails(
@@ -45,10 +61,7 @@ export class TMDBClient {
       params.append_to_response = appendToResponse;
     }
 
-    return this.makeRequest<TMDBMovieDetails>(
-      `/movie/${movieId}`,
-      params
-    );
+    return this.makeRequest<TMDBMovieDetails>(`/movie/${movieId}`, params);
   }
 
   async getTVDetails(
@@ -60,10 +73,7 @@ export class TMDBClient {
       params.append_to_response = appendToResponse;
     }
 
-    return this.makeRequest<TMDBTVDetails>(
-      `/tv/${tvId}`,
-      params
-    );
+    return this.makeRequest<TMDBTVDetails>(`/tv/${tvId}`, params);
   }
 
   async getSeasonDetails(
@@ -76,10 +86,7 @@ export class TMDBClient {
       params.append_to_response = appendToResponse;
     }
 
-    return this.makeRequest<any>(
-      `/tv/${tvId}/season/${seasonNumber}`,
-      params
-    );
+    return this.makeRequest<any>(`/tv/${tvId}/season/${seasonNumber}`, params);
   }
 
   async getEpisodeDetails(
@@ -104,8 +111,8 @@ export class TMDBClient {
     year?: number,
     page?: number,
     language?: string
-  ): Promise<TMDBSearchResult> {
-    return this.makeRequest<TMDBSearchResult>('/search/movie', {
+  ): Promise<SearchResult> {
+    return this.makeRequest<SearchResult>('/search/movie', {
       query,
       year,
       page: page || 1,
@@ -118,8 +125,8 @@ export class TMDBClient {
     year?: number,
     page?: number,
     language?: string
-  ): Promise<TMDBSearchResult> {
-    return this.makeRequest<TMDBSearchResult>('/search/tv', {
+  ): Promise<SearchResult> {
+    return this.makeRequest<SearchResult>('/search/tv', {
       query,
       first_air_date_year: year,
       page: page || 1,
@@ -131,8 +138,8 @@ export class TMDBClient {
     query: string,
     page?: number,
     language?: string
-  ): Promise<TMDBSearchResult> {
-    return this.makeRequest<TMDBSearchResult>('/search/multi', {
+  ): Promise<SearchResult> {
+    return this.makeRequest<SearchResult>('/search/multi', {
       query,
       page: page || 1,
       language: language || 'en-US',

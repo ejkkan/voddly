@@ -11,7 +11,12 @@ import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 type Section = {
   categoryId?: string;
   title: string;
-  data: { id: string; title: string; imageUrl?: string | null }[];
+  data: {
+    id: string;
+    title: string;
+    imageUrl?: string | null;
+    sourceId?: string;
+  }[];
   aspect?: 'poster' | 'backdrop';
 };
 
@@ -41,6 +46,7 @@ export default function Live() {
         id: i.id,
         title: i.title,
         imageUrl: i.imageUrl,
+        sourceId: (i as any).sourceId,
       })),
       aspect: 'backdrop',
     }));
@@ -126,6 +132,7 @@ export default function Live() {
                 id: i.id,
                 title: i.title,
                 imageUrl: i.imageUrl,
+                sourceId: (i as any).sourceId,
               }))
             ),
           };
@@ -156,6 +163,7 @@ export default function Live() {
                 id={row.id}
                 title={row.title}
                 posterUrl={row.imageUrl}
+                sourceId={(row as any).sourceId}
                 aspect={item.aspect || 'poster'}
                 onPress={(id) =>
                   router.push(`/(app)/live/${encodeURIComponent(String(id))}`)

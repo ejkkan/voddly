@@ -8,25 +8,54 @@ export async function searchCatalog(
   const hasFts = await db
     .getFirstAsync<{
       cnt: number;
-    }>('SELECT count(*) as cnt FROM sqlite_master WHERE type="table" AND name="item_fts"')
+    }>(
+      "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='item_fts'"
+    )
     .then((r) => (r?.cnt ?? 0) > 0);
+  let rows: any[] = [];
   if (hasFts) {
+    try {
+      const whereType = type ? 'AND i.type = $type' : '';
+      const paramsFts: Record<string, any> = { $q: q };
+      if (type) paramsFts.$type = type;
+      rows = await db.getAllAsync(
+        `SELECT i.*, s.base_url FROM item_fts f
+         JOIN content_items i ON i.id = f.rowid
+         LEFT JOIN sources s ON s.id = i.source_id
+         WHERE item_fts MATCH $q ${whereType}
+         ORDER BY rank LIMIT 200`,
+        paramsFts as any
+      );
+    } catch {
+      // FTS is present but MATCH failed (e.g., unsupported on this platform). Fallback to LIKE below.
+    }
+  }
+  if (!Array.isArray(rows) || rows.length === 0) {
     const whereType = type ? 'AND i.type = $type' : '';
-    return db.getAllAsync(
-      `SELECT i.* FROM item_fts f
-       JOIN content_items i ON i.id = f.rowid
-       WHERE item_fts MATCH $q ${whereType}
-       ORDER BY rank LIMIT 200`,
-      { $q: q, ...(type ? { $type: type } : {}) }
+    const params: Record<string, any> = { $like: `%${q}%` };
+    if (type) params.$type = type;
+    rows = await db.getAllAsync(
+      `SELECT i.*, s.base_url FROM content_items i
+       LEFT JOIN sources s ON s.id = i.source_id
+       WHERE (i.title LIKE $like OR i.description LIKE $like) ${whereType}
+       ORDER BY i.title LIMIT 200`,
+      params as any
     );
   }
-  const whereType = type ? 'AND type = $type' : '';
-  return db.getAllAsync(
-    `SELECT * FROM content_items
-     WHERE (title LIKE $like OR description LIKE $like) ${whereType}
-     ORDER BY title LIMIT 200`,
-    { $like: `%${q}%`, ...(type ? { $type: type } : {}) }
-  );
+
+  // Post-filter to ignore bracketed tags like [PRE], [2007] when matching
+  const normalizedQuery = String(q).toLowerCase();
+  const stripBracketed = (s: string) => s.replace(/\[[^\]]*\]/g, '');
+  const filtered = rows.filter((item) => {
+    const title = stripBracketed(String(item.title ?? '')).toLowerCase();
+    const description = stripBracketed(
+      String(item.description ?? '')
+    ).toLowerCase();
+    return (
+      title.includes(normalizedQuery) || description.includes(normalizedQuery)
+    );
+  });
+  return filtered;
 }
 
 export async function getRecentAdded(
@@ -35,8 +64,10 @@ export async function getRecentAdded(
 ) {
   const db = await openDb();
   const whereType = type ? 'WHERE type = $type' : '';
+  const params: Record<string, any> = { $limit: limit };
+  if (type) params.$type = type;
   return db.getAllAsync(
     `SELECT * FROM content_items ${whereType} ORDER BY datetime(added_at) DESC LIMIT $limit`,
-    { $type: type, $limit: limit }
+    params as any
   );
 }

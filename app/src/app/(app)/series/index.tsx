@@ -9,7 +9,12 @@ import { useUiPreview, useUiSections } from '@/hooks/ui';
 type Section = {
   categoryId?: string;
   title: string;
-  data: Array<{ id: string; title: string; imageUrl?: string | null }>;
+  data: Array<{
+    id: string;
+    title: string;
+    imageUrl?: string | null;
+    sourceId?: string;
+  }>;
 };
 
 export default function Series() {
@@ -38,6 +43,7 @@ export default function Series() {
         id: i.id,
         title: i.title,
         imageUrl: i.imageUrl,
+        sourceId: (i as any).sourceId,
       })),
     }));
     if (mapped.length === 0 || mapped.every((s) => s.data.length === 0)) {
@@ -124,6 +130,7 @@ export default function Series() {
                 id: i.id,
                 title: i.title,
                 imageUrl: i.imageUrl,
+                sourceId: (i as any).sourceId,
               }))
             ),
           };
@@ -154,6 +161,7 @@ export default function Series() {
                 id={row.id}
                 title={row.title}
                 posterUrl={row.imageUrl}
+                sourceId={(row as any).sourceId}
                 onPress={(id) =>
                   router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
                 }

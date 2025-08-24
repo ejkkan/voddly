@@ -1,6 +1,7 @@
 'use client';
 
 import { openDb } from './db';
+import { normalizeImageUrl } from './url-utils';
 
 export interface CatalogData {
   categories?: any[];
@@ -26,7 +27,8 @@ export class MobileCatalogStorage {
   async storeSourceCatalog(
     accountId: string,
     sourceId: string,
-    data: CatalogData
+    data: CatalogData,
+    server?: string
   ): Promise<void> {
     const db = await openDb();
     if (__DEV__) console.log('[store] begin', sourceId);
@@ -50,7 +52,7 @@ export class MobileCatalogStorage {
           $id: srcId,
           $name: 'Source',
           $kind: 'xtream',
-          $base_url: null,
+          $base_url: server || null,
           $created_at: now,
           $updated_at: now,
         }
@@ -61,9 +63,27 @@ export class MobileCatalogStorage {
         srcId,
         safeData.categories || []
       );
-      await this.insertMovies(db, accountId, srcId, safeData.movies || []);
-      await this.insertSeries(db, accountId, srcId, safeData.series || []);
-      await this.insertChannels(db, accountId, srcId, safeData.channels || []);
+      await this.insertMovies(
+        db,
+        accountId,
+        srcId,
+        safeData.movies || [],
+        server
+      );
+      await this.insertSeries(
+        db,
+        accountId,
+        srcId,
+        safeData.series || [],
+        server
+      );
+      await this.insertChannels(
+        db,
+        accountId,
+        srcId,
+        safeData.channels || [],
+        server
+      );
 
       await db.execAsync('COMMIT');
       if (__DEV__)
@@ -108,11 +128,13 @@ export class MobileCatalogStorage {
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    movies: any[]
+    movies: any[],
+    server?: string
   ) {
     for (const m of movies) {
       const sourceItemId = String(m.stream_id ?? m.num ?? '');
       const itemId = `${srcId}:movie:${sourceItemId}`;
+      const poster = normalizeImageUrl(String(m.stream_icon ?? ''), server);
       await db.runAsync(
         `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
          VALUES ($account_id, $id, $source_id, $source_item_id, 'movie', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, $is_adult, $added_at, $last_modified, NULL, $payload)`,
@@ -123,7 +145,7 @@ export class MobileCatalogStorage {
           $source_item_id: sourceItemId,
           $title: String(m.name ?? ''),
           $description: null,
-          $poster_url: String(m.stream_icon ?? ''),
+          $poster_url: poster,
           $backdrop_url: null,
           $release_date: null,
           $rating: Number(m.rating ?? 0) || 0,
@@ -152,11 +174,17 @@ export class MobileCatalogStorage {
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    series: any[]
+    series: any[],
+    server?: string
   ) {
     for (const s of series) {
       const sourceItemId = String(s.series_id ?? s.num ?? '');
       const itemId = `${srcId}:series:${sourceItemId}`;
+      const poster = normalizeImageUrl(String(s.cover ?? ''), server);
+      const backdropCandidate = Array.isArray(s.backdrop_path)
+        ? String(s.backdrop_path[0] ?? '')
+        : null;
+      const backdrop = normalizeImageUrl(backdropCandidate || '', server);
       await db.runAsync(
         `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
          VALUES ($account_id, $id, $source_id, $source_item_id, 'series', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, 0, $added_at, $last_modified, NULL, $payload)`,
@@ -167,10 +195,8 @@ export class MobileCatalogStorage {
           $source_item_id: sourceItemId,
           $title: String(s.name ?? ''),
           $description: String(s.plot ?? ''),
-          $poster_url: String(s.cover ?? ''),
-          $backdrop_url: Array.isArray(s.backdrop_path)
-            ? String(s.backdrop_path[0] ?? '')
-            : null,
+          $poster_url: poster,
+          $backdrop_url: backdrop,
           $release_date: String(s.release_date ?? s.releaseDate ?? '') || null,
           $rating: Number(s.rating ?? 0) || 0,
           $rating_5based: Number(s.rating_5based ?? 0) || 0,
@@ -197,11 +223,13 @@ export class MobileCatalogStorage {
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    channels: any[]
+    channels: any[],
+    server?: string
   ) {
     for (const c of channels) {
       const sourceItemId = String(c.stream_id ?? c.num ?? '');
       const itemId = `${srcId}:live:${sourceItemId}`;
+      const poster = normalizeImageUrl(String(c.stream_icon ?? ''), server);
       await db.runAsync(
         `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
          VALUES ($account_id, $id, $source_id, $source_item_id, 'live', $title, NULL, $poster_url, NULL, NULL, 0, 0, $is_adult, $added_at, NULL, NULL, $payload)`,
@@ -211,7 +239,7 @@ export class MobileCatalogStorage {
           $source_id: srcId,
           $source_item_id: sourceItemId,
           $title: String(c.name ?? ''),
-          $poster_url: String(c.stream_icon ?? ''),
+          $poster_url: poster,
           $is_adult: Number(c.is_adult ?? 0) || 0,
           $added_at: c.added
             ? new Date(Number(c.added) * 1000).toISOString()
@@ -267,3 +295,5 @@ export class MobileCatalogStorage {
     );
   }
 }
+
+// helper moved to url-utils.ts

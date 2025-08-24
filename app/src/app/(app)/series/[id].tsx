@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   SafeAreaView,
@@ -13,6 +13,9 @@ import { openDb } from '@/lib/db';
 import { useFetchRemoteSeries } from '@/hooks/useFetchRemoteSeries';
 import { SeriesEpisodesCarousels } from '@/components/series/SeriesEpisodesCarousels';
 import { SeasonsList } from '@/components/series/SeasonsList';
+import { getApiRoot } from '@/lib/auth/auth-client';
+import { normalizeImageUrl } from '@/lib/url-utils';
+import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
 
 type ItemRow = {
   id: string;
@@ -27,6 +30,7 @@ type ItemRow = {
   rating?: number | null;
   rating_5based?: number | null;
   last_modified?: string | null;
+  tmdb_id?: string | null;
   original_payload_json?: string | null;
 };
 
@@ -39,6 +43,8 @@ export default function SeriesDetails() {
   const [episodesRefreshKey, setEpisodesRefreshKey] = useState(0);
   const { prepareContentPlayback } = useSourceCredentials();
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteSeries();
+  const lastFetchedTmdbRef = useRef<string | null>(null);
+  const sourceBase = useSourceBaseUrl(item?.source_id);
 
   useEffect(() => {
     let mounted = true;
@@ -50,13 +56,40 @@ export default function SeriesDetails() {
           return;
         }
         const db = await openDb();
-        const row = await db.getFirstAsync<ItemRow>(
-          `SELECT * FROM content_items WHERE id = $id`,
+        const row = await db.getFirstAsync<
+          ItemRow & { base_url?: string | null }
+        >(
+          `SELECT i.*, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
         if (mounted) setLoading(false);
         if (row) {
+          // Trigger metadata fetch by TMDB if available (from column or payload)
+          try {
+            const fromCol = String((row as any)?.tmdb_id || '').trim();
+            const fromPayload = (() => {
+              try {
+                const raw = row?.original_payload_json
+                  ? JSON.parse(String(row.original_payload_json))
+                  : null;
+                const info = raw?.info || {};
+                return String(info?.tmdb ?? info?.tmdb_id ?? '').trim();
+              } catch {
+                return '';
+              }
+            })();
+            const tmdb = fromCol || fromPayload;
+            if (tmdb && lastFetchedTmdbRef.current !== tmdb) {
+              lastFetchedTmdbRef.current = tmdb;
+              const base = getApiRoot();
+              const url = `${base}/user/metadata?tmdb_id=${encodeURIComponent(tmdb)}&content_type=tv&append_to_response=${encodeURIComponent('videos,images,credits,external_ids')}`;
+              fetch(url, { method: 'GET', credentials: 'include' })
+                .then((r) => r.json())
+                .then((j) => console.log('[Metadata fetched]', j))
+                .catch(() => {});
+            }
+          } catch {}
           // Fetch remote in the background and refresh when done
           fetchRemote({
             id: row.id,
@@ -66,12 +99,27 @@ export default function SeriesDetails() {
             try {
               if (!ok || !mounted) return;
               const db2 = await openDb();
-              const updated = await db2.getFirstAsync<ItemRow>(
-                `SELECT * FROM content_items WHERE id = $id`,
+              const updated = await db2.getFirstAsync<
+                ItemRow & { base_url?: string | null }
+              >(
+                `SELECT i.*, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
                 { $id: String(row.id) }
               );
               if (mounted) setItem(updated ?? row);
               if (mounted) setEpisodesRefreshKey((v) => v + 1);
+              // After background update, try metadata if tmdb_id became available
+              try {
+                const tmdbPost = String((updated as any)?.tmdb_id || '').trim();
+                if (tmdbPost && lastFetchedTmdbRef.current !== tmdbPost) {
+                  lastFetchedTmdbRef.current = tmdbPost;
+                  const base = getApiRoot();
+                  const url = `${base}/user/metadata?tmdb_id=${encodeURIComponent(tmdbPost)}&content_type=tv&append_to_response=${encodeURIComponent('videos,images,credits,external_ids')}`;
+                  fetch(url, { method: 'GET', credentials: 'include' })
+                    .then((r) => r.json())
+                    .then((j) => console.log('[Metadata fetched]', j))
+                    .catch(() => {});
+                }
+              } catch {}
             } catch {
               // ignore refresh errors (e.g., DB closed during navigation)
             }
@@ -92,9 +140,14 @@ export default function SeriesDetails() {
       if (!item) return;
       const sourceId = item.source_id;
       const seriesId = item.source_item_id;
-      await prepareContentPlayback(sourceId, seriesId, 'series', {
-        title: 'Play Series',
-        message: 'Enter your passphrase to play the first episode',
+      await prepareContentPlayback({
+        sourceId,
+        contentId: seriesId,
+        contentType: 'series',
+        options: {
+          title: 'Play Series',
+          message: 'Enter your passphrase to play the first episode',
+        },
       });
       router.push({
         pathname: '/(app)/player',
@@ -123,13 +176,23 @@ export default function SeriesDetails() {
           ) : (
             <View>
               <View className="overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-900">
-                {item.backdrop_url || item.poster_url ? (
-                  <Image
-                    source={{ uri: item.backdrop_url || item.poster_url || '' }}
-                    contentFit="cover"
-                    className="h-56 w-full md:h-72"
-                  />
-                ) : null}
+                {(() => {
+                  const base =
+                    ((item as any).base_url as string | undefined) ||
+                    (sourceBase.baseUrl as string | undefined);
+                  const normalized = normalizeImageUrl(
+                    item.backdrop_url || item.poster_url || null,
+                    base
+                  );
+                  if (!normalized) return null;
+                  return (
+                    <Image
+                      source={{ uri: normalized }}
+                      contentFit="cover"
+                      className="h-56 w-full md:h-72"
+                    />
+                  );
+                })()}
               </View>
               <Text className="mt-4 text-2xl font-extrabold text-neutral-900 dark:text-neutral-50">
                 {item.title}

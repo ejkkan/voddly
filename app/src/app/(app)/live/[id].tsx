@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   SafeAreaView,
@@ -11,6 +11,8 @@ import {
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { openDb } from '@/lib/db';
 import { useFetchRemoteLive } from '@/hooks/useFetchRemoteLive';
+import { normalizeImageUrl } from '@/lib/url-utils';
+import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
 
 type ItemRow = {
   id: string;
@@ -30,6 +32,7 @@ export default function LiveDetails() {
   const [error, setError] = useState<string | null>(null);
   const { prepareContentPlayback } = useSourceCredentials();
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteLive();
+  const sourceBase = useSourceBaseUrl(item?.source_id);
 
   useEffect(() => {
     let mounted = true;
@@ -41,8 +44,10 @@ export default function LiveDetails() {
           return;
         }
         const db = await openDb();
-        const row = await db.getFirstAsync<ItemRow>(
-          `SELECT id, source_id, source_item_id, type, title, poster_url, rating FROM content_items WHERE id = $id`,
+        const row = await db.getFirstAsync<
+          ItemRow & { base_url?: string | null }
+        >(
+          `SELECT i.id, i.source_id, i.source_item_id, i.type, i.title, i.poster_url, i.rating, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
@@ -82,9 +87,14 @@ export default function LiveDetails() {
       if (!item) return;
       const sourceId = item.source_id;
       const channelId = item.source_item_id;
-      await prepareContentPlayback(sourceId, channelId, 'live', {
-        title: 'Play Channel',
-        message: 'Enter your passphrase to play the channel',
+      await prepareContentPlayback({
+        sourceId,
+        contentId: channelId,
+        contentType: 'live',
+        options: {
+          title: 'Play Channel',
+          message: 'Enter your passphrase to play the channel',
+        },
       });
       router.push({
         pathname: '/(app)/player',
@@ -113,13 +123,23 @@ export default function LiveDetails() {
           ) : (
             <View>
               <View className="overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-900">
-                {item.poster_url ? (
-                  <Image
-                    source={{ uri: item.poster_url || '' }}
-                    contentFit="cover"
-                    className="h-40 w-full md:h-56"
-                  />
-                ) : null}
+                {(() => {
+                  const base =
+                    ((item as any).base_url as string | undefined) ||
+                    (sourceBase.baseUrl as string | undefined);
+                  const normalized = normalizeImageUrl(
+                    item.poster_url || null,
+                    base
+                  );
+                  if (!normalized) return null;
+                  return (
+                    <Image
+                      source={{ uri: normalized }}
+                      contentFit="cover"
+                      className="h-40 w-full md:h-56"
+                    />
+                  );
+                })()}
               </View>
               <Text className="mt-4 text-2xl font-extrabold text-neutral-900 dark:text-neutral-50">
                 {item.title}

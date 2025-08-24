@@ -87,12 +87,17 @@ export default function AddPlaylist() {
           ),
         ];
         const storage = new MobileCatalogStorage();
-        await storage.storeSourceCatalog(res.accountId, sourceId, {
-          categories,
-          movies: Array.isArray(vodStreams) ? vodStreams : [],
-          series: Array.isArray(seriesList) ? seriesList : [],
-          channels: Array.isArray(liveStreams) ? liveStreams : [],
-        });
+        await storage.storeSourceCatalog(
+          res.accountId,
+          sourceId,
+          {
+            categories,
+            movies: Array.isArray(vodStreams) ? vodStreams : [],
+            series: Array.isArray(seriesList) ? seriesList : [],
+            channels: Array.isArray(liveStreams) ? liveStreams : [],
+          },
+          serverUrl
+        );
       } else {
         if (!m3uUrl) throw new Error('M3U URL is required');
         // For M3U, also use provider type 'm3u' and store URL as server
@@ -127,12 +132,17 @@ export default function AddPlaylist() {
           }
         }
         const storage = new MobileCatalogStorage();
-        await storage.storeSourceCatalog(res.accountId, sourceId, {
-          categories: [],
-          movies: [],
-          series: [],
-          channels,
-        });
+        await storage.storeSourceCatalog(
+          res.accountId,
+          sourceId,
+          {
+            categories: [],
+            movies: [],
+            series: [],
+            channels,
+          },
+          m3uUrl
+        );
       }
       router.replace('/(app)/playlists');
     } catch (e) {

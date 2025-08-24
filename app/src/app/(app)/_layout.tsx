@@ -35,6 +35,7 @@ export default function ProtectedLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="dashboard" />
+        <Stack.Screen name="search" />
         <Stack.Screen name="movies" />
         <Stack.Screen name="player" />
         <Stack.Screen name="series" />

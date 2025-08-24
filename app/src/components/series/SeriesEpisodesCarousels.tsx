@@ -92,12 +92,14 @@ export function SeriesEpisodesCarousels(props: {
               ? e.title
               : `Episode ${e.episode_number}`) as string,
             imageUrl: extractEpisodeImageUrl(e.original_payload_json) || '',
+            sourceId,
           }))}
           renderItem={(item) => (
             <PosterCard
               id={item.id}
               title={item.title}
               posterUrl={item.imageUrl}
+              sourceId={(item as any).sourceId}
               onPress={async (id) => {
                 try {
                   const streamId = String(id);

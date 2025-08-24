@@ -12,13 +12,13 @@ import { PosterCard } from '../../components/media/poster-card';
 export default function Dashboard() {
   const router = useRouter();
   const [movies, setMovies] = useState<
-    { id: string; title: string; imageUrl?: string | null }[]
+    { id: string; title: string; imageUrl?: string | null; sourceId?: string }[]
   >([]);
   const [series, setSeries] = useState<
-    { id: string; title: string; imageUrl?: string | null }[]
+    { id: string; title: string; imageUrl?: string | null; sourceId?: string }[]
   >([]);
   const [live, setLive] = useState<
-    { id: string; title: string; imageUrl?: string | null }[]
+    { id: string; title: string; imageUrl?: string | null; sourceId?: string }[]
   >([]);
 
   const dashboard = useDashboardPreviews(10);
@@ -30,6 +30,7 @@ export default function Dashboard() {
         id: i.id,
         title: i.title,
         imageUrl: i.imageUrl,
+        sourceId: (i as any).sourceId,
       }))
     );
     setSeries(
@@ -37,10 +38,16 @@ export default function Dashboard() {
         id: i.id,
         title: i.title,
         imageUrl: i.imageUrl,
+        sourceId: (i as any).sourceId,
       }))
     );
     setLive(
-      res.live.map((i) => ({ id: i.id, title: i.title, imageUrl: i.imageUrl }))
+      res.live.map((i) => ({
+        id: i.id,
+        title: i.title,
+        imageUrl: i.imageUrl,
+        sourceId: (i as any).sourceId,
+      }))
     );
   }, [dashboard.data]);
 
@@ -69,6 +76,7 @@ export default function Dashboard() {
                 id={item.id}
                 title={item.title}
                 posterUrl={item.imageUrl}
+                sourceId={(item as any).sourceId}
                 onPress={(id) =>
                   router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
                 }
@@ -83,6 +91,7 @@ export default function Dashboard() {
                 id={item.id}
                 title={item.title}
                 posterUrl={item.imageUrl}
+                sourceId={(item as any).sourceId}
                 onPress={(id) =>
                   router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
                 }
@@ -97,6 +106,7 @@ export default function Dashboard() {
                 id={item.id}
                 title={item.title}
                 posterUrl={item.imageUrl}
+                sourceId={(item as any).sourceId}
                 onPress={(id) =>
                   router.push(`/(app)/live/${encodeURIComponent(String(id))}`)
                 }

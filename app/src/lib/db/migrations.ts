@@ -3,7 +3,12 @@ import type * as SQLite from 'expo-sqlite';
 export type DatabaseHandle = SQLite.SQLiteDatabase;
 
 export async function migrateDbIfNeeded(db: DatabaseHandle) {
-  await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
+  // Enable foreign keys first; broadly supported across platforms
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+  // Attempt to enable WAL; this can fail on some web/wasm environments. Ignore failures.
+  try {
+    await db.execAsync('PRAGMA journal_mode = WAL;');
+  } catch {}
   await createCoreSchema(db);
   await ensureExtraColumns(db);
   await createIndexes(db);

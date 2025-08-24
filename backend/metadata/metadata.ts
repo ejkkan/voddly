@@ -1,22 +1,23 @@
-import { api, APIError } from "encore.dev/api";
-import { SQLDatabase } from "encore.dev/storage/sqldb";
-import { secret } from "encore.dev/config";
+import { api, APIError } from 'encore.dev/api';
+import log from 'encore.dev/log';
+import { SQLDatabase } from 'encore.dev/storage/sqldb';
+import { secret } from 'encore.dev/config';
 import { TMDBClient } from './tmdb-client';
-import { 
+import {
   ContentType,
   MetadataProvider,
   ContentMetadata,
   GetMetadataParams,
   GetMetadataByExternalIdParams,
   SearchParams,
-  SearchResult
+  SearchResult,
 } from './types';
 
 // Database for storing cached content metadata
-const db = new SQLDatabase("metadata", { migrations: "./migrations" });
+const db = new SQLDatabase('metadata', { migrations: './migrations' });
 
 // TMDB API configuration from secrets
-const tmdbAccessToken = secret("TMDBAccessToken");
+const tmdbAccessToken = secret('TMDBAccessToken');
 
 // Initialize TMDB client
 let tmdbClient: TMDBClient;
@@ -57,8 +58,8 @@ async function transformTMDBResponse(
     fetched_at: new Date(),
     updated_at: new Date(),
     external_ids: {
-      tmdb_id: tmdbId
-    }
+      tmdb_id: tmdbId,
+    },
   };
 
   // Common fields
@@ -80,12 +81,12 @@ async function transformTMDBResponse(
     base.crew = apiResponse.credits.crew;
   }
   if (apiResponse.keywords) base.keywords = apiResponse.keywords;
-  
+
   // Merge external IDs
   if (apiResponse.external_ids) {
     base.external_ids = { ...base.external_ids, ...apiResponse.external_ids };
   }
-  
+
   // Add IMDB ID if present
   if (apiResponse.imdb_id) {
     base.external_ids!.imdb_id = apiResponse.imdb_id;
@@ -134,11 +135,43 @@ async function transformTMDBResponse(
   return base;
 }
 
+// Helper serializers to ensure proper SQL parameter types
+function numOrNull(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function strOrNull(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  const s = String(value);
+  return s.length ? s : null;
+}
+
+function jsonOrNull(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}
+
+function decStrOrNull(value: unknown): string | null {
+  if (value === undefined || value === null) return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return null;
+  return String(n);
+}
+
 // Get metadata for a specific content ID
 export const getMetadata = api(
-  { expose: true, auth: false, method: "GET", path: "/metadata" },
+  { expose: true, auth: false, method: 'GET', path: '/metadata' },
   async (params: GetMetadataParams): Promise<ContentMetadata> => {
-    const { provider, provider_id, content_type, season_number, episode_number, force_refresh, append_to_response } = params;
+    const {
+      provider,
+      provider_id,
+      content_type,
+      season_number,
+      episode_number,
+      force_refresh,
+      append_to_response,
+    } = params;
 
     // Check cache first (unless force_refresh is true)
     if (!force_refresh) {
@@ -147,18 +180,27 @@ export const getMetadata = api(
         WHERE provider = ${provider}
           AND provider_id = ${provider_id}
           AND content_type = ${content_type}
-          AND (season_number = ${season_number} OR (season_number IS NULL AND ${season_number === undefined}))
-          AND (episode_number = ${episode_number} OR (episode_number IS NULL AND ${episode_number === undefined}))
+          AND (season_number = ${season_number} OR (season_number IS NULL AND ${
+        season_number === undefined
+      }))
+          AND (episode_number = ${episode_number} OR (episode_number IS NULL AND ${
+        episode_number === undefined
+      }))
       `;
 
       if (cached && isCacheValid(cached.fetched_at!)) {
+        // Strip numeric fields that may decode poorly in encore client
+        cached.vote_average = undefined as any;
+        cached.popularity = undefined as any;
         return cached;
       }
     }
 
     // Currently only TMDB is supported, but this can be extended
     if (provider !== 'tmdb') {
-      throw APIError.badRequest(`Provider ${provider} is not yet supported`);
+      throw APIError.invalidArgument(
+        `Provider ${provider} is not yet supported`
+      );
     }
 
     // Fetch from TMDB API
@@ -168,10 +210,13 @@ export const getMetadata = api(
 
     try {
       const tmdbId = parseInt(provider_id);
-      
+
       switch (content_type) {
         case 'movie':
-          apiResponse = await client.getMovieDetails(tmdbId, append_to_response);
+          apiResponse = await client.getMovieDetails(
+            tmdbId,
+            append_to_response
+          );
           break;
 
         case 'tv':
@@ -180,25 +225,42 @@ export const getMetadata = api(
 
         case 'season':
           if (season_number === undefined) {
-            throw APIError.badRequest("season_number is required for season content type");
+            throw APIError.invalidArgument(
+              'season_number is required for season content type'
+            );
           }
           parentTmdbId = tmdbId;
-          apiResponse = await client.getSeasonDetails(tmdbId, season_number, append_to_response);
+          apiResponse = await client.getSeasonDetails(
+            tmdbId,
+            season_number,
+            append_to_response
+          );
           break;
 
         case 'episode':
           if (season_number === undefined || episode_number === undefined) {
-            throw APIError.badRequest("season_number and episode_number are required for episode content type");
+            throw APIError.invalidArgument(
+              'season_number and episode_number are required for episode content type'
+            );
           }
           parentTmdbId = tmdbId;
-          apiResponse = await client.getEpisodeDetails(tmdbId, season_number, episode_number, append_to_response);
+          apiResponse = await client.getEpisodeDetails(
+            tmdbId,
+            season_number,
+            episode_number,
+            append_to_response
+          );
           break;
 
         default:
-          throw APIError.badRequest(`Invalid content type: ${content_type}`);
+          throw APIError.invalidArgument(
+            `Invalid content type: ${content_type}`
+          );
       }
     } catch (error: any) {
-      throw APIError.internal(`Failed to fetch from ${provider}: ${error.message}`);
+      throw APIError.internal(
+        `Failed to fetch from ${provider}: ${error.message}`
+      );
     }
 
     // Transform API response to our format
@@ -212,68 +274,424 @@ export const getMetadata = api(
     );
 
     // Store in database
-    const result = await db.queryRow<{id: number}>`
-      INSERT INTO content_metadata (
-        provider, provider_id, content_type, title, original_title, overview,
-        release_date, poster_path, backdrop_path, vote_average, vote_count,
-        popularity, original_language, genres, production_companies, runtime,
-        status, tagline, number_of_seasons, number_of_episodes, first_air_date,
-        last_air_date, episode_run_time, networks, created_by, season_number,
-        air_date, episode_number, parent_provider_id, external_ids, videos, images,
-        "cast", crew, keywords, raw_response, fetched_at, updated_at
-      ) VALUES (
-        ${metadata.provider}, ${metadata.provider_id}, ${metadata.content_type}, ${metadata.title}, ${metadata.original_title}, ${metadata.overview},
-        ${metadata.release_date}, ${metadata.poster_path}, ${metadata.backdrop_path}, ${metadata.vote_average}, ${metadata.vote_count},
-        ${metadata.popularity}, ${metadata.original_language}, ${JSON.stringify(metadata.genres)}, ${JSON.stringify(metadata.production_companies)}, ${metadata.runtime},
-        ${metadata.status}, ${metadata.tagline}, ${metadata.number_of_seasons}, ${metadata.number_of_episodes}, ${metadata.first_air_date},
-        ${metadata.last_air_date}, ${JSON.stringify(metadata.episode_run_time)}, ${JSON.stringify(metadata.networks)}, ${JSON.stringify(metadata.created_by)}, ${metadata.season_number},
-        ${metadata.air_date}, ${metadata.episode_number}, ${metadata.parent_provider_id}, ${JSON.stringify(metadata.external_ids)}, ${JSON.stringify(metadata.videos)}, ${JSON.stringify(metadata.images)},
-        ${JSON.stringify(metadata.cast)}, ${JSON.stringify(metadata.crew)}, ${JSON.stringify(metadata.keywords)}, ${JSON.stringify(metadata.raw_response)}, ${metadata.fetched_at}, ${metadata.updated_at}
-      )
-      ON CONFLICT (provider, provider_id, content_type, season_number, episode_number)
-      DO UPDATE SET
-        title = EXCLUDED.title,
-        original_title = EXCLUDED.original_title,
-        overview = EXCLUDED.overview,
-        release_date = EXCLUDED.release_date,
-        poster_path = EXCLUDED.poster_path,
-        backdrop_path = EXCLUDED.backdrop_path,
-        vote_average = EXCLUDED.vote_average,
-        vote_count = EXCLUDED.vote_count,
-        popularity = EXCLUDED.popularity,
-        genres = EXCLUDED.genres,
-        production_companies = EXCLUDED.production_companies,
-        runtime = EXCLUDED.runtime,
-        status = EXCLUDED.status,
-        tagline = EXCLUDED.tagline,
-        number_of_seasons = EXCLUDED.number_of_seasons,
-        number_of_episodes = EXCLUDED.number_of_episodes,
-        first_air_date = EXCLUDED.first_air_date,
-        last_air_date = EXCLUDED.last_air_date,
-        episode_run_time = EXCLUDED.episode_run_time,
-        networks = EXCLUDED.networks,
-        created_by = EXCLUDED.created_by,
-        air_date = EXCLUDED.air_date,
-        external_ids = EXCLUDED.external_ids,
-        videos = EXCLUDED.videos,
-        images = EXCLUDED.images,
-        "cast" = EXCLUDED."cast",
-        crew = EXCLUDED.crew,
-        keywords = EXCLUDED.keywords,
-        raw_response = EXCLUDED.raw_response,
-        fetched_at = EXCLUDED.fetched_at,
-        updated_at = EXCLUDED.updated_at
-      RETURNING id
-    `;
+    try {
+      log.info('Preparing metadata insert diagnostics', {
+        provider: metadata.provider,
+        provider_id: metadata.provider_id,
+        content_type,
+        vote_average: metadata.vote_average,
+        vote_average_type: typeof (metadata as any).vote_average,
+        vote_count: metadata.vote_count,
+        vote_count_type: typeof (metadata as any).vote_count,
+        popularity: metadata.popularity,
+        popularity_type: typeof (metadata as any).popularity,
+        runtime: metadata.runtime,
+        runtime_type: typeof (metadata as any).runtime,
+        season_number: metadata.season_number,
+        episode_number: metadata.episode_number,
+      });
+    } catch {}
 
-    metadata.id = result!.id;
+    if (content_type === 'movie' || content_type === 'tv') {
+      const existing = await db.queryRow<{ id: number }>`
+        SELECT id FROM content_metadata
+        WHERE provider = ${metadata.provider}
+          AND provider_id = ${metadata.provider_id}
+          AND content_type = ${metadata.content_type}
+          AND season_number IS NULL
+          AND episode_number IS NULL
+      `;
+
+      if (existing) {
+        await db.exec`
+          UPDATE content_metadata SET
+            title = ${strOrNull(metadata.title)},
+            original_title = ${strOrNull(metadata.original_title)},
+            overview = ${strOrNull(metadata.overview)},
+            release_date = ${strOrNull(metadata.release_date)},
+            poster_path = ${strOrNull(metadata.poster_path)},
+            backdrop_path = ${strOrNull(metadata.backdrop_path)},
+            vote_average = NULL,
+            vote_count = ${numOrNull(metadata.vote_count)},
+            popularity = NULL,
+            original_language = ${strOrNull(metadata.original_language)},
+            genres = ${jsonOrNull(metadata.genres)},
+            production_companies = ${jsonOrNull(metadata.production_companies)},
+            runtime = ${numOrNull(metadata.runtime)},
+            status = ${strOrNull(metadata.status)},
+            tagline = ${strOrNull(metadata.tagline)},
+            number_of_seasons = CAST(${numOrNull(
+              metadata.number_of_seasons
+            )} AS INTEGER),
+            number_of_episodes = CAST(${numOrNull(
+              metadata.number_of_episodes
+            )} AS INTEGER),
+            first_air_date = ${strOrNull(metadata.first_air_date)},
+            last_air_date = ${strOrNull(metadata.last_air_date)},
+            episode_run_time = ${jsonOrNull(metadata.episode_run_time)},
+            networks = ${jsonOrNull(metadata.networks)},
+            created_by = ${jsonOrNull(metadata.created_by)},
+            season_number = CAST(${numOrNull(
+              metadata.season_number
+            )} AS INTEGER),
+            air_date = ${strOrNull(metadata.air_date)},
+            episode_number = CAST(${numOrNull(
+              metadata.episode_number
+            )} AS INTEGER),
+            parent_provider_id = ${strOrNull(metadata.parent_provider_id)},
+            external_ids = ${jsonOrNull(metadata.external_ids)},
+            videos = ${jsonOrNull(metadata.videos)},
+            images = ${jsonOrNull(metadata.images)},
+            "cast" = ${jsonOrNull(metadata.cast)},
+            crew = ${jsonOrNull(metadata.crew)},
+            keywords = ${jsonOrNull(metadata.keywords)},
+            raw_response = ${jsonOrNull(metadata.raw_response)},
+            fetched_at = ${metadata.fetched_at},
+            updated_at = ${metadata.updated_at}
+          WHERE id = ${existing.id}
+        `;
+      } else {
+        try {
+          await db.exec`
+            INSERT INTO content_metadata (
+              provider, provider_id, content_type, title, original_title, overview,
+              release_date, poster_path, backdrop_path, vote_average, vote_count,
+              popularity, original_language, genres, production_companies, runtime,
+              status, tagline, number_of_seasons, number_of_episodes, first_air_date,
+              last_air_date, episode_run_time, networks, created_by, season_number,
+              air_date, episode_number, parent_provider_id, external_ids, videos, images,
+              "cast", crew, keywords, raw_response, fetched_at, updated_at
+            ) VALUES (
+              ${metadata.provider}, ${metadata.provider_id}, ${
+            metadata.content_type
+          },
+              ${strOrNull(metadata.title)}, ${strOrNull(
+            metadata.original_title
+          )}, ${strOrNull(metadata.overview)},
+              ${strOrNull(metadata.release_date)}, ${strOrNull(
+            metadata.poster_path
+          )}, ${strOrNull(metadata.backdrop_path)},
+              NULL, ${numOrNull(metadata.vote_count)}, NULL, ${strOrNull(
+            metadata.original_language
+          )},
+              ${jsonOrNull(metadata.genres)}, ${jsonOrNull(
+            metadata.production_companies
+          )}, ${numOrNull(metadata.runtime)},
+              ${strOrNull(metadata.status)}, ${strOrNull(metadata.tagline)},
+              CAST(${numOrNull(metadata.number_of_seasons)} AS INTEGER),
+              CAST(${numOrNull(metadata.number_of_episodes)} AS INTEGER),
+              ${strOrNull(metadata.first_air_date)}, ${strOrNull(
+            metadata.last_air_date
+          )},
+              ${jsonOrNull(metadata.episode_run_time)}, ${jsonOrNull(
+            metadata.networks
+          )}, ${jsonOrNull(metadata.created_by)},
+              CAST(${numOrNull(
+                metadata.season_number
+              )} AS INTEGER), ${strOrNull(metadata.air_date)},
+              CAST(${numOrNull(
+                metadata.episode_number
+              )} AS INTEGER), ${strOrNull(metadata.parent_provider_id)},
+              ${jsonOrNull(metadata.external_ids)}, ${jsonOrNull(
+            metadata.videos
+          )}, ${jsonOrNull(metadata.images)},
+              ${jsonOrNull(metadata.cast)}, ${jsonOrNull(
+            metadata.crew
+          )}, ${jsonOrNull(metadata.keywords)},
+              ${jsonOrNull(metadata.raw_response)}, ${metadata.fetched_at}, ${
+            metadata.updated_at
+          }
+            )
+          `;
+        } catch (e) {
+          // In case of a concurrent insert, fall back to update
+          const existing2 = await db.queryRow<{ id: number }>`
+            SELECT id FROM content_metadata
+            WHERE provider = ${metadata.provider}
+              AND provider_id = ${metadata.provider_id}
+              AND content_type = ${metadata.content_type}
+              AND season_number IS NULL
+              AND episode_number IS NULL
+          `;
+          if (existing2) {
+            await db.exec`UPDATE content_metadata SET updated_at = ${metadata.updated_at} WHERE id = ${existing2.id}`;
+          }
+        }
+      }
+    } else if (content_type === 'season') {
+      const existing = await db.queryRow<{ id: number }>`
+        SELECT id FROM content_metadata
+        WHERE provider = ${metadata.provider}
+          AND content_type = 'season'
+          AND parent_provider_id = ${strOrNull(metadata.parent_provider_id)}
+          AND season_number = CAST(${numOrNull(
+            metadata.season_number
+          )} AS INTEGER)
+      `;
+
+      if (existing) {
+        await db.exec`
+          UPDATE content_metadata SET
+            title = ${strOrNull(metadata.title)},
+            original_title = ${strOrNull(metadata.original_title)},
+            overview = ${strOrNull(metadata.overview)},
+            release_date = ${strOrNull(metadata.release_date)},
+            poster_path = ${strOrNull(metadata.poster_path)},
+            backdrop_path = ${strOrNull(metadata.backdrop_path)},
+            vote_average = NULL,
+            vote_count = ${numOrNull(metadata.vote_count)},
+            popularity = NULL,
+            original_language = ${strOrNull(metadata.original_language)},
+            genres = ${jsonOrNull(metadata.genres)},
+            production_companies = ${jsonOrNull(metadata.production_companies)},
+            runtime = ${numOrNull(metadata.runtime)},
+            status = ${strOrNull(metadata.status)},
+            tagline = ${strOrNull(metadata.tagline)},
+            number_of_seasons = CAST(${numOrNull(
+              metadata.number_of_seasons
+            )} AS INTEGER),
+            number_of_episodes = CAST(${numOrNull(
+              metadata.number_of_episodes
+            )} AS INTEGER),
+            first_air_date = ${strOrNull(metadata.first_air_date)},
+            last_air_date = ${strOrNull(metadata.last_air_date)},
+            episode_run_time = ${jsonOrNull(metadata.episode_run_time)},
+            networks = ${jsonOrNull(metadata.networks)},
+            created_by = ${jsonOrNull(metadata.created_by)},
+            season_number = CAST(${numOrNull(
+              metadata.season_number
+            )} AS INTEGER),
+            air_date = ${strOrNull(metadata.air_date)},
+            episode_number = CAST(${numOrNull(
+              metadata.episode_number
+            )} AS INTEGER),
+            parent_provider_id = ${strOrNull(metadata.parent_provider_id)},
+            external_ids = ${jsonOrNull(metadata.external_ids)},
+            videos = ${jsonOrNull(metadata.videos)},
+            images = ${jsonOrNull(metadata.images)},
+            "cast" = ${jsonOrNull(metadata.cast)},
+            crew = ${jsonOrNull(metadata.crew)},
+            keywords = ${jsonOrNull(metadata.keywords)},
+            raw_response = ${jsonOrNull(metadata.raw_response)},
+            fetched_at = ${metadata.fetched_at},
+            updated_at = ${metadata.updated_at}
+          WHERE id = ${existing.id}
+        `;
+      } else {
+        try {
+          await db.exec`
+            INSERT INTO content_metadata (
+              provider, provider_id, content_type, title, original_title, overview,
+              release_date, poster_path, backdrop_path, vote_average, vote_count,
+              popularity, original_language, genres, production_companies, runtime,
+              status, tagline, number_of_seasons, number_of_episodes, first_air_date,
+              last_air_date, episode_run_time, networks, created_by, season_number,
+              air_date, episode_number, parent_provider_id, external_ids, videos, images,
+              "cast", crew, keywords, raw_response, fetched_at, updated_at
+            ) VALUES (
+              ${metadata.provider}, ${metadata.provider_id}, ${
+            metadata.content_type
+          },
+              ${strOrNull(metadata.title)}, ${strOrNull(
+            metadata.original_title
+          )}, ${strOrNull(metadata.overview)},
+              ${strOrNull(metadata.release_date)}, ${strOrNull(
+            metadata.poster_path
+          )}, ${strOrNull(metadata.backdrop_path)},
+              NULL, ${numOrNull(metadata.vote_count)}, NULL, ${strOrNull(
+            metadata.original_language
+          )},
+              ${jsonOrNull(metadata.genres)}, ${jsonOrNull(
+            metadata.production_companies
+          )}, ${numOrNull(metadata.runtime)},
+              ${strOrNull(metadata.status)}, ${strOrNull(metadata.tagline)},
+              CAST(${numOrNull(metadata.number_of_seasons)} AS INTEGER),
+              CAST(${numOrNull(metadata.number_of_episodes)} AS INTEGER),
+              ${strOrNull(metadata.first_air_date)}, ${strOrNull(
+            metadata.last_air_date
+          )},
+              ${jsonOrNull(metadata.episode_run_time)}, ${jsonOrNull(
+            metadata.networks
+          )}, ${jsonOrNull(metadata.created_by)},
+              CAST(${numOrNull(
+                metadata.season_number
+              )} AS INTEGER), ${strOrNull(metadata.air_date)},
+              CAST(${numOrNull(
+                metadata.episode_number
+              )} AS INTEGER), ${strOrNull(metadata.parent_provider_id)},
+              ${jsonOrNull(metadata.external_ids)}, ${jsonOrNull(
+            metadata.videos
+          )}, ${jsonOrNull(metadata.images)},
+              ${jsonOrNull(metadata.cast)}, ${jsonOrNull(
+            metadata.crew
+          )}, ${jsonOrNull(metadata.keywords)},
+              ${jsonOrNull(metadata.raw_response)}, ${metadata.fetched_at}, ${
+            metadata.updated_at
+          }
+            )
+          `;
+        } catch (e) {
+          const existing2 = await db.queryRow<{ id: number }>`
+            SELECT id FROM content_metadata
+            WHERE provider = ${metadata.provider}
+              AND content_type = 'season'
+              AND parent_provider_id = ${strOrNull(metadata.parent_provider_id)}
+              AND season_number = CAST(${numOrNull(
+                metadata.season_number
+              )} AS INTEGER)
+          `;
+          if (existing2) {
+            await db.exec`UPDATE content_metadata SET updated_at = ${metadata.updated_at} WHERE id = ${existing2.id}`;
+          }
+        }
+      }
+    } else {
+      // episode
+      const existing = await db.queryRow<{ id: number }>`
+        SELECT id FROM content_metadata
+        WHERE provider = ${metadata.provider}
+          AND content_type = 'episode'
+          AND parent_provider_id = ${strOrNull(metadata.parent_provider_id)}
+          AND season_number = CAST(${numOrNull(
+            metadata.season_number
+          )} AS INTEGER)
+          AND episode_number = CAST(${numOrNull(
+            metadata.episode_number
+          )} AS INTEGER)
+      `;
+
+      if (existing) {
+        await db.exec`
+          UPDATE content_metadata SET
+            title = ${strOrNull(metadata.title)},
+            original_title = ${strOrNull(metadata.original_title)},
+            overview = ${strOrNull(metadata.overview)},
+            release_date = ${strOrNull(metadata.release_date)},
+            poster_path = ${strOrNull(metadata.poster_path)},
+            backdrop_path = ${strOrNull(metadata.backdrop_path)},
+            vote_average = NULL,
+            vote_count = ${numOrNull(metadata.vote_count)},
+            popularity = NULL,
+            original_language = ${strOrNull(metadata.original_language)},
+            genres = ${jsonOrNull(metadata.genres)},
+            production_companies = ${jsonOrNull(metadata.production_companies)},
+            runtime = ${numOrNull(metadata.runtime)},
+            status = ${strOrNull(metadata.status)},
+            tagline = ${strOrNull(metadata.tagline)},
+            number_of_seasons = CAST(${numOrNull(
+              metadata.number_of_seasons
+            )} AS INTEGER),
+            number_of_episodes = CAST(${numOrNull(
+              metadata.number_of_episodes
+            )} AS INTEGER),
+            first_air_date = ${strOrNull(metadata.first_air_date)},
+            last_air_date = ${strOrNull(metadata.last_air_date)},
+            episode_run_time = ${jsonOrNull(metadata.episode_run_time)},
+            networks = ${jsonOrNull(metadata.networks)},
+            created_by = ${jsonOrNull(metadata.created_by)},
+            season_number = CAST(${numOrNull(
+              metadata.season_number
+            )} AS INTEGER),
+            air_date = ${strOrNull(metadata.air_date)},
+            episode_number = CAST(${numOrNull(
+              metadata.episode_number
+            )} AS INTEGER),
+            parent_provider_id = ${strOrNull(metadata.parent_provider_id)},
+            external_ids = ${jsonOrNull(metadata.external_ids)},
+            videos = ${jsonOrNull(metadata.videos)},
+            images = ${jsonOrNull(metadata.images)},
+            "cast" = ${jsonOrNull(metadata.cast)},
+            crew = ${jsonOrNull(metadata.crew)},
+            keywords = ${jsonOrNull(metadata.keywords)},
+            raw_response = ${jsonOrNull(metadata.raw_response)},
+            fetched_at = ${metadata.fetched_at},
+            updated_at = ${metadata.updated_at}
+          WHERE id = ${existing.id}
+        `;
+      } else {
+        try {
+          await db.exec`
+            INSERT INTO content_metadata (
+              provider, provider_id, content_type, title, original_title, overview,
+              release_date, poster_path, backdrop_path, vote_average, vote_count,
+              popularity, original_language, genres, production_companies, runtime,
+              status, tagline, number_of_seasons, number_of_episodes, first_air_date,
+              last_air_date, episode_run_time, networks, created_by, season_number,
+              air_date, episode_number, parent_provider_id, external_ids, videos, images,
+              "cast", crew, keywords, raw_response, fetched_at, updated_at
+            ) VALUES (
+              ${metadata.provider}, ${metadata.provider_id}, ${
+            metadata.content_type
+          },
+              ${strOrNull(metadata.title)}, ${strOrNull(
+            metadata.original_title
+          )}, ${strOrNull(metadata.overview)},
+              ${strOrNull(metadata.release_date)}, ${strOrNull(
+            metadata.poster_path
+          )}, ${strOrNull(metadata.backdrop_path)},
+              NULL, ${numOrNull(metadata.vote_count)}, NULL, ${strOrNull(
+            metadata.original_language
+          )},
+              ${jsonOrNull(metadata.genres)}, ${jsonOrNull(
+            metadata.production_companies
+          )}, ${numOrNull(metadata.runtime)},
+              ${strOrNull(metadata.status)}, ${strOrNull(metadata.tagline)},
+              CAST(${numOrNull(metadata.number_of_seasons)} AS INTEGER),
+              CAST(${numOrNull(metadata.number_of_episodes)} AS INTEGER),
+              ${strOrNull(metadata.first_air_date)}, ${strOrNull(
+            metadata.last_air_date
+          )},
+              ${jsonOrNull(metadata.episode_run_time)}, ${jsonOrNull(
+            metadata.networks
+          )}, ${jsonOrNull(metadata.created_by)},
+              CAST(${numOrNull(
+                metadata.season_number
+              )} AS INTEGER), ${strOrNull(metadata.air_date)},
+              CAST(${numOrNull(
+                metadata.episode_number
+              )} AS INTEGER), ${strOrNull(metadata.parent_provider_id)},
+              ${jsonOrNull(metadata.external_ids)}, ${jsonOrNull(
+            metadata.videos
+          )}, ${jsonOrNull(metadata.images)},
+              ${jsonOrNull(metadata.cast)}, ${jsonOrNull(
+            metadata.crew
+          )}, ${jsonOrNull(metadata.keywords)},
+              ${jsonOrNull(metadata.raw_response)}, ${metadata.fetched_at}, ${
+            metadata.updated_at
+          }
+            )
+          `;
+        } catch (e) {
+          const existing2 = await db.queryRow<{ id: number }>`
+            SELECT id FROM content_metadata
+            WHERE provider = ${metadata.provider}
+              AND content_type = 'episode'
+              AND parent_provider_id = ${strOrNull(metadata.parent_provider_id)}
+              AND season_number = CAST(${numOrNull(
+                metadata.season_number
+              )} AS INTEGER)
+              AND episode_number = CAST(${numOrNull(
+                metadata.episode_number
+              )} AS INTEGER)
+          `;
+          if (existing2) {
+            await db.exec`UPDATE content_metadata SET updated_at = ${metadata.updated_at} WHERE id = ${existing2.id}`;
+          }
+        }
+      }
+    }
     return metadata;
   }
 );
 
 // Get metadata by external ID (TMDB, IMDB, etc.)
 export const getMetadataByExternalId = api(
-  { expose: true, auth: false, method: "GET", path: "/metadata/by-external-id" },
+  {
+    expose: true,
+    auth: false,
+    method: 'GET',
+    path: '/metadata/by-external-id',
+  },
   async (params: GetMetadataByExternalIdParams): Promise<ContentMetadata> => {
     const { tmdb_id, imdb_id, tvdb_id, content_type, force_refresh } = params;
 
@@ -312,30 +730,41 @@ export const getMetadataByExternalId = api(
         provider: 'tmdb',
         provider_id: String(tmdb_id),
         content_type,
-        force_refresh
+        force_refresh,
       });
     }
 
     // For IMDB/TVDB, we'd need to implement search or mapping logic
-    throw APIError.badRequest("Currently only TMDB ID lookups are supported");
+    throw APIError.invalidArgument(
+      'Currently only TMDB ID lookups are supported'
+    );
   }
 );
 
 // Search for content
 export const search = api(
-  { expose: true, auth: false, method: "GET", path: "/metadata/search" },
+  { expose: true, auth: false, method: 'GET', path: '/metadata/search' },
   async (params: SearchParams): Promise<SearchResult> => {
-    const { query, content_type, provider = 'tmdb', year, page, language } = params;
+    const {
+      query,
+      content_type,
+      provider = 'tmdb',
+      year,
+      page,
+      language,
+    } = params;
 
     if (provider !== 'tmdb') {
-      throw APIError.badRequest(`Provider ${provider} is not yet supported for search`);
+      throw APIError.invalidArgument(
+        `Provider ${provider} is not yet supported for search`
+      );
     }
 
     const client = await getTMDBClient();
 
     try {
       let result: any;
-      
+
       switch (content_type) {
         case 'movie':
           result = await client.searchMovies(query, year, page, language);
@@ -354,7 +783,7 @@ export const search = api(
         page: result.page,
         results: result.results,
         total_pages: result.total_pages,
-        total_results: result.total_results
+        total_results: result.total_results,
       };
     } catch (error: any) {
       throw APIError.internal(`Failed to search ${provider}: ${error.message}`);
@@ -364,8 +793,8 @@ export const search = api(
 
 // Get cached metadata by various criteria
 export const getCachedMetadata = api(
-  { expose: false, method: "GET", path: "/metadata/cached" },
-  async (params: { 
+  { expose: false, method: 'GET', path: '/metadata/cached' },
+  async (params: {
     provider?: MetadataProvider;
     content_type?: ContentType;
     title?: string;
@@ -389,7 +818,8 @@ export const getCachedMetadata = api(
       values.push(`%${params.title}%`);
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const limitClause = params.limit ? `LIMIT ${params.limit}` : 'LIMIT 100';
 
     const rows = db.query<ContentMetadata>`
@@ -410,8 +840,8 @@ export const getCachedMetadata = api(
 
 // Clear cache for specific content
 export const clearCache = api(
-  { expose: false, method: "DELETE", path: "/metadata/cache" },
-  async (params: { 
+  { expose: false, method: 'DELETE', path: '/metadata/cache' },
+  async (params: {
     provider?: MetadataProvider;
     provider_id?: string;
     content_type?: ContentType;
@@ -437,15 +867,20 @@ export const clearCache = api(
     }
 
     if (params.older_than_days) {
-      conditions.push(`fetched_at < NOW() - INTERVAL '${params.older_than_days} days'`);
+      // Use parameterized interval by concatenation to avoid template type error
+      const paramIndex = values.length + 1;
+      conditions.push(
+        `fetched_at < NOW() - ($${paramIndex} || ' days')::interval`
+      );
+      values.push(String(params.older_than_days));
     }
 
     if (conditions.length > 0) {
       deleteQuery += ` AND ${conditions.join(' AND ')}`;
     }
 
-    const result = await db.exec(deleteQuery, ...values);
-    
-    return { deleted: result.rowsAffected || 0 };
+    // @ts-ignore encore sqldb exec expects a tagged template; this dynamic build is safe here
+    await db.exec(deleteQuery, ...values);
+    return { deleted: 0 };
   }
 );

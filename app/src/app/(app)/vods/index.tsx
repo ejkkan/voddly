@@ -12,7 +12,12 @@ import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 type Section = {
   categoryId?: string;
   title: string;
-  data: { id: string; title: string; imageUrl?: string | null }[];
+  data: {
+    id: string;
+    title: string;
+    imageUrl?: string | null;
+    sourceId?: string;
+  }[];
 };
 
 export default function VODs() {
@@ -39,6 +44,7 @@ export default function VODs() {
         id: i.id,
         title: i.title,
         imageUrl: i.imageUrl,
+        sourceId: (i as any).sourceId,
       })),
     }));
     setSections(mapped);
@@ -100,6 +106,7 @@ export default function VODs() {
                 id: i.id,
                 title: i.title,
                 imageUrl: i.imageUrl,
+                sourceId: (i as any).sourceId,
               }))
             ),
           };
@@ -130,6 +137,7 @@ export default function VODs() {
                 id={row.id}
                 title={row.title}
                 posterUrl={row.imageUrl}
+                sourceId={(row as any).sourceId}
                 onPress={(id) =>
                   router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
                 }

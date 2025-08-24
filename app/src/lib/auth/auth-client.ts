@@ -21,7 +21,7 @@ function getBaseURL() {
   return `${api}/api/auth`;
 }
 
-function getApiRoot() {
+export function getApiRoot() {
   const raw = (Env.API_URL as string) || 'http://localhost:4000';
   return normalizeDevHost(raw).replace(/\/+$/, '');
 }

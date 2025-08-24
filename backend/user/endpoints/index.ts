@@ -1,6 +1,7 @@
 // User management endpoints
 export * from './getCurrentUser';
 export * from './getUserById';
+export * from './metadata';
 export * from './updateCurrentUser';
 
 // Account & source management

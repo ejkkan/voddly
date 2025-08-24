@@ -1,6 +1,8 @@
 import React from 'react';
 
 import { Image, Pressable, Text, View } from '@/components/ui';
+import { normalizeImageUrl } from '@/lib/url-utils';
+import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
 
 type PosterCardProps = {
   id: string | number;
@@ -8,6 +10,7 @@ type PosterCardProps = {
   posterUrl?: string | null;
   onPress?: (id: string | number) => void;
   aspect?: 'poster' | 'backdrop';
+  sourceId?: string; // optional, to normalize raw URLs when base not embedded
 };
 
 export const PosterCard = ({
@@ -16,14 +19,17 @@ export const PosterCard = ({
   posterUrl,
   onPress,
   aspect = 'poster',
+  sourceId,
 }: PosterCardProps) => {
   const isPoster = aspect === 'poster';
+  const { baseUrl } = useSourceBaseUrl(sourceId);
+  const normalized = normalizeImageUrl(posterUrl || null, baseUrl || undefined);
   return (
     <Pressable onPress={() => onPress?.(id)} className="mr-3">
       <View className="overflow-hidden rounded-xl">
-        {posterUrl ? (
+        {normalized ? (
           <Image
-            source={{ uri: posterUrl }}
+            source={{ uri: normalized }}
             contentFit="cover"
             className={
               isPoster

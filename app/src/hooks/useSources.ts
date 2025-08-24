@@ -96,7 +96,12 @@ export function useSources() {
             sampleSeries: data.series.slice(0, 3),
             sampleChannels: data.channels.slice(0, 3),
           });
-        await storage.storeSourceCatalog(accountId, sourceId, data);
+        await storage.storeSourceCatalog(
+          accountId,
+          sourceId,
+          data,
+          creds.server
+        );
       } else if (provider === 'm3u') {
         if (__DEV__) console.time(`${tKey} getCatalog`);
         const data = await getIptvClient('m3u', {
@@ -114,7 +119,12 @@ export function useSources() {
             channels: data.channels.length,
             sampleChannels: data.channels.slice(0, 3),
           });
-        await storage.storeSourceCatalog(accountId, sourceId, data);
+        await storage.storeSourceCatalog(
+          accountId,
+          sourceId,
+          data,
+          creds.server
+        );
       }
 
       // Return minimal stats

@@ -10,6 +10,7 @@ export type UiCatalogItem = {
   imageUrl?: string | null;
   rating?: number | null;
   categoryId?: string | null;
+  sourceId?: string | null;
 };
 
 function mapRowToUiItem(row: any): UiCatalogItem {
@@ -27,6 +28,7 @@ function mapRowToUiItem(row: any): UiCatalogItem {
     imageUrl: row.poster_url || row.backdrop_url || null,
     rating: typeof row.rating === 'number' ? row.rating : null,
     categoryId: row.category_id ?? null,
+    sourceId: row.source_id ?? null,
   };
 }
 
@@ -38,7 +40,7 @@ export async function fetchPreviewByType(
   const db = await openDb();
   const rows = await db.getAllAsync(
     `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
-            ic.category_id
+            ic.category_id, i.source_id
      FROM content_items i
      LEFT JOIN content_item_categories ic ON ic.item_id = i.id
      WHERE i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
@@ -106,7 +108,7 @@ export async function fetchCategoriesWithPreviews(
   for (const c of cats) {
     const rows = await db.getAllAsync(
       `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
-              ic.category_id
+              ic.category_id, i.source_id
        FROM content_items i
        JOIN content_item_categories ic ON ic.item_id = i.id
        WHERE ic.category_id = $category_id AND i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
@@ -139,7 +141,7 @@ export async function fetchCategoryItems(
   const db = await openDb();
   const rows = await db.getAllAsync(
     `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
-            ic.category_id
+            ic.category_id, i.source_id
      FROM content_items i
      JOIN content_item_categories ic ON ic.item_id = i.id
      WHERE ic.category_id = $category_id AND i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
@@ -187,7 +189,7 @@ export async function fetchRandomByType(
   const db = await openDb();
   const rows = await db.getAllAsync(
     `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
-            ic.category_id
+            ic.category_id, i.source_id
      FROM content_items i
      LEFT JOIN content_item_categories ic ON ic.item_id = i.id
      WHERE i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
