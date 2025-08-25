@@ -80,14 +80,16 @@ export class YouTubeClient {
       const apiKey = await this.getApiKey();
       const searchQuery = encodeURIComponent(query);
       const url = `${this.baseUrl}/search?part=snippet&q=${searchQuery}&type=video&maxResults=${maxResults}&key=${apiKey}`;
-      
+      const start = Date.now();
+      log.debug('YouTube search request start', { url, query, maxResults });
       const response = await fetch(url);
+      const durationMs = Date.now() - start;
       
       if (!response.ok) {
-        log.warn('YouTube API error', { status: response.status, query });
+        log.warn('YouTube API error', { status: response.status, query, durationMs });
         return null;
       }
-      
+      log.debug('YouTube search request done', { status: response.status, durationMs, query });
       const data = await response.json();
       
       if (!data.items || data.items.length === 0) {
@@ -114,14 +116,16 @@ export class YouTubeClient {
     try {
       const apiKey = await this.getApiKey();
       const url = `${this.baseUrl}/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${apiKey}`;
-      
+      const start = Date.now();
+      log.debug('YouTube details request start', { url, videoId });
       const response = await fetch(url);
+      const durationMs = Date.now() - start;
       
       if (!response.ok) {
-        log.warn('YouTube API error', { status: response.status, videoId });
+        log.warn('YouTube API error', { status: response.status, videoId, durationMs });
         return null;
       }
-      
+      log.debug('YouTube details request done', { status: response.status, durationMs, videoId });
       const data = await response.json();
       
       if (!data.items || data.items.length === 0) {

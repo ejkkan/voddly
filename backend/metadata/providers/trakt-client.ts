@@ -57,7 +57,10 @@ export class TraktClient {
   private async makeRequest<T>(endpoint: string): Promise<T | null> {
     try {
       const clientId = await this.getClientId();
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const url = `${this.baseUrl}${endpoint}`;
+      const start = Date.now();
+      log.debug('Trakt request start', { url });
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
           'trakt-api-version': '2',
@@ -66,10 +69,13 @@ export class TraktClient {
       });
 
       if (!response.ok) {
-        log.warn('Trakt API error', { status: response.status, endpoint });
+        const durationMs = Date.now() - start;
+        log.warn('Trakt API error', { status: response.status, endpoint, durationMs });
         return null;
       }
 
+      const durationMs = Date.now() - start;
+      log.debug('Trakt request done', { endpoint, status: response.status, durationMs });
       return await response.json() as T;
     } catch (error) {
       log.error('Trakt request failed', { error, endpoint });

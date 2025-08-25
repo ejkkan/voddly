@@ -50,8 +50,11 @@ export class OMDBClient {
     try {
       const apiKey = await this.getApiKey();
       const url = `${this.baseUrl}/?i=${imdbId}&apikey=${apiKey}&plot=short`;
-      
+      const start = Date.now();
+      log.debug('OMDB request start', { url, imdbId });
       const response = await fetch(url);
+      const durationMs = Date.now() - start;
+      log.debug('OMDB request done', { imdbId, status: response.status, durationMs });
       const data = await response.json() as OMDBResponse;
       
       if (data.Response === 'False') {
@@ -78,8 +81,11 @@ export class OMDBClient {
       if (type) {
         url += `&type=${type}`;
       }
-      
+      const start = Date.now();
+      log.debug('OMDB search start', { url, title, year, type });
       const response = await fetch(url);
+      const durationMs = Date.now() - start;
+      log.debug('OMDB search done', { title, year, type, status: response.status, durationMs });
       const data = await response.json() as OMDBResponse;
       
       if (data.Response === 'False') {

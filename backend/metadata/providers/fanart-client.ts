@@ -60,18 +60,20 @@ export class FanArtClient {
       const apiKey = await this.getApiKey();
       const endpoint = type === 'tv' ? 'tv' : 'movies';
       const url = `${this.baseUrl}/${endpoint}/${tmdbId}?api_key=${apiKey}`;
-      
+      const start = Date.now();
+      log.debug('FanArt request start', { url, tmdbId, type });
       const response = await fetch(url);
+      const durationMs = Date.now() - start;
       
       if (!response.ok) {
         if (response.status === 404) {
           // No artwork found for this content
           return null;
         }
-        log.warn('FanArt API error', { status: response.status, tmdbId, type });
+        log.warn('FanArt API error', { status: response.status, tmdbId, type, durationMs });
         return null;
       }
-      
+      log.debug('FanArt request done', { tmdbId, type, status: response.status, durationMs });
       const data = await response.json() as FanArtResponse;
       return data;
     } catch (error) {

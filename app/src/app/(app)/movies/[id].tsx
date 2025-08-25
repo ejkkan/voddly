@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Dimensions } from 'react-native';
 
 import {
   Image,
@@ -11,10 +12,20 @@ import {
 } from '@/components/ui';
 import { useFetchRemoteMovie } from '@/hooks/useFetchRemoteMovie';
 import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
-import { getApiRoot } from '@/lib/auth/auth-client';
+import {
+  useMovieMetadata,
+  extractDisplayMetadata,
+  type EnrichedMetadata,
+  type MovieMetadata,
+} from '@/hooks/use-content-metadata';
 import { openDb } from '@/lib/db';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { normalizeImageUrl } from '@/lib/url-utils';
+import { BackdropCarousel } from '@/components/media/BackdropCarousel';
+import { CastCarousel } from '@/components/media/CastCarousel';
+import { RatingsDisplay } from '@/components/media/RatingsDisplay';
+import { ImageGallery } from '@/components/media/ImageGallery';
+import { VideoGallery } from '@/components/media/VideoGallery';
 
 type ItemRow = {
   id: string;
@@ -38,14 +49,30 @@ export default function MovieDetails() {
   const [item, setItem] = useState<ItemRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tmdbId, setTmdbId] = useState<string | null>(null);
   const { prepareContentPlayback } = useSourceCredentials();
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteMovie();
-  const lastFetchedTmdbRef = useRef<string | null>(null);
-  const baseApi = getApiRoot();
   const sourceBase = useSourceBaseUrl(item?.source_id);
-  console.log('[normalizedBackdrop] sourceBase', sourceBase);
+
+  // Use the new metadata hook
+  const { data: metadata, isLoading: metadataLoading } = useMovieMetadata(
+    tmdbId || undefined,
+    {
+      enabled: !!tmdbId,
+      appendToResponse: 'videos,images,credits,external_ids',
+    }
+  );
+
+  // Extract display-ready metadata
+  const displayData = useMemo(
+    () => extractDisplayMetadata(metadata),
+    [metadata]
+  );
+
+  const { width: screenWidth } = Dimensions.get('window');
+  const isTablet = screenWidth >= 768;
+
   const normalizedBackdrop = useMemo(() => {
-    console.log('[normalizedBackdrop] item', JSON.stringify(item, null, 2));
     if (!item) return null;
     const base =
       ((item as any).base_url as string | undefined) ||
@@ -55,7 +82,42 @@ export default function MovieDetails() {
       base
     );
   }, [item, sourceBase.baseUrl]);
-  console.log('[normalizedBackdrop] normalizedBackdrop', normalizedBackdrop);
+
+  const normalizedPoster = useMemo(() => {
+    if (!item) return null;
+    const base =
+      ((item as any).base_url as string | undefined) ||
+      (sourceBase.baseUrl as string | undefined);
+    return normalizeImageUrl(item.poster_url || null, base);
+  }, [item, sourceBase.baseUrl]);
+
+  // Prepare backdrop images for carousel
+  const backdropImages = useMemo(() => {
+    const images: string[] = [];
+
+    // Add backdrop from metadata
+    if (displayData?.backdropUrl) {
+      images.push(displayData.backdropUrl);
+    }
+
+    // Add additional backdrops from images
+    if (metadata?.images?.backdrops) {
+      metadata.images.backdrops.slice(0, 5).forEach((backdrop: any) => {
+        const url = `https://image.tmdb.org/t/p/original${backdrop.file_path}`;
+        if (!images.includes(url)) {
+          images.push(url);
+        }
+      });
+    }
+
+    // Fallback to normalized backdrop
+    if (images.length === 0 && normalizedBackdrop) {
+      images.push(normalizedBackdrop);
+    }
+
+    return images;
+  }, [displayData?.backdropUrl, metadata?.images, normalizedBackdrop]);
+
   useEffect(() => {
     let mounted = true;
     const run = async () => {
@@ -75,7 +137,7 @@ export default function MovieDetails() {
         if (mounted) setItem(row ?? null);
         if (mounted) setLoading(false);
         if (row) {
-          // Trigger metadata fetch by TMDB if available (from column or payload)
+          // Extract TMDB ID from row data
           try {
             const fromCol = String((row as any)?.tmdb_id || '').trim();
             const fromPayload = (() => {
@@ -90,13 +152,8 @@ export default function MovieDetails() {
               }
             })();
             const tmdb = fromCol || fromPayload;
-            if (tmdb && lastFetchedTmdbRef.current !== tmdb) {
-              lastFetchedTmdbRef.current = tmdb;
-              const url = `${baseApi}/user/metadata?tmdb_id=${encodeURIComponent(tmdb)}&content_type=movie&append_to_response=${encodeURIComponent('videos,images,credits,external_ids')}`;
-              fetch(url, { method: 'GET', credentials: 'include' })
-                .then((r) => r.json())
-                .then((j) => console.log('[Metadata fetched]', j))
-                .catch(() => {});
+            if (tmdb && mounted) {
+              setTmdbId(tmdb);
             }
           } catch {}
           fetchRemote({
@@ -114,16 +171,11 @@ export default function MovieDetails() {
                 { $id: String(row.id) }
               );
               if (mounted) setItem(updated ?? row);
-              // After background update, try metadata if tmdb_id became available
+              // After background update, check if tmdb_id became available
               try {
                 const tmdbPost = String((updated as any)?.tmdb_id || '').trim();
-                if (tmdbPost && lastFetchedTmdbRef.current !== tmdbPost) {
-                  lastFetchedTmdbRef.current = tmdbPost;
-                  const url = `${baseApi}/user/metadata?tmdb_id=${encodeURIComponent(tmdbPost)}&content_type=movie&append_to_response=${encodeURIComponent('videos,images,credits,external_ids')}`;
-                  fetch(url, { method: 'GET', credentials: 'include' })
-                    .then((r) => r.json())
-                    .then((j) => console.log('[Metadata fetched]', j))
-                    .catch(() => {});
+                if (tmdbPost && mounted && tmdbPost !== tmdbId) {
+                  setTmdbId(tmdbPost);
                 }
               } catch {}
             } catch {
@@ -165,122 +217,291 @@ export default function MovieDetails() {
   };
 
   return (
-    <SafeAreaView className="flex-1">
-      <ScrollView className="flex-1 bg-white dark:bg-black">
-        <View className="p-4">
-          <Pressable className="mb-3" onPress={() => router.back()}>
-            <Text className="text-neutral-600 dark:text-neutral-300">Back</Text>
-          </Pressable>
-          {loading ? (
-            <Text className="text-neutral-900 dark:text-neutral-50">
-              Loading…
+    <SafeAreaView className="flex-1 bg-white dark:bg-black">
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {loading ? (
+          <View className="flex-1 items-center justify-center py-20">
+            <ActivityIndicator size="large" />
+            <Text className="mt-4 text-neutral-600 dark:text-neutral-400">
+              Loading movie details...
             </Text>
-          ) : !item ? (
-            <Text className="text-neutral-900 dark:text-neutral-50">
-              Not found
+          </View>
+        ) : !item ? (
+          <View className="flex-1 items-center justify-center py-20">
+            <Text className="text-xl text-neutral-900 dark:text-neutral-50">
+              Movie not found
             </Text>
-          ) : (
-            <View>
-              <View className="overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-900">
-                {normalizedBackdrop ? (
-                  <Image
-                    source={{ uri: normalizedBackdrop || '' }}
-                    contentFit="cover"
-                    className="h-56 w-full md:h-72"
-                  />
-                ) : null}
-              </View>
-              <Text className="mt-4 text-2xl font-extrabold text-neutral-900 dark:text-neutral-50">
-                {item.title}
-              </Text>
-              <View className="mt-2 flex-row items-center gap-2">
-                {item.release_date ? (
-                  <Text className="text-neutral-600 dark:text-neutral-400">
-                    {String(item.release_date).slice(0, 4)}
-                  </Text>
-                ) : null}
-                {typeof item.rating_5based === 'number' ? (
-                  <Text className="text-neutral-600 dark:text-neutral-400">
-                    • ⭐ {item.rating_5based}/5
-                  </Text>
-                ) : null}
-                <Text className="text-neutral-600 dark:text-neutral-400">
-                  • HD
-                </Text>
-              </View>
-              <View className="mt-4 flex-row gap-3">
+            <Pressable
+              className="mt-4 rounded-lg bg-neutral-900 px-6 py-3"
+              onPress={() => router.back()}
+            >
+              <Text className="text-white">Go Back</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View>
+            {/* Backdrop Carousel */}
+            {backdropImages.length > 0 && (
+              <View className="relative">
+                <BackdropCarousel backdrops={backdropImages} />
+
+                {/* Back button overlay */}
                 <Pressable
-                  className="rounded-xl bg-neutral-900 px-4 py-2"
-                  onPress={handlePlay}
+                  className="absolute left-4 top-12 rounded-full bg-black/50 p-3"
+                  onPress={() => router.back()}
                 >
-                  <Text className="text-white">Play</Text>
-                </Pressable>
-                <Pressable
-                  className="rounded-xl border border-neutral-300 px-4 py-2 dark:border-neutral-700"
-                  onPress={async () => {
-                    if (!item) return;
-                    const ok = await fetchRemote({
-                      id: item.id,
-                      sourceId: item.source_id,
-                      sourceItemId: item.source_item_id,
-                    });
-                    if (ok) {
-                      const db = await openDb();
-                      const row = await db.getFirstAsync<ItemRow>(
-                        `SELECT * FROM content_items WHERE id = $id`,
-                        { $id: String(item.id) }
-                      );
-                      setItem(row ?? null);
-                    }
-                  }}
-                >
-                  <Text className="text-neutral-900 dark:text-neutral-50">
-                    {isFetching ? 'Fetching…' : 'Fetch Remote'}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className="rounded-xl border border-neutral-300 px-4 py-2 dark:border-neutral-700"
-                  onPress={async () => {
-                    try {
-                      if (!item) return;
-                      const db = await openDb();
-                      const base = await db.getFirstAsync<any>(
-                        `SELECT * FROM content_items WHERE id = $id`,
-                        { $id: String(item.id) }
-                      );
-                      const movieExt = await db.getFirstAsync<any>(
-                        `SELECT * FROM movies_ext WHERE item_id = $id`,
-                        { $id: String(item.id) }
-                      );
-                      console.log('[Movie DB]', { base, movieExt });
-                    } catch (e) {
-                      console.log('Log DB (movie) failed', e);
-                    }
-                  }}
-                >
-                  <Text className="text-neutral-900 dark:text-neutral-50">
-                    Log from DB
-                  </Text>
+                  <Text className="text-lg text-white">←</Text>
                 </Pressable>
               </View>
-              {error ? (
-                <Text className="mt-2 text-red-600 dark:text-red-400">
-                  {error}
-                </Text>
-              ) : null}
-              {fetchError ? (
-                <Text className="mt-2 text-red-600 dark:text-red-400">
-                  {fetchError}
-                </Text>
-              ) : null}
-              {item.description ? (
-                <Text className="mt-3 text-neutral-800 dark:text-neutral-200">
-                  {item.description}
-                </Text>
-              ) : null}
+            )}
+
+            {/* Main Content */}
+            <View className="px-4">
+              {/* If no backdrop carousel, show back button */}
+              {backdropImages.length === 0 && (
+                <Pressable className="mb-3 mt-4" onPress={() => router.back()}>
+                  <Text className="text-neutral-600 dark:text-neutral-300">
+                    ← Back
+                  </Text>
+                </Pressable>
+              )}
+
+              {/* Main Info Section - Poster on left, details on right */}
+              <View className={`mt-6 ${isTablet ? 'flex-row gap-6' : ''}`}>
+                {/* Poster */}
+                <View className={isTablet ? 'w-64' : 'mb-4'}>
+                  <View className="aspect-[2/3] overflow-hidden rounded-xl bg-neutral-200 dark:bg-neutral-800">
+                    {displayData?.posterUrl || normalizedPoster ? (
+                      <Image
+                        source={{
+                          uri: displayData?.posterUrl || normalizedPoster || '',
+                        }}
+                        contentFit="cover"
+                        className="h-full w-full"
+                      />
+                    ) : (
+                      <View className="h-full w-full items-center justify-center">
+                        <Text className="text-6xl">🎬</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Details */}
+                <View className="flex-1">
+                  {/* Title and basic info */}
+                  <Text className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
+                    {displayData?.title || item.title}
+                  </Text>
+
+                  {displayData?.tagline ? (
+                    <Text className="mt-2 text-neutral-600 dark:text-neutral-400 italic">
+                      "{displayData.tagline}"
+                    </Text>
+                  ) : null}
+
+                  {/* Meta info */}
+                  <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-1">
+                    {(displayData?.releaseDate || item.release_date) && (
+                      <Text className="text-neutral-600 dark:text-neutral-400">
+                        {String(
+                          displayData?.releaseDate || item.release_date
+                        ).slice(0, 4)}
+                      </Text>
+                    )}
+                    {displayData?.runtime && (
+                      <Text className="text-neutral-600 dark:text-neutral-400">
+                        {Math.floor(displayData.runtime / 60)}h{' '}
+                        {displayData.runtime % 60}m
+                      </Text>
+                    )}
+                    <Text className="text-neutral-600 dark:text-neutral-400">
+                      HD
+                    </Text>
+                    {displayData?.status && (
+                      <Text className="text-neutral-600 dark:text-neutral-400">
+                        {displayData.status}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Genres */}
+                  {displayData?.genres && displayData.genres.length > 0 && (
+                    <View className="mt-3 flex-row flex-wrap gap-2">
+                      {displayData.genres.map((genre) => (
+                        <View
+                          key={genre.id}
+                          className="rounded-full bg-neutral-200 dark:bg-neutral-800 px-3 py-1"
+                        >
+                          <Text className="text-sm text-neutral-700 dark:text-neutral-300">
+                            {genre.name}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Action Buttons */}
+                  <View className="mt-6 flex-row flex-wrap gap-3">
+                    <Pressable
+                      className="flex-row items-center rounded-xl bg-blue-600 px-6 py-3"
+                      onPress={handlePlay}
+                    >
+                      <Text className="mr-2 text-lg">▶</Text>
+                      <Text className="font-semibold text-white">
+                        Play Movie
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      className="rounded-xl border border-neutral-300 px-4 py-3 dark:border-neutral-700"
+                      onPress={async () => {
+                        if (!item) return;
+                        const ok = await fetchRemote({
+                          id: item.id,
+                          sourceId: item.source_id,
+                          sourceItemId: item.source_item_id,
+                        });
+                        if (ok) {
+                          const db = await openDb();
+                          const row = await db.getFirstAsync<ItemRow>(
+                            `SELECT * FROM content_items WHERE id = $id`,
+                            { $id: String(item.id) }
+                          );
+                          setItem(row ?? null);
+                        }
+                      }}
+                    >
+                      <Text className="text-neutral-900 dark:text-neutral-50">
+                        {isFetching ? 'Updating...' : '🔄 Update'}
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {/* Error messages */}
+                  {(error || fetchError) && (
+                    <Text className="mt-3 text-red-600 dark:text-red-400">
+                      {error || fetchError}
+                    </Text>
+                  )}
+
+                  {/* Overview */}
+                  {(displayData?.overview || item.description) && (
+                    <View className="mt-6">
+                      <Text className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
+                        Overview
+                      </Text>
+                      <Text className="leading-relaxed text-neutral-800 dark:text-neutral-200">
+                        {displayData?.overview || item.description}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Ratings Section */}
+              <RatingsDisplay
+                tmdbRating={metadata?.vote_average}
+                tmdbVotes={metadata?.vote_count}
+                imdbRating={
+                  (metadata as EnrichedMetadata)?.enrichment?.imdb_rating
+                }
+                imdbVotes={
+                  (metadata as EnrichedMetadata)?.enrichment?.imdb_votes
+                }
+                rottenTomatoesRating={
+                  (metadata as EnrichedMetadata)?.enrichment
+                    ?.rotten_tomatoes_rating
+                }
+                metacriticRating={
+                  (metadata as EnrichedMetadata)?.enrichment?.metacritic_rating
+                }
+                traktRating={
+                  (metadata as EnrichedMetadata)?.enrichment?.trakt_rating
+                }
+                traktVotes={
+                  (metadata as EnrichedMetadata)?.enrichment?.trakt_votes
+                }
+                localRating={item.rating_5based ?? undefined}
+              />
+
+              {/* Additional Metadata */}
+              {(displayData?.budget ||
+                displayData?.revenue ||
+                metadata?.production_companies) && (
+                <View className="mt-6">
+                  <Text className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
+                    Production Details
+                  </Text>
+                  <View className="rounded-lg bg-neutral-100 dark:bg-neutral-900 p-4">
+                    {displayData?.budget && (
+                      <View className="mb-2">
+                        <Text className="text-xs text-neutral-600 dark:text-neutral-400">
+                          Budget
+                        </Text>
+                        <Text className="text-neutral-900 dark:text-neutral-50">
+                          ${displayData.budget.toLocaleString()}
+                        </Text>
+                      </View>
+                    )}
+                    {displayData?.revenue && (
+                      <View className="mb-2">
+                        <Text className="text-xs text-neutral-600 dark:text-neutral-400">
+                          Revenue
+                        </Text>
+                        <Text className="text-neutral-900 dark:text-neutral-50">
+                          ${displayData.revenue.toLocaleString()}
+                        </Text>
+                      </View>
+                    )}
+                    {metadata?.production_companies &&
+                      metadata.production_companies.length > 0 && (
+                        <View>
+                          <Text className="mb-1 text-xs text-neutral-600 dark:text-neutral-400">
+                            Production Companies
+                          </Text>
+                          <Text className="text-neutral-900 dark:text-neutral-50">
+                            {metadata.production_companies
+                              .map((c: any) => c.name)
+                              .join(', ')}
+                          </Text>
+                        </View>
+                      )}
+                  </View>
+                </View>
+              )}
             </View>
-          )}
-        </View>
+
+            {/* Cast Carousel */}
+            <CastCarousel cast={metadata?.credits?.cast} />
+
+            {/* Videos Section */}
+            <VideoGallery
+              videos={metadata?.videos?.results}
+              trailerUrl={
+                (metadata as EnrichedMetadata)?.enrichment?.trailer_url
+              }
+            />
+
+            {/* Images Gallery */}
+            <ImageGallery
+              posters={metadata?.images?.posters}
+              backdrops={metadata?.images?.backdrops}
+            />
+
+            {/* Loading overlay for metadata */}
+            {metadataLoading && (
+              <View className="mt-6 px-4">
+                <View className="flex-row items-center rounded-lg bg-neutral-100 dark:bg-neutral-900 p-4">
+                  <ActivityIndicator size="small" />
+                  <Text className="ml-3 text-neutral-600 dark:text-neutral-400">
+                    Loading additional metadata...
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
