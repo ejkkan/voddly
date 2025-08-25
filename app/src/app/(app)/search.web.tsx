@@ -1,12 +1,11 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
 import { SafeAreaView, ScrollView, Text, View } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { searchCatalog } from '@/lib/db/dao';
-import { normalizeImageUrl } from '@/lib/url-utils';
 
 type BasicItem = {
   id: string;
@@ -15,6 +14,7 @@ type BasicItem = {
   title: string;
   poster_url?: string | null;
   base_url?: string | null;
+  tmdb_id?: string | null;
 };
 
 export default function Search() {
@@ -24,10 +24,12 @@ export default function Search() {
     movies: BasicItem[];
     series: BasicItem[];
     live: BasicItem[];
+    replays: BasicItem[];
   }>({
     movies: [],
     series: [],
     live: [],
+    replays: [],
   });
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<number | null>(null);
@@ -40,19 +42,29 @@ export default function Search() {
       debounceRef.current = null;
     }
     if (!trimmed) {
-      setResults({ movies: [], series: [], live: [] });
+      setResults({ movies: [], series: [], live: [], replays: [] });
       setIsSearching(false);
       return;
     }
     setIsSearching(true);
     debounceRef.current = window.setTimeout(async () => {
       try {
-        const [movies, series, live] = await Promise.all([
+        const [moviesRaw, series, live] = await Promise.all([
           searchCatalog(trimmed, 'movie') as Promise<BasicItem[]>,
           searchCatalog(trimmed, 'series') as Promise<BasicItem[]>,
           searchCatalog(trimmed, 'live') as Promise<BasicItem[]>,
         ]);
-        setResults({ movies, series, live });
+        const isMissingTmdb = (v?: string | null) => {
+          const s = String(v ?? '').trim();
+          return !s || s === '0';
+        };
+        const replays = moviesRaw.filter((m) =>
+          isMissingTmdb((m as any).tmdb_id)
+        );
+        const movies = moviesRaw.filter(
+          (m) => !isMissingTmdb((m as any).tmdb_id)
+        );
+        setResults({ movies, series, live, replays });
       } finally {
         setIsSearching(false);
       }
@@ -191,6 +203,38 @@ export default function Search() {
                   onPress={() =>
                     handlePress(
                       results.live.find((m) => String(m.id) === String(row.id))!
+                    )
+                  }
+                />
+              )}
+            />
+          </View>
+        ) : null}
+
+        {results.replays.length > 0 ? (
+          <View className="mt-4">
+            <CarouselRow
+              title="Replays"
+              data={results.replays.map(
+                (i) =>
+                  ({
+                    id: i.id,
+                    title: i.title,
+                    imageUrl: i.poster_url || undefined,
+                    sourceId: i.source_id,
+                  }) as any
+              )}
+              renderItem={(row) => (
+                <PosterCard
+                  id={row.id}
+                  title={row.title}
+                  posterUrl={row.imageUrl}
+                  sourceId={(row as any).sourceId}
+                  onPress={() =>
+                    handlePress(
+                      results.replays.find(
+                        (m) => String(m.id) === String(row.id)
+                      )!
                     )
                   }
                 />

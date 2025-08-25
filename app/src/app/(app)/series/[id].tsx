@@ -352,6 +352,8 @@ export default function SeriesDetails() {
                   seriesItemId={item.id}
                   sourceId={item.source_id}
                   refreshKey={episodesRefreshKey}
+                  seriesPosterUrl={item.poster_url || null}
+                  seriesBackdropUrl={item.backdrop_url || null}
                 />
               ) : null}
             </View>

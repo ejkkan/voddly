@@ -135,9 +135,11 @@ export class MobileCatalogStorage {
       const sourceItemId = String(m.stream_id ?? m.num ?? '');
       const itemId = `${srcId}:movie:${sourceItemId}`;
       const poster = normalizeImageUrl(String(m.stream_icon ?? ''), server);
+      // Extract tmdb id if present under common provider keys
+      const tmdbId = String(m.tmdb_id ?? m.tmdb ?? '').trim() || null;
       await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
-         VALUES ($account_id, $id, $source_id, $source_item_id, 'movie', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, $is_adult, $added_at, $last_modified, NULL, $payload)`,
+        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json, tmdb_id)
+         VALUES ($account_id, $id, $source_id, $source_item_id, 'movie', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, $is_adult, $added_at, $last_modified, NULL, $payload, $tmdb_id)`,
         {
           $account_id: accountId,
           $id: itemId,
@@ -156,8 +158,16 @@ export class MobileCatalogStorage {
             : null,
           $last_modified: null,
           $payload: JSON.stringify(m),
+          $tmdb_id: tmdbId,
         }
       );
+      // If the row already exists, ensure tmdb_id is backfilled (once)
+      if (tmdbId) {
+        await db.runAsync(
+          `UPDATE content_items SET tmdb_id = COALESCE(tmdb_id, $tmdb_id) WHERE id = $id`,
+          { $id: itemId, $tmdb_id: tmdbId }
+        );
+      }
       // Link item to its category if present
       if (m.category_id != null) {
         const categoryId = `${srcId}:vod:${String(m.category_id)}`;
@@ -185,9 +195,10 @@ export class MobileCatalogStorage {
         ? String(s.backdrop_path[0] ?? '')
         : null;
       const backdrop = normalizeImageUrl(backdropCandidate || '', server);
+      const tmdbId = String(s.tmdb_id ?? s.tmdb ?? '').trim() || null;
       await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
-         VALUES ($account_id, $id, $source_id, $source_item_id, 'series', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, 0, $added_at, $last_modified, NULL, $payload)`,
+        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json, tmdb_id)
+         VALUES ($account_id, $id, $source_id, $source_item_id, 'series', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, 0, $added_at, $last_modified, NULL, $payload, $tmdb_id)`,
         {
           $account_id: accountId,
           $id: itemId,
@@ -205,8 +216,15 @@ export class MobileCatalogStorage {
             ? new Date(Number(s.last_modified) * 1000).toISOString()
             : null,
           $payload: JSON.stringify(s),
+          $tmdb_id: tmdbId,
         }
       );
+      if (tmdbId) {
+        await db.runAsync(
+          `UPDATE content_items SET tmdb_id = COALESCE(tmdb_id, $tmdb_id) WHERE id = $id`,
+          { $id: itemId, $tmdb_id: tmdbId }
+        );
+      }
       // Link item to its category if present
       if (s.category_id != null) {
         const categoryId = `${srcId}:series:${String(s.category_id)}`;

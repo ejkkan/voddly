@@ -32,8 +32,16 @@ export function SeriesEpisodesCarousels(props: {
   seriesItemId: string;
   sourceId: string;
   refreshKey?: string | number;
+  seriesPosterUrl?: string | null;
+  seriesBackdropUrl?: string | null;
 }) {
-  const { seriesItemId, sourceId, refreshKey } = props;
+  const {
+    seriesItemId,
+    sourceId,
+    refreshKey,
+    seriesPosterUrl,
+    seriesBackdropUrl,
+  } = props;
   const [rows, setRows] = useState<EpisodeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -91,7 +99,7 @@ export function SeriesEpisodesCarousels(props: {
             title: (e.title && e.title.trim().length > 0
               ? e.title
               : `Episode ${e.episode_number}`) as string,
-            imageUrl: extractEpisodeImageUrl(e.original_payload_json) || '',
+            imageUrl: (seriesPosterUrl || seriesBackdropUrl || '') as string,
             sourceId,
           }))}
           renderItem={(item) => (

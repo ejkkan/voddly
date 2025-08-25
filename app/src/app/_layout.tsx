@@ -16,6 +16,7 @@ import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { PassphraseProvider } from '@/components/passphrase/PassphraseProvider';
 // Removed APIProvider – old API layer not used anymore
 import { loadSelectedTheme } from '@/lib';
+import { AppToasterHost } from '@/lib';
 import { DbProvider } from '@/lib/db/provider';
 import { AccountDbGuard } from '@/lib/db/AccountDbGuard';
 
@@ -95,6 +96,7 @@ function Providers({ children }: { children: React.ReactNode }) {
               <BottomSheetModalProvider>
                 <AccountDbGuard />
                 {children}
+                <AppToasterHost />
               </BottomSheetModalProvider>
             </PassphraseProvider>
           </DbProvider>
