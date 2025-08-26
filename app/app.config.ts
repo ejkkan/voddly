@@ -71,15 +71,35 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         supportsPictureInPicture: true,
       },
     ],
+    // Add react-native-video configuration (without ad support)
+    [
+      './plugins/with-react-native-video',
+      {
+        ios: {
+          videoCaching: true, // Enable video caching for better performance
+        },
+        android: {
+          useExoplayerSmoothStreaming: true,
+          useExoplayerDash: true,
+          useExoplayerHls: true,
+          useExoplayerIMA: false, // No ad support
+          useExoplayerRtsp: false,
+        },
+      },
+    ],
     [
       'expo-build-properties',
       {
         android: {
           usesCleartextTraffic: true, // ? enable HTTP requests
+          compileSdkVersion: 34,
+          targetSdkVersion: 34,
+          kotlinVersion: '1.8.0',
         },
         ios: {
           usesCleartextTraffic: true,
           flipper: true,
+          deploymentTarget: '13.0', // react-native-video v6 requires iOS 13.0+
         },
       },
     ],

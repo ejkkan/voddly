@@ -164,6 +164,9 @@ importers:
       react-native-url-polyfill:
         specifier: ^2.0.0
         version: 2.0.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))
+      react-native-video:
+        specifier: ^6.16.1
+        version: 6.16.1(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       react-native-vlc-media-player:
         specifier: ^1.0.92
         version: 1.0.92
@@ -6181,6 +6184,12 @@ packages:
     resolution: {integrity: sha512-wKYLaFuQST/chH3AJRjmOLoLy3JEs1JR6zMNgTaemFpNoXs0ztRnTxcxFD9xhX7cJe1/zoN5BpQYe7kL0m5yyA==}
     deprecated: react-native-vector-icons package has moved to a new model of per-icon-family packages. See the https://github.com/oblador/react-native-vector-icons/blob/master/MIGRATION.md on how to migrate
     hasBin: true
+
+  react-native-video@6.16.1:
+    resolution: {integrity: sha512-+G6tVVGbwFqNTyPivqb+PhQzWr5OudDQ1dgvBNyBRAgcS8rOcbwuS6oX+m8cxOsXHn1UT9ofQnjQEwkGOsvomg==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
 
   react-native-vlc-media-player@1.0.92:
     resolution: {integrity: sha512-+8sNte3QZDzd4vLCBPIDLOEUVxyuPH81Tcu+G//pMxBJHdQHkYFsD9c7K9yzCYemuKQIsswLh301zNEkBXrz3A==}
@@ -14789,6 +14798,11 @@ snapshots:
     dependencies:
       prop-types: 15.8.1
       yargs: 16.2.0
+
+  react-native-video@6.16.1(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0):
+    dependencies:
+      react: 19.0.0
+      react-native: 0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)
 
   react-native-vlc-media-player@1.0.92:
     dependencies:
