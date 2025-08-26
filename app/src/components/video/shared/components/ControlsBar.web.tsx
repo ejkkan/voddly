@@ -4,6 +4,7 @@ import { useTheme } from '../themes/ThemeProvider';
 import { PlayButton } from './PlayButton';
 import { VolumeControl } from './VolumeControl';
 import { ProgressBar } from './ProgressBar';
+import { CastButton } from './CastButton';
 import { formatTime } from '../utils/formatTime';
 
 interface ControlsBarProps {
@@ -78,6 +79,20 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
             >
               CC
             </button>
+          )}
+
+          {/* Cast button */}
+          {playerState.castState && (
+            <CastButton
+              castState={playerState.castState}
+              onPress={() => {
+                if (playerState.isCasting) {
+                  controls.stopCast?.();
+                } else {
+                  controls.startCast?.();
+                }
+              }}
+            />
           )}
 
           {/* Fullscreen button */}

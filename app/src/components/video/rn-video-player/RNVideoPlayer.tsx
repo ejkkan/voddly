@@ -8,6 +8,7 @@ import { NetflixLayout, MinimalLayout } from '../shared/layouts';
 import { usePlaybackState } from '../shared/hooks/usePlaybackState';
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { useOrientation } from '../shared/hooks/useOrientation';
+import { useCast } from '../shared/hooks/useCast';
 
 interface RNVideoPlayerProps extends BasePlayerProps {
   theme: VisualTheme;
@@ -27,6 +28,24 @@ export function RNVideoPlayer({
   const { playerState, updatePlayerState, setPlaying, setLoading, setError, setProgress, setVolume, toggleMute } = usePlaybackState();
   const { showControls, setShowControls, handleUserActivity } = useControlsVisibility();
   const { lockLandscape, unlockOrientation } = useOrientation();
+  
+  // Initialize casting
+  const { 
+    castState, 
+    isCasting, 
+    currentDevice,
+    startCast, 
+    stopCast, 
+    castControls 
+  } = useCast({
+    url,
+    title,
+    currentTime: playerState.currentTime,
+    duration: playerState.duration,
+    onCastStateChange: (state) => {
+      updatePlayerState({ castState: state, isCasting: state === 'CONNECTED' });
+    },
+  });
 
   // Lock to landscape on mount
   useEffect(() => {
@@ -138,7 +157,33 @@ export function RNVideoPlayer({
       // Force reload by changing key
       handleUserActivity();
     },
+    // Cast controls
+    startCast: () => {
+      startCast();
+      handleUserActivity();
+    },
+    stopCast: () => {
+      stopCast();
+      handleUserActivity();
+    },
   };
+  
+  // Override controls when casting
+  const effectiveControls = isCasting ? {
+    ...controls,
+    play: castControls.play,
+    pause: castControls.pause,
+    togglePlay: async () => {
+      if (playerState.isPlaying) {
+        await castControls.pause();
+      } else {
+        await castControls.play();
+      }
+    },
+    seek: castControls.seek,
+    setVolume: castControls.setVolume,
+    toggleMute: castControls.toggleMute,
+  } : controls;
 
   // Select layout component
   const Layout = layout === 'minimal' ? MinimalLayout : NetflixLayout;
@@ -167,7 +212,7 @@ export function RNVideoPlayer({
           />
         }
         playerState={playerState}
-        controls={controls}
+        controls={effectiveControls}
         title={title}
         showBack={showBack}
         onBack={onBack}

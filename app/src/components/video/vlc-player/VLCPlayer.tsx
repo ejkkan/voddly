@@ -8,6 +8,7 @@ import { NetflixLayout, MinimalLayout } from '../shared/layouts';
 import { usePlaybackState } from '../shared/hooks/usePlaybackState';
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { useOrientation } from '../shared/hooks/useOrientation';
+import { useCast } from '../shared/hooks/useCast';
 
 interface VLCPlayerProps extends BasePlayerProps {
   theme: VisualTheme;

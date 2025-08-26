@@ -1,5 +1,14 @@
 // Core player types shared across all implementations
 
+export type CastState = 'NO_DEVICES_AVAILABLE' | 'NOT_CONNECTED' | 'CONNECTING' | 'CONNECTED';
+
+export interface CastDevice {
+  id: string;
+  name: string;
+  model?: string;
+  isConnected: boolean;
+}
+
 export interface BasePlayerProps {
   url: string;
   title?: string;
@@ -29,6 +38,10 @@ export interface PlayerState {
   selectedAudioTrack?: string;
   subtitleTracks: SubtitleTrack[];
   selectedSubtitleTrack?: string;
+  // Cast state
+  castState?: CastState;
+  isCasting?: boolean;
+  castDevice?: string;
 }
 
 export interface PlayerControls {
@@ -43,6 +56,9 @@ export interface PlayerControls {
   selectSubtitleTrack: (trackId: string) => void;
   toggleFullscreen: () => void;
   retry: () => void;
+  // Cast controls
+  startCast?: () => void;
+  stopCast?: () => void;
 }
 
 export interface AudioTrack {

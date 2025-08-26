@@ -6,6 +6,7 @@ import { NetflixLayout, MinimalLayout } from '../shared/layouts';
 import { usePlaybackState } from '../shared/hooks/usePlaybackState';
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { useShakaPlayer } from './hooks/useShakaPlayer';
+import { useCast } from '../shared/hooks/useCast';
 
 interface WebPlayerProps extends BasePlayerProps {
   theme: VisualTheme;
@@ -24,6 +25,24 @@ export function WebPlayer({
   const videoRef = useRef<HTMLVideoElement>(null);
   const { playerState, updatePlayerState, setPlaying, setLoading, setError, setProgress, setVolume, toggleMute } = usePlaybackState();
   const { showControls, setShowControls, handleUserActivity } = useControlsVisibility();
+  
+  // Initialize casting
+  const { 
+    castState, 
+    isCasting, 
+    currentDevice,
+    startCast, 
+    stopCast, 
+    castControls 
+  } = useCast({
+    url,
+    title,
+    currentTime: playerState.currentTime,
+    duration: playerState.duration,
+    onCastStateChange: (state) => {
+      updatePlayerState({ castState: state, isCasting: state === 'CONNECTED' });
+    },
+  });
   
   // Initialize Shaka player
   const { initializePlayer, destroyPlayer } = useShakaPlayer({
@@ -172,7 +191,33 @@ export function WebPlayer({
       }
       handleUserActivity();
     },
+    // Cast controls
+    startCast: () => {
+      startCast();
+      handleUserActivity();
+    },
+    stopCast: () => {
+      stopCast();
+      handleUserActivity();
+    },
   };
+  
+  // Override controls when casting
+  const effectiveControls = isCasting ? {
+    ...controls,
+    play: castControls.play,
+    pause: castControls.pause,
+    togglePlay: () => {
+      if (playerState.isPlaying) {
+        castControls.pause();
+      } else {
+        castControls.play();
+      }
+    },
+    seek: castControls.seek,
+    setVolume: castControls.setVolume,
+    toggleMute: castControls.toggleMute,
+  } : controls;
 
   // Select layout component
   const Layout = layout === 'minimal' ? MinimalLayout : NetflixLayout;
@@ -190,7 +235,7 @@ export function WebPlayer({
           />
         }
         playerState={playerState}
-        controls={controls}
+        controls={effectiveControls}
         title={title}
         showBack={showBack}
         onBack={onBack}
