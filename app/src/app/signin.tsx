@@ -10,8 +10,10 @@ export default function SignIn() {
   const { data: session } = useSession();
   const signIn = useSignIn();
 
+  // Let the root index handle logged-in user redirects
+  // This prevents conflicts
   if (session?.data?.user) {
-    return <Redirect href="/(app)" />;
+    return <Redirect href="/" />;
   }
 
   const handleSubmit = async (_data: FormType) => {
@@ -23,7 +25,8 @@ export default function SignIn() {
       });
       console.log('result', result);
       if ((result as any)?.data) {
-        router.replace('/(app)');
+        // Go through root index to check encryption status
+        router.replace('/');
       }
     } catch (error) {
       console.log('error', error);

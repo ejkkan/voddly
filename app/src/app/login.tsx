@@ -18,7 +18,7 @@ export default function Login() {
   const { data: session } = useSession();
 
   if (session?.data?.user) {
-    return <Redirect href="/(app)" />;
+    return <Redirect href="/" />;
   }
 
   const onSubmit: LoginFormProps['onSubmit'] = async (data) => {
@@ -28,7 +28,8 @@ export default function Login() {
         password: data.password,
       });
       if ((result as any)?.data) {
-        router.replace('/(app)');
+        // Go through root index to check encryption status
+        router.replace('/');
       }
     } catch (e) {
       console.log('Login failed', e);
