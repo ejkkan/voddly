@@ -23,7 +23,7 @@ import { useActiveAccountId } from './useAccounts';
 
 async function fetchFeed(feed: string, contentType: 'movie' | 'tv', limit = 100): Promise<TrendsFeedResponse | null> {
   const baseApi = getApiRoot();
-  const url = `${baseApi}/metadata/trends?feed=${encodeURIComponent(feed)}&content_type=${contentType}&limit=${limit}`;
+  const url = `${baseApi}/user/trends?feed=${encodeURIComponent(feed)}&content_type=${contentType}&limit=${limit}`;
   const res = await fetch(url, {
     method: 'GET',
     credentials: 'include',

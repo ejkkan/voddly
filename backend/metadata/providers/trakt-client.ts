@@ -111,6 +111,41 @@ export class TraktClient {
     return this.makeRequest<any[]>(`/${endpoint}/trending?limit=${limit}`);
   }
 
+  async getPopular(type: 'movie' | 'tv', limit: number = 10): Promise<any[] | null> {
+    const endpoint = type === 'tv' ? 'shows' : 'movies';
+    return this.makeRequest<any[]>(`/${endpoint}/popular?limit=${limit}`);
+  }
+
+  async getWatchedWeekly(type: 'movie' | 'tv', limit: number = 10): Promise<any[] | null> {
+    const endpoint = type === 'tv' ? 'shows' : 'movies';
+    return this.makeRequest<any[]>(`/${endpoint}/watched/weekly?limit=${limit}`);
+  }
+
+  async getPlayedWeekly(type: 'movie' | 'tv', limit: number = 10): Promise<any[] | null> {
+    const endpoint = type === 'tv' ? 'shows' : 'movies';
+    return this.makeRequest<any[]>(`/${endpoint}/played/weekly?limit=${limit}`);
+  }
+
+  async getCollectedWeekly(type: 'movie' | 'tv', limit: number = 10): Promise<any[] | null> {
+    const endpoint = type === 'tv' ? 'shows' : 'movies';
+    return this.makeRequest<any[]>(`/${endpoint}/collected/weekly?limit=${limit}`);
+  }
+
+  async getAnticipated(type: 'movie' | 'tv', limit: number = 10): Promise<any[] | null> {
+    const endpoint = type === 'tv' ? 'shows' : 'movies';
+    return this.makeRequest<any[]>(`/${endpoint}/anticipated?limit=${limit}`);
+  }
+
+  async getMovieReleases(startDateISO: string, days: number = 14): Promise<any[] | null> {
+    const date = startDateISO.slice(0, 10);
+    return this.makeRequest<any[]>(`/calendars/all/movies/releases/${date}/${days}`);
+  }
+
+  async getShowPremieres(startDateISO: string, days: number = 14): Promise<any[] | null> {
+    const date = startDateISO.slice(0, 10);
+    return this.makeRequest<any[]>(`/calendars/all/shows/premieres/${date}/${days}`);
+  }
+
   async getTrendingRank(traktId: string | number, type: 'movie' | 'tv'): Promise<{ rank: number } | null> {
     const trending = await this.getTrending(type, 100);
     if (!trending) return null;

@@ -12,3 +12,6 @@ export * from './watchState';
 
 // Subtitles
 export * from './subtitles';
+
+// Trends proxy
+export * from './trends';
