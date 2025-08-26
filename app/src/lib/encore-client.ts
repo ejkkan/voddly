@@ -33,7 +33,7 @@ const BROWSER = typeof globalThis === 'object' && 'window' in globalThis;
  */
 export default class Client {
   public readonly auth: auth.ServiceClient;
-  public readonly url: url.ServiceClient;
+  public readonly metadata: metadata.ServiceClient;
   public readonly user: user.ServiceClient;
   public readonly webhooks: webhooks.ServiceClient;
   private readonly options: ClientOptions;
@@ -50,7 +50,7 @@ export default class Client {
     this.options = options ?? {};
     const base = new BaseClient(this.target, this.options);
     this.auth = new auth.ServiceClient(base);
-    this.url = new url.ServiceClient(base);
+    this.metadata = new metadata.ServiceClient(base);
     this.user = new user.ServiceClient(base);
     this.webhooks = new webhooks.ServiceClient(base);
   }
@@ -176,48 +176,133 @@ export namespace auth {
   }
 }
 
-export namespace url {
-  export interface ShortenParams {
-    url: string;
+export namespace metadata {
+  export interface ContentMetadata {
+    id: number;
+    provider: MetadataProvider;
+    provider_id: string;
+    content_type: ContentType;
+    title?: string;
+    original_title?: string;
+    overview?: string;
+    release_date?: string;
+    poster_path?: string;
+    backdrop_path?: string;
+    vote_average?: number;
+    vote_count?: number;
+    popularity?: number;
+    original_language?: string;
+    genres?: any[];
+    production_companies?: any[];
+    runtime?: number;
+    status?: string;
+    tagline?: string;
+    /**
+     * TV Show specific
+     */
+    number_of_seasons?: number;
+
+    number_of_episodes?: number;
+    first_air_date?: string;
+    last_air_date?: string;
+    episode_run_time?: number[];
+    networks?: any[];
+    created_by?: any[];
+    /**
+     * Season specific
+     */
+    season_number?: number;
+
+    air_date?: string;
+    /**
+     * Episode specific
+     */
+    episode_number?: number;
+
+    /**
+     * Parent references
+     */
+    parent_provider_id?: string;
+
+    /**
+     * Cross-reference IDs
+     */
+    external_ids?: { [key: string]: any };
+
+    /**
+     * Additional metadata
+     */
+    videos?: any;
+
+    images?: any;
+    cast?: any[];
+    crew?: any[];
+    keywords?: any;
+    /**
+     * Cache management
+     */
+    raw_response?: any;
+
+    fetched_at?: string;
+    updated_at?: string;
   }
 
-  export interface URL {
-    id: string;
-    url: string;
+  export type ContentType = 'movie' | 'tv' | 'season' | 'episode';
+
+  export interface GetMetadataParams {
+    provider: MetadataProvider;
+    provider_id: string;
+    content_type: ContentType;
+    season_number?: number;
+    episode_number?: number;
+    force_refresh?: boolean;
+    append_to_response?: string;
   }
+
+  export type MetadataProvider = 'tmdb' | 'imdb' | 'tvdb' | 'custom';
 
   export class ServiceClient {
     private baseClient: BaseClient;
 
     constructor(baseClient: BaseClient) {
       this.baseClient = baseClient;
-      this.get = this.get.bind(this);
-      this.shorten = this.shorten.bind(this);
+      this.getMetadata = this.getMetadata.bind(this);
     }
 
     /**
-     * Get retrieves the original URL for the id.
+     * Get metadata for a specific content ID
      */
-    public async get(id: string): Promise<URL> {
+    public async getMetadata(
+      params: GetMetadataParams
+    ): Promise<ContentMetadata> {
+      // Convert our params into the objects we need for the request
+      const query = makeRecord<string, string | string[]>({
+        append_to_response: params['append_to_response'],
+        content_type: String(params['content_type']),
+        episode_number:
+          params['episode_number'] === undefined
+            ? undefined
+            : String(params['episode_number']),
+        force_refresh:
+          params['force_refresh'] === undefined
+            ? undefined
+            : String(params['force_refresh']),
+        provider: String(params.provider),
+        provider_id: params['provider_id'],
+        season_number:
+          params['season_number'] === undefined
+            ? undefined
+            : String(params['season_number']),
+      });
+
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI(
         'GET',
-        `/url/${encodeURIComponent(id)}`
+        `/metadata`,
+        undefined,
+        { query }
       );
-      return (await resp.json()) as URL;
-    }
-
-    /**
-     * shorten shortens a URL.
-     */
-    public async shorten(params: ShortenParams): Promise<URL> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/url`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as URL;
+      return (await resp.json()) as ContentMetadata;
     }
   }
 }
@@ -255,54 +340,54 @@ export namespace user {
 
     constructor(baseClient: BaseClient) {
       this.baseClient = baseClient;
-      this.acceptInvite = this.acceptInvite.bind(this);
       this.addSource = this.addSource.bind(this);
+      this.clearWatchHistory = this.clearWatchHistory.bind(this);
       this.createAccount = this.createAccount.bind(this);
       this.createPortalSession = this.createPortalSession.bind(this);
+      this.createProfile = this.createProfile.bind(this);
+      this.decryptSource = this.decryptSource.bind(this);
+      this.deleteProfile = this.deleteProfile.bind(this);
       this.deleteSource = this.deleteSource.bind(this);
+      this.deleteWatchState = this.deleteWatchState.bind(this);
+      this.detectEmbeddedSubtitles = this.detectEmbeddedSubtitles.bind(this);
       this.downloadSubtitleFile = this.downloadSubtitleFile.bind(this);
+      this.extractMKVSubtitle = this.extractMKVSubtitle.bind(this);
+      this.extractOriginalSubtitleContent =
+        this.extractOriginalSubtitleContent.bind(this);
+      this.extractOriginalSubtitles = this.extractOriginalSubtitles.bind(this);
+      this.getAccount = this.getAccount.bind(this);
       this.getAccounts = this.getAccounts.bind(this);
       this.getAvailableLanguages = this.getAvailableLanguages.bind(this);
+      this.getContentWatchState = this.getContentWatchState.bind(this);
       this.getCurrentUser = this.getCurrentUser.bind(this);
-      this.getFavorites = this.getFavorites.bind(this);
       this.getLanguagesByTmdb = this.getLanguagesByTmdb.bind(this);
+      this.getMetadataForContent = this.getMetadataForContent.bind(this);
+      this.getProfileSources = this.getProfileSources.bind(this);
+      this.getProfiles = this.getProfiles.bind(this);
       this.getSources = this.getSources.bind(this);
+      this.getSubtitleById = this.getSubtitleById.bind(this);
       this.getSubtitleContent = this.getSubtitleContent.bind(this);
+      this.getSubtitleContentById = this.getSubtitleContentById.bind(this);
       this.getSubtitleContentByTmdb = this.getSubtitleContentByTmdb.bind(this);
+      this.getSubtitleVariants = this.getSubtitleVariants.bind(this);
       this.getSubtitles = this.getSubtitles.bind(this);
       this.getUserById = this.getUserById.bind(this);
       this.getWatchState = this.getWatchState.bind(this);
-      this.inviteMember = this.inviteMember.bind(this);
+      this.initializeAccountEncryption =
+        this.initializeAccountEncryption.bind(this);
+      this.initializeNewAccount = this.initializeNewAccount.bind(this);
+      this.resolveSubtitles = this.resolveSubtitles.bind(this);
       this.searchSubtitles = this.searchSubtitles.bind(this);
+      this.switchProfile = this.switchProfile.bind(this);
       this.updateCurrentUser = this.updateCurrentUser.bind(this);
+      this.updatePassphrase = this.updatePassphrase.bind(this);
+      this.updateProfile = this.updateProfile.bind(this);
+      this.updateSubscription = this.updateSubscription.bind(this);
       this.updateWatchState = this.updateWatchState.bind(this);
     }
 
     /**
-     * Accept invite
-     */
-    public async acceptInvite(
-      token: string,
-      params: {
-        tempKey: string;
-        newPassphrase: string;
-      }
-    ): Promise<{
-      accountId: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/invites/${encodeURIComponent(token)}/accept`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        accountId: string;
-      };
-    }
-
-    /**
-     * Add source to existing account (client provides encrypted config)
+     * Add source to account
      */
     public async addSource(params: endpoints.AddSourceRequest): Promise<{
       sourceId: string;
@@ -310,7 +395,7 @@ export namespace user {
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI(
         'POST',
-        `/sources`,
+        `/account/sources`,
         JSON.stringify(params)
       );
       return (await resp.json()) as {
@@ -319,13 +404,30 @@ export namespace user {
     }
 
     /**
-     * Create account with initial source and encryption setup
+     * Clear all watch history for a profile
+     */
+    public async clearWatchHistory(profileId: string): Promise<{
+      ok: true;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'DELETE',
+        `/profiles/${encodeURIComponent(profileId)}/watch-state`
+      );
+      return (await resp.json()) as {
+        ok: true;
+      };
+    }
+
+    /**
+     * Create account with initial source and default profile
      */
     public async createAccount(
       params: endpoints.CreateAccountRequest
     ): Promise<{
       accountId: string;
       sourceId: string;
+      profileId: string;
     }> {
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI(
@@ -336,6 +438,7 @@ export namespace user {
       return (await resp.json()) as {
         accountId: string;
         sourceId: string;
+        profileId: string;
       };
     }
 
@@ -355,6 +458,63 @@ export namespace user {
     }
 
     /**
+     * Create a new profile
+     */
+    public async createProfile(
+      params: endpoints.CreateProfileRequest
+    ): Promise<{
+      profileId: string;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/profiles`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as {
+        profileId: string;
+      };
+    }
+
+    /**
+     * Decrypt source credentials (requires passphrase)
+     */
+    public async decryptSource(
+      sourceId: string,
+      params: {
+        passphrase: string;
+      }
+    ): Promise<{
+      credentials: any;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/account/sources/${encodeURIComponent(sourceId)}/decrypt`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as {
+        credentials: any;
+      };
+    }
+
+    /**
+     * Delete a profile
+     */
+    public async deleteProfile(profileId: string): Promise<{
+      success: boolean;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'DELETE',
+        `/profiles/${encodeURIComponent(profileId)}`
+      );
+      return (await resp.json()) as {
+        success: boolean;
+      };
+    }
+
+    /**
      * Delete source
      */
     public async deleteSource(sourceId: string): Promise<{
@@ -363,11 +523,42 @@ export namespace user {
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI(
         'DELETE',
-        `/sources/${encodeURIComponent(sourceId)}`
+        `/account/sources/${encodeURIComponent(sourceId)}`
       );
       return (await resp.json()) as {
         deleted: boolean;
       };
+    }
+
+    /**
+     * Delete watch state for content
+     */
+    public async deleteWatchState(
+      profileId: string,
+      contentId: string
+    ): Promise<{
+      ok: true;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'DELETE',
+        `/profiles/${encodeURIComponent(profileId)}/watch-state/${encodeURIComponent(contentId)}`
+      );
+      return (await resp.json()) as {
+        ok: true;
+      };
+    }
+
+    public async detectEmbeddedSubtitles(
+      params: endpoints.DetectEmbeddedTracksParams
+    ): Promise<endpoints.DetectEmbeddedTracksResponse> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/user/subtitles/detect-embedded`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as endpoints.DetectEmbeddedTracksResponse;
     }
 
     /**
@@ -390,8 +581,59 @@ export namespace user {
       };
     }
 
+    public async extractMKVSubtitle(
+      params: endpoints.ExtractMKVSubtitleParams
+    ): Promise<endpoints.ExtractMKVSubtitleResponse> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/subtitles/mkv-extract`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as endpoints.ExtractMKVSubtitleResponse;
+    }
+
+    public async extractOriginalSubtitleContent(
+      params: endpoints.ExtractOriginalSubtitleContentParams
+    ): Promise<endpoints.ExtractOriginalSubtitleContentResponse> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/subtitles/extract-original-content`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as endpoints.ExtractOriginalSubtitleContentResponse;
+    }
+
+    public async extractOriginalSubtitles(
+      params: endpoints.ExtractOriginalSubtitlesParams
+    ): Promise<endpoints.ExtractOriginalSubtitlesResponse> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/subtitles/extract-original`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as endpoints.ExtractOriginalSubtitlesResponse;
+    }
+
     /**
-     * Get user's accounts
+     * Get user's account (now just one)
+     */
+    public async getAccount(): Promise<{
+      account: endpoints.AccountRow | null;
+      hasEncryption?: boolean;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI('GET', `/account`);
+      return (await resp.json()) as {
+        account: endpoints.AccountRow | null;
+        hasEncryption?: boolean;
+      };
+    }
+
+    /**
+     * Get user's accounts (backward compatibility - returns single account in array)
      */
     public async getAccounts(): Promise<{
       accounts: endpoints.AccountRow[];
@@ -470,24 +712,45 @@ export namespace user {
     }
 
     /**
+     * Get watch state for a specific content item
+     */
+    public async getContentWatchState(
+      profileId: string,
+      contentId: string
+    ): Promise<{
+      state: {
+        content_id: string;
+        content_type: string | null;
+        last_position_seconds: number | null;
+        total_duration_seconds: number | null;
+        is_favorite: boolean;
+        last_watched_at: string;
+      } | null;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/profiles/${encodeURIComponent(profileId)}/watch-state/${encodeURIComponent(contentId)}`
+      );
+      return (await resp.json()) as {
+        state: {
+          content_id: string;
+          content_type: string | null;
+          last_position_seconds: number | null;
+          total_duration_seconds: number | null;
+          is_favorite: boolean;
+          last_watched_at: string;
+        } | null;
+      };
+    }
+
+    /**
      * Get current user endpoint
      */
     public async getCurrentUser(): Promise<User> {
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI('GET', `/user/me`);
       return (await resp.json()) as User;
-    }
-
-    /**
-     * Get favorite content across all sources
-     */
-    public async getFavorites(): Promise<endpoints.GetWatchStateResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/watch-state/favorites`
-      );
-      return (await resp.json()) as endpoints.GetWatchStateResponse;
     }
 
     /**
@@ -519,21 +782,112 @@ export namespace user {
       };
     }
 
+    public async getMetadataForContent(params: {
+      tmdb_id: number;
+      content_type: endpoints.ContentType;
+      season_number?: number;
+      episode_number?: number;
+      force_refresh?: boolean;
+      append_to_response?: string;
+    }): Promise<metadata.ContentMetadata> {
+      // Convert our params into the objects we need for the request
+      const query = makeRecord<string, string | string[]>({
+        append_to_response: params['append_to_response'],
+        content_type: String(params['content_type']),
+        episode_number:
+          params['episode_number'] === undefined
+            ? undefined
+            : String(params['episode_number']),
+        force_refresh:
+          params['force_refresh'] === undefined
+            ? undefined
+            : String(params['force_refresh']),
+        season_number:
+          params['season_number'] === undefined
+            ? undefined
+            : String(params['season_number']),
+        tmdb_id: String(params['tmdb_id']),
+      });
+
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/user/metadata`,
+        undefined,
+        { query }
+      );
+      return (await resp.json()) as metadata.ContentMetadata;
+    }
+
     /**
-     * Get sources for account (returns encrypted configs)
+     * Get sources accessible to a profile
      */
-    public async getSources(accountId: string): Promise<{
-      sources: endpoints.SourceRow[];
-      keyData: endpoints.MemberKeyRow | null;
+    public async getProfileSources(profileId: string): Promise<{
+      sources: any[];
     }> {
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI(
         'GET',
-        `/accounts/${encodeURIComponent(accountId)}/sources`
+        `/profiles/${encodeURIComponent(profileId)}/sources`
+      );
+      return (await resp.json()) as {
+        sources: any[];
+      };
+    }
+
+    /**
+     * Get all profiles for the user's account
+     */
+    public async getProfiles(): Promise<{
+      profiles: endpoints.ProfileWithSources[];
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI('GET', `/profiles`);
+      return (await resp.json()) as {
+        profiles: endpoints.ProfileWithSources[];
+      };
+    }
+
+    /**
+     * Get sources for account
+     */
+    public async getSources(accountId?: string): Promise<{
+      sources: endpoints.SourceRow[];
+      keyData?: {
+        master_key_wrapped: string;
+        salt: string;
+        iv: string;
+      };
+    }> {
+      // Now make the actual call to the API
+      // Note: accountId parameter is ignored since users have only one account
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/account/sources`
       );
       return (await resp.json()) as {
         sources: endpoints.SourceRow[];
-        keyData: endpoints.MemberKeyRow | null;
+        keyData?: {
+          master_key_wrapped: string;
+          salt: string;
+          iv: string;
+        };
+      };
+    }
+
+    /**
+     * Get subtitle content by row id. If content is missing, attempt to download via its stored metadata.
+     */
+    public async getSubtitleById(id: string): Promise<{
+      subtitle: endpoints.Subtitle | null;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/subtitles/by-id/${encodeURIComponent(id)}`
+      );
+      return (await resp.json()) as {
+        subtitle: endpoints.Subtitle | null;
       };
     }
 
@@ -608,6 +962,22 @@ export namespace user {
     }
 
     /**
+     * Get subtitle content by specific variant ID
+     */
+    public async getSubtitleContentById(variantId: string): Promise<{
+      subtitle: endpoints.Subtitle | null;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/subtitles/variant/${encodeURIComponent(variantId)}/content`
+      );
+      return (await resp.json()) as {
+        subtitle: endpoints.Subtitle | null;
+      };
+    }
+
+    /**
      * TMDB-first endpoint: fetch/return content for selected language
      */
     public async getSubtitleContentByTmdb(
@@ -634,6 +1004,38 @@ export namespace user {
       );
       return (await resp.json()) as {
         subtitle: endpoints.Subtitle | null;
+      };
+    }
+
+    /**
+     * Get all subtitle variants for a specific language
+     */
+    public async getSubtitleVariants(
+      movieId: string,
+      languageCode: string,
+      params: {
+        tmdb_id?: number;
+      }
+    ): Promise<{
+      variants: endpoints.SubtitleRowItem[];
+    }> {
+      // Convert our params into the objects we need for the request
+      const query = makeRecord<string, string | string[]>({
+        tmdb_id:
+          params['tmdb_id'] === undefined
+            ? undefined
+            : String(params['tmdb_id']),
+      });
+
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/subtitles/${encodeURIComponent(movieId)}/variants/${encodeURIComponent(languageCode)}`,
+        undefined,
+        { query }
+      );
+      return (await resp.json()) as {
+        variants: endpoints.SubtitleRowItem[];
       };
     }
 
@@ -718,40 +1120,116 @@ export namespace user {
     }
 
     /**
-     * Get watch state for a source
+     * Get watch state for a profile
      */
     public async getWatchState(
-      sourceId: string
+      profileId: string
     ): Promise<endpoints.GetWatchStateResponse> {
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI(
         'GET',
-        `/watch-state/${encodeURIComponent(sourceId)}`
+        `/profiles/${encodeURIComponent(profileId)}/watch-state`
       );
       return (await resp.json()) as endpoints.GetWatchStateResponse;
     }
 
     /**
-     * Invite member to account
+     * Initialize encryption for existing accounts (migration helper)
      */
-    public async inviteMember(
-      accountId: string,
-      params: {
-        email: string;
-        passphrase: string;
-      }
+    public async initializeAccountEncryption(
+      params: endpoints.InitializeEncryptionRequest
     ): Promise<{
-      inviteToken: string;
+      success: boolean;
     }> {
       // Now make the actual call to the API
       const resp = await this.baseClient.callTypedAPI(
         'POST',
-        `/accounts/${encodeURIComponent(accountId)}/invite`,
+        `/account/initialize-encryption`,
         JSON.stringify(params)
       );
       return (await resp.json()) as {
-        inviteToken: string;
+        success: boolean;
       };
+    }
+
+    /**
+     * Initialize new account with just encryption (no sources)
+     */
+    public async initializeNewAccount(
+      params: endpoints.InitializeNewAccountRequest
+    ): Promise<{
+      accountId: string;
+      profileId: string;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/account/initialize`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as {
+        accountId: string;
+        profileId: string;
+      };
+    }
+
+    /**
+     * Unified resolver for UI: list rows or fetch content for a selected row
+     */
+    public async resolveSubtitles(params: {
+      movieId?: string;
+      tmdb_id?: number;
+      parent_imdb_id?: number;
+      parent_tmdb_id?: number;
+      season_number?: number;
+      episode_number?: number;
+      query?: string;
+      type?: 'movie' | 'episode' | 'all';
+      year?: number;
+      preferred_provider?: 'opensubs' | 'subdl' | 'all';
+      row_id?: string;
+    }): Promise<endpoints.ResolveSubtitlesResponse> {
+      // Convert our params into the objects we need for the request
+      const query = makeRecord<string, string | string[]>({
+        episode_number:
+          params['episode_number'] === undefined
+            ? undefined
+            : String(params['episode_number']),
+        movieId: params.movieId,
+        parent_imdb_id:
+          params['parent_imdb_id'] === undefined
+            ? undefined
+            : String(params['parent_imdb_id']),
+        parent_tmdb_id:
+          params['parent_tmdb_id'] === undefined
+            ? undefined
+            : String(params['parent_tmdb_id']),
+        preferred_provider:
+          params['preferred_provider'] === undefined
+            ? undefined
+            : String(params['preferred_provider']),
+        query: params.query,
+        row_id: params['row_id'],
+        season_number:
+          params['season_number'] === undefined
+            ? undefined
+            : String(params['season_number']),
+        tmdb_id:
+          params['tmdb_id'] === undefined
+            ? undefined
+            : String(params['tmdb_id']),
+        type: params.type === undefined ? undefined : String(params.type),
+        year: params.year === undefined ? undefined : String(params.year),
+      });
+
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/subtitles/resolve`,
+        undefined,
+        { query }
+      );
+      return (await resp.json()) as endpoints.ResolveSubtitlesResponse;
     }
 
     /**
@@ -771,6 +1249,22 @@ export namespace user {
     }
 
     /**
+     * Switch active profile (for tracking purposes)
+     */
+    public async switchProfile(profileId: string): Promise<{
+      success: boolean;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'POST',
+        `/profiles/${encodeURIComponent(profileId)}/switch`
+      );
+      return (await resp.json()) as {
+        success: boolean;
+      };
+    }
+
+    /**
      * Update current user endpoint
      */
     public async updateCurrentUser(params: {
@@ -784,6 +1278,68 @@ export namespace user {
         JSON.stringify(params)
       );
       return (await resp.json()) as User;
+    }
+
+    /**
+     * Update account passphrase
+     */
+    public async updatePassphrase(
+      params: endpoints.UpdatePassphraseRequest
+    ): Promise<{
+      success: boolean;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'PUT',
+        `/account/passphrase`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as {
+        success: boolean;
+      };
+    }
+
+    /**
+     * Update a profile
+     */
+    public async updateProfile(
+      profileId: string,
+      params: {
+        name?: string;
+        hasSourceRestrictions?: boolean;
+        allowedSources?: string[];
+      }
+    ): Promise<{
+      success: boolean;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'PUT',
+        `/profiles/${encodeURIComponent(profileId)}`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as {
+        success: boolean;
+      };
+    }
+
+    /**
+     * Update subscription tier
+     */
+    public async updateSubscription(params: {
+      tier: 'basic' | 'standard' | 'premium';
+    }): Promise<{
+      success: boolean;
+    }> {
+      // Now make the actual call to the API
+      const resp = await this.baseClient.callTypedAPI(
+        'PUT',
+        `/account/subscription`,
+        JSON.stringify(params)
+      );
+      return (await resp.json()) as {
+        success: boolean;
+      };
     }
 
     /**
@@ -853,21 +1409,25 @@ export namespace webhooks {
 export namespace endpoints {
   export interface AccountRow {
     id: string;
-    owner_user_id: string;
+    user_id: string;
     name: string;
-    plan: string;
-    status: string;
-    role?: string;
+    subscription_tier: string;
+    subscription_status: string;
     created_at: string;
   }
 
   export interface AddSourceRequest {
-    accountId: string;
     name: string;
     providerType: string;
-    encryptedConfig: string;
-    configIv: string;
+    credentials: {
+      server: string;
+      username: string;
+      password: string;
+    };
+    passphrase: string;
   }
+
+  export type ContentType = 'movie' | 'tv' | 'season' | 'episode';
 
   export interface CreateAccountRequest {
     accountName: string;
@@ -881,6 +1441,66 @@ export namespace endpoints {
     passphrase: string;
   }
 
+  export interface CreateProfileRequest {
+    name: string;
+    hasSourceRestrictions?: boolean;
+    allowedSources?: string[];
+  }
+
+  export interface DetectEmbeddedTracksParams {
+    streamUrl: string;
+    quickScan?: boolean;
+    contentName?: string;
+  }
+
+  export interface DetectEmbeddedTracksResponse {
+    success: boolean;
+    streamInfo?: subtitles.VideoStreamInfo;
+    likelyHasEmbedded: boolean;
+    analysisTime: number;
+    error?: string;
+  }
+
+  export interface ExtractMKVSubtitleParams {
+    streamUrl: string;
+    language: string;
+    trackIndex: number;
+    codecId: string;
+  }
+
+  export interface ExtractMKVSubtitleResponse {
+    success: boolean;
+    content?: string;
+    format?: string;
+    language?: string;
+    error?: string;
+  }
+
+  export interface ExtractOriginalSubtitleContentParams {
+    subtitleId: string;
+    streamUrl: string;
+    trackIndex: number;
+    language: string;
+  }
+
+  export interface ExtractOriginalSubtitleContentResponse {
+    success: boolean;
+    content?: string;
+    error?: string;
+  }
+
+  export interface ExtractOriginalSubtitlesParams {
+    streamUrl: string;
+    movieId: string;
+    tmdbId?: number;
+  }
+
+  export interface ExtractOriginalSubtitlesResponse {
+    success: boolean;
+    tracks?: OriginalSubtitleTrack[];
+    error?: string;
+  }
+
   export interface GetWatchStateResponse {
     states: {
       content_id: string;
@@ -892,11 +1512,40 @@ export namespace endpoints {
     }[];
   }
 
-  export interface MemberKeyRow {
-    wrapped_master_key: string;
-    salt: string;
-    iv: string;
-    iterations: number;
+  export interface InitializeEncryptionRequest {
+    passphrase: string;
+  }
+
+  export interface InitializeNewAccountRequest {
+    accountName: string;
+    passphrase: string;
+  }
+
+  export interface OriginalSubtitleTrack {
+    id: string;
+    language_code: string;
+    language_name: string;
+    source: 'original';
+    has_content: boolean;
+    trackIndex: number;
+    codecId: string;
+    format: string;
+  }
+
+  export interface ProfileWithSources {
+    allowedSources?: string[];
+    id: string;
+    account_id: string;
+    name: string;
+    has_source_restrictions: boolean;
+    created_at: string;
+    updated_at: string;
+  }
+
+  export interface ResolveSubtitlesResponse {
+    mode: 'list' | 'content';
+    rows?: SubtitleRowItem[];
+    subtitle?: Subtitle | null;
   }
 
   export interface SimpleUser {
@@ -926,8 +1575,25 @@ export namespace endpoints {
     source?: string;
   }
 
+  export interface SubtitleRowItem {
+    id: string;
+    language_code: string;
+    language_name: string;
+    source: string;
+    has_content: boolean;
+    name?: string;
+    download_count?: number;
+    uploader?: string;
+  }
+
+  export interface UpdatePassphraseRequest {
+    currentPassphrase: string;
+    newPassphrase: string;
+  }
+
   export interface UpdateWatchStateRequest {
-    sourceId: string;
+    profileId: string;
+    sourceId?: string;
     contentId: string;
     contentType?: string;
     lastPositionSeconds?: number | null;
@@ -937,10 +1603,55 @@ export namespace endpoints {
 }
 
 export namespace subtitles {
+  export interface EmbeddedAudioTrack {
+    index: number;
+    language: string;
+    languageName: string;
+    codec: string;
+    codecLongName: string;
+    title?: string;
+    channels: number;
+    channelLayout: string;
+    sampleRate: number;
+    default: boolean;
+    disposition: {
+      default: number;
+      forced: number;
+    };
+  }
+
+  export interface EmbeddedSubtitleTrack {
+    index: number;
+    language: string;
+    languageName: string;
+    codec: string;
+    codecLongName: string;
+    title?: string;
+    forced: boolean;
+    default: boolean;
+    format: string;
+    disposition: {
+      default: number;
+      forced: number;
+      hearing_impaired: number;
+      visual_impaired: number;
+    };
+  }
+
   export interface SubtitleLanguage {
     code: string;
     name: string;
     count?: number;
+  }
+
+  export interface VideoStreamInfo {
+    hasEmbeddedSubtitles: boolean;
+    hasMultipleAudioTracks: boolean;
+    subtitleTracks: EmbeddedSubtitleTrack[];
+    audioTracks: EmbeddedAudioTrack[];
+    containerFormat: string;
+    duration: number;
+    fileSize?: number;
   }
 }
 

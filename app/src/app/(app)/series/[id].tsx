@@ -1,32 +1,32 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Dimensions } from 'react-native';
-import {
-  SafeAreaView,
-  View,
-  Text,
-  Image,
-  ScrollView,
-  Pressable,
-} from '@/components/ui';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { openDb } from '@/lib/db';
-import { useFetchRemoteSeries } from '@/hooks/useFetchRemoteSeries';
-import { SeriesEpisodesCarousels } from '@/components/series/SeriesEpisodesCarousels';
-import { SeasonsList } from '@/components/series/SeasonsList';
-import {
-  useTVMetadata,
-  extractDisplayMetadata,
-  type EnrichedMetadata,
-  type TVMetadata,
-} from '@/hooks/use-content-metadata';
-import { normalizeImageUrl } from '@/lib/url-utils';
-import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
+
 import { BackdropCarousel } from '@/components/media/BackdropCarousel';
 import { CastCarousel } from '@/components/media/CastCarousel';
-import { RatingsDisplay } from '@/components/media/RatingsDisplay';
 import { ImageGallery } from '@/components/media/ImageGallery';
+import { RatingsDisplay } from '@/components/media/RatingsDisplay';
 import { VideoGallery } from '@/components/media/VideoGallery';
+import { SeasonsList } from '@/components/series/SeasonsList';
+import { SeriesEpisodesCarousels } from '@/components/series/SeriesEpisodesCarousels';
+import {
+  Image,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
+} from '@/components/ui';
+import {
+  type EnrichedMetadata,
+  extractDisplayMetadata,
+  useTVMetadata,
+} from '@/hooks/use-content-metadata';
+import { useFetchRemoteSeries } from '@/hooks/useFetchRemoteSeries';
+import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
+import { openDb } from '@/lib/db';
+import { useSourceCredentials } from '@/lib/source-credentials';
+import { normalizeImageUrl } from '@/lib/url-utils';
 
 type ItemRow = {
   id: string;
@@ -65,7 +65,7 @@ export default function SeriesDetails() {
       appendToResponse: 'videos,images,credits,external_ids',
     }
   );
-
+  console.log('[Series Details]', { metadata });
   // Extract display-ready metadata
   const displayData = useMemo(
     () => extractDisplayMetadata(metadata),
@@ -278,10 +278,10 @@ export default function SeriesDetails() {
                           uri: displayData?.posterUrl || normalizedPoster || '',
                         }}
                         contentFit="cover"
-                        className="h-full w-full"
+                        className="size-full"
                       />
                     ) : (
-                      <View className="h-full w-full items-center justify-center">
+                      <View className="size-full items-center justify-center">
                         <Text className="text-6xl">📺</Text>
                       </View>
                     )}
@@ -296,7 +296,7 @@ export default function SeriesDetails() {
                   </Text>
 
                   {displayData?.tagline ? (
-                    <Text className="mt-2 text-neutral-600 dark:text-neutral-400 italic">
+                    <Text className="mt-2 italic text-neutral-600 dark:text-neutral-400">
                       "{displayData.tagline}"
                     </Text>
                   ) : null}
@@ -344,7 +344,7 @@ export default function SeriesDetails() {
                       {displayData.genres.map((genre) => (
                         <View
                           key={genre.id}
-                          className="rounded-full bg-neutral-200 dark:bg-neutral-800 px-3 py-1"
+                          className="rounded-full bg-neutral-200 px-3 py-1 dark:bg-neutral-800"
                         >
                           <Text className="text-sm text-neutral-700 dark:text-neutral-300">
                             {genre.name}
@@ -445,7 +445,7 @@ export default function SeriesDetails() {
                   <Text className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
                     Production Details
                   </Text>
-                  <View className="rounded-lg bg-neutral-100 dark:bg-neutral-900 p-4">
+                  <View className="rounded-lg bg-neutral-100 p-4 dark:bg-neutral-900">
                     {metadata?.networks && metadata.networks.length > 0 && (
                       <View className="mb-2">
                         <Text className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -511,7 +511,7 @@ export default function SeriesDetails() {
             {/* Loading overlay for metadata */}
             {metadataLoading && (
               <View className="mt-6 px-4">
-                <View className="flex-row items-center rounded-lg bg-neutral-100 dark:bg-neutral-900 p-4">
+                <View className="flex-row items-center rounded-lg bg-neutral-100 p-4 dark:bg-neutral-900">
                   <ActivityIndicator size="small" />
                   <Text className="ml-3 text-neutral-600 dark:text-neutral-400">
                     Loading additional metadata...

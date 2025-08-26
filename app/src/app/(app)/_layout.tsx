@@ -12,9 +12,11 @@ export const unstable_settings = {
 export default function ProtectedLayout() {
   const { data: session, isLoading } = useSession();
   const [isFirstTime] = useIsFirstTime();
+
   const hideSplash = useCallback(async () => {
     await SplashScreen.hideAsync();
   }, []);
+
   useEffect(() => {
     if (!isLoading) {
       setTimeout(() => {
@@ -23,11 +25,20 @@ export default function ProtectedLayout() {
     }
   }, [hideSplash, isLoading]);
 
+  // Handle first-time users
   if (isFirstTime) {
     return <Redirect href="/onboarding" />;
   }
+
+  // Only redirect if we're sure the user is not logged in
+  // The root index will handle encryption checks
   if (!isLoading && !session?.data?.user) {
-    return <Redirect href="/signin" />;
+    return <Redirect href="/" />;
+  }
+
+  // Show nothing while loading to prevent flashing
+  if (isLoading) {
+    return null;
   }
 
   return (

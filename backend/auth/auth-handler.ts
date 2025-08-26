@@ -73,7 +73,7 @@ export const handler = authHandler<AuthParams, AuthData>(async (params) => {
       throw APIError.unauthenticated('Invalid or expired session');
     }
 
-    // Get full user information from our user table
+    // Get full user information from our user table (stripeCustomerId now in accounts table)
     console.log('🔍 Looking for user with ID:', sessionData.userId);
 
     const user = await userDB.queryRow<{
@@ -84,9 +84,16 @@ export const handler = authHandler<AuthParams, AuthData>(async (params) => {
       role: string | null;
       stripeCustomerId: string | null;
     }>`
-      SELECT id, email, name, "emailVerified", role, "stripeCustomerId"
-      FROM "user" 
-      WHERE id = ${sessionData.userId}
+      SELECT 
+        u.id, 
+        u.email, 
+        u.name, 
+        u."emailVerified", 
+        u.role,
+        a.stripe_customer_id as "stripeCustomerId"
+      FROM "user" u
+      LEFT JOIN accounts a ON a.user_id = u.id
+      WHERE u.id = ${sessionData.userId}
     `;
 
     console.log('🔍 User query result:', user);

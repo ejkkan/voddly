@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
+import { ThemeProvider } from '@react-navigation/native';
 import FlashMessage from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
@@ -17,6 +18,7 @@ import { PassphraseProvider } from '@/components/passphrase/PassphraseProvider';
 // Removed APIProvider – old API layer not used anymore
 import { loadSelectedTheme } from '@/lib';
 import { AppToasterHost } from '@/lib';
+import { useThemeConfig } from '@/lib/use-theme-config';
 import { DbProvider } from '@/lib/db/provider';
 import { AccountDbGuard } from '@/lib/db/AccountDbGuard';
 
@@ -28,7 +30,14 @@ if (
   typeof (window as any).atob === 'function'
 ) {
   const originalAtob = (window as any).atob.bind(window);
+  (window as any).__ORIGINAL_ATOB = originalAtob;
   const shim = (input: string) => {
+    try {
+      const g = globalThis as any;
+      if (g && g.__BYPASS_ATOB_SHIM) {
+        return originalAtob(input);
+      }
+    } catch {}
     const s = String(input || '')
       .replace(/\s+/g, '')
       .replace(/-/g, '+')
@@ -56,8 +65,17 @@ export default function RootLayout() {
   React.useEffect(() => {
     // Web: patch atob to accept URL-safe base64 and missing padding
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const originalAtob = (window as any).atob?.bind(window) ?? null;
+      const originalAtob =
+        ((window as any).__ORIGINAL_ATOB ?? (window as any).atob)?.bind(
+          window
+        ) ?? null;
       const shim = (input: string) => {
+        try {
+          const g = globalThis as any;
+          if (g && g.__BYPASS_ATOB_SHIM) {
+            return originalAtob ? originalAtob(input) : input;
+          }
+        } catch {}
         const s = String(input || '')
           .replace(/\s+/g, '')
           .replace(/-/g, '+')
@@ -81,27 +99,37 @@ export default function RootLayout() {
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="passphrase-setup"
+          options={{ headerShown: false }}
+        />
       </Stack>
     </Providers>
   );
 }
 
 function Providers({ children }: { children: React.ReactNode }) {
+  const theme = useThemeConfig();
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <GestureHandlerRootView
+      style={styles.container}
+      className={theme.dark ? 'dark' : undefined}
+    >
       <KeyboardProvider>
-        <QueryClientProvider client={queryClient}>
-          <DbProvider>
-            <PassphraseProvider>
-              <BottomSheetModalProvider>
-                <AccountDbGuard />
-                {children}
-                <AppToasterHost />
-              </BottomSheetModalProvider>
-            </PassphraseProvider>
-          </DbProvider>
-          <FlashMessage position="top" />
-        </QueryClientProvider>
+        <ThemeProvider value={theme}>
+          <QueryClientProvider client={queryClient}>
+            <DbProvider>
+              <PassphraseProvider>
+                <BottomSheetModalProvider>
+                  <AccountDbGuard />
+                  {children}
+                  <AppToasterHost />
+                </BottomSheetModalProvider>
+              </PassphraseProvider>
+            </DbProvider>
+            <FlashMessage position="top" />
+          </QueryClientProvider>
+        </ThemeProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
   );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dimensions, Platform, StatusBar } from 'react-native';
+import { Dimensions, Platform, StatusBar, StyleSheet } from 'react-native';
 import { VLCPlayer } from 'react-native-vlc-media-player';
 
 import { Pressable, Text, View } from '@/components/ui';
