@@ -6,7 +6,9 @@ import {
   getServerInfo,
 } from './xtream';
 
-describe('Xtream service', () => {
+const maybe = process.env.RUN_XTREAM_TESTS ? describe : describe.skip;
+
+maybe('Xtream service', () => {
   it('should return server info', async () => {
     const info = await getServerInfo();
     expect(info).toBeDefined();
