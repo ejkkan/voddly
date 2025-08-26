@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 
 import { SafeAreaView, ScrollView, View } from '@/components/ui';
 import { useDashboardPreviews } from '@/hooks/ui';
+import { useDashboardTrends } from '@/hooks/ui';
 
 import { CarouselRow } from '../../components/media/carousel-row';
 import Hero from '../../components/media/hero';
@@ -22,6 +23,7 @@ export default function Dashboard() {
   >([]);
 
   const dashboard = useDashboardPreviews(10);
+  const trends = useDashboardTrends(20);
   useEffect(() => {
     const res = dashboard.data;
     if (!res) return;
@@ -68,6 +70,31 @@ export default function Dashboard() {
         </View>
 
         <View className="mt-2">
+          <CarouselRow
+            title="Trending Movies"
+            data={trends.trendingMovies.map((t) => ({ id: String(t.id), title: t.title, imageUrl: undefined }))}
+            renderItem={(item) => (
+              <PosterCard
+                id={item.id}
+                title={item.title}
+                posterUrl={item.imageUrl}
+                onPress={(id) => router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)}
+              />
+            )}
+          />
+          <CarouselRow
+            title="Trending Series"
+            data={trends.trendingSeries.map((t) => ({ id: String(t.id), title: t.title, imageUrl: undefined }))}
+            renderItem={(item) => (
+              <PosterCard
+                id={item.id}
+                title={item.title}
+                posterUrl={item.imageUrl}
+                onPress={(id) => router.push(`/(app)/series/${encodeURIComponent(String(id))}`)}
+              />
+            )}
+          />
+
           <CarouselRow
             title="Movies"
             data={movies}
