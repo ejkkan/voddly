@@ -111,16 +111,21 @@ export function SeriesEpisodesCarousels(props: {
               onPress={async (id) => {
                 try {
                   const streamId = String(id);
-                  await prepareContentPlayback(sourceId, streamId, 'series', {
-                    title: 'Play Episode',
-                    message: 'Enter your passphrase to play this episode',
+                  await prepareContentPlayback({
+                    sourceId,
+                    contentId: streamId,
+                    contentType: 'series',
+                    options: {
+                      title: 'Play Episode',
+                      message: 'Enter your passphrase to play this episode',
+                    }
                   });
                   router.push({
                     pathname: '/(app)/player',
                     params: { playlist: sourceId, series: streamId },
                   });
-                } catch {
-                  // ignore
+                } catch (error) {
+                  console.error('Failed to play episode:', error);
                 }
               }}
             />

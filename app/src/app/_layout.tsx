@@ -20,7 +20,6 @@ import { loadSelectedTheme } from '@/lib';
 import { AppToasterHost } from '@/lib';
 import { useThemeConfig } from '@/lib/use-theme-config';
 import { DbProvider } from '@/lib/db/provider';
-import { AccountDbGuard } from '@/lib/db/AccountDbGuard';
 
 // Install atob shim as early as possible on web to handle URL-safe base64 and missing padding
 
@@ -121,7 +120,6 @@ function Providers({ children }: { children: React.ReactNode }) {
             <DbProvider>
               <PassphraseProvider>
                 <BottomSheetModalProvider>
-                  <AccountDbGuard />
                   {children}
                   <AppToasterHost />
                 </BottomSheetModalProvider>

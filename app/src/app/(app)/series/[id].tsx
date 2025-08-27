@@ -95,9 +95,7 @@ export default function SeriesDetails() {
     }
 
     // Fallback to normalized backdrop
-    const base =
-      ((item as any)?.base_url as string | undefined) ||
-      (sourceBase.baseUrl as string | undefined);
+    const base = sourceBase.baseUrl as string | undefined;
     const normalizedBackdrop = normalizeImageUrl(
       item?.backdrop_url || item?.poster_url || null,
       base
@@ -111,9 +109,7 @@ export default function SeriesDetails() {
 
   const normalizedPoster = useMemo(() => {
     if (!item) return null;
-    const base =
-      ((item as any).base_url as string | undefined) ||
-      (sourceBase.baseUrl as string | undefined);
+    const base = sourceBase.baseUrl as string | undefined;
     return normalizeImageUrl(item.poster_url || null, base);
   }, [item, sourceBase.baseUrl]);
 
@@ -127,10 +123,8 @@ export default function SeriesDetails() {
           return;
         }
         const db = await openDb();
-        const row = await db.getFirstAsync<
-          ItemRow & { base_url?: string | null }
-        >(
-          `SELECT i.*, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
+        const row = await db.getFirstAsync<ItemRow>(
+          `SELECT i.* FROM content_items i WHERE i.id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
@@ -164,10 +158,8 @@ export default function SeriesDetails() {
             try {
               if (!ok || !mounted) return;
               const db2 = await openDb();
-              const updated = await db2.getFirstAsync<
-                ItemRow & { base_url?: string | null }
-              >(
-                `SELECT i.*, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
+              const updated = await db2.getFirstAsync<ItemRow>(
+                `SELECT i.* FROM content_items i WHERE i.id = $id`,
                 { $id: String(row.id) }
               );
               if (mounted) setItem(updated ?? row);

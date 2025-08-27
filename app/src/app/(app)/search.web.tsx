@@ -13,7 +13,6 @@ type BasicItem = {
   type: 'movie' | 'series' | 'live';
   title: string;
   poster_url?: string | null;
-  base_url?: string | null;
   tmdb_id?: string | null;
 };
 

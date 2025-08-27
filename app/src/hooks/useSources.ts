@@ -30,11 +30,27 @@ export function useSources() {
           sources: [] as SourceSummary[],
         };
       if (__DEV__) console.time(`${tKey} getSources`);
-      const { sources } = await apiClient.user
-        .getSources(first.id)
-        .finally(() => {
-          if (__DEV__) console.timeEnd(`${tKey} getSources`);
-        });
+      const { sources } = await apiClient.user.getSources().finally(() => {
+        if (__DEV__) console.timeEnd(`${tKey} getSources`);
+      });
+
+      // Synchronize local sources with backend sources
+      // REMOVED: This was causing database clearing issues
+      // if (first && sources) {
+      //   try {
+      //     await syncSourcesWithBackend(
+      //       first.id,
+      //       sources.map((s) => ({
+      //         id: s.id,
+      //         name: s.name,
+      //         kind: s.provider_type,
+      //       }))
+      //     );
+      //   } catch (error) {
+      //     console.warn('Failed to sync sources with backend:', error);
+      //   }
+      // }
+
       return { accountId: first.id as string, sources: sources || [] };
     },
   });
@@ -43,7 +59,7 @@ export function useSources() {
     mutationFn: async ({ sourceId }: { sourceId: string }) => {
       const accountId = sourcesQuery.data?.accountId;
       if (!accountId) throw new Error('No account');
-      const { sources, keyData } = await apiClient.user.getSources(accountId);
+      const { sources, keyData } = await apiClient.user.getSources();
       const src = (sources || []).find((s) => s.id === sourceId);
       if (!src) throw new Error('Source not found');
       const provider = (src.provider_type || '').toLowerCase();
