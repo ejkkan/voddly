@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@backpackapp-io/react-native-toast':
+        specifier: ^0.14.0
+        version: 0.14.0(react-native-gesture-handler@2.24.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-reanimated@3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-safe-area-context@5.4.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       '@expo/metro-runtime':
         specifier: ^5.0.4
         version: 5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))
@@ -176,9 +179,6 @@ importers:
       shaka-player:
         specifier: ^4.15.9
         version: 4.15.11
-      sonner:
-        specifier: ^2.0.7
-        version: 2.0.7(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
       tailwind-variants:
         specifier: ^0.2.1
         version: 0.2.1(tailwindcss@3.4.4)
@@ -846,6 +846,24 @@ packages:
   '@babel/types@7.28.2':
     resolution: {integrity: sha512-ruv7Ae4J5dUYULmeXw1gmb7rYRz57OWCPM57pHojnLq/3Z1CK2lNSLTCVjxVk1F/TZHwOZZrOWi0ur95BbLxNQ==}
     engines: {node: '>=6.9.0'}
+
+  '@backpackapp-io/react-native-toast@0.13.0':
+    resolution: {integrity: sha512-kutFSE1vi77ybNV24JSnKQ4WUgWZ+LcYsrdAyl5ztEWGP7FRsfinsuaOrBQwDBGxm0rzMFeKM5K7fRHa/Hvy8A==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+      react-native-gesture-handler: '>=2.2.1'
+      react-native-reanimated: '>=2.8.0'
+      react-native-safe-area-context: '>=4.2.4'
+
+  '@backpackapp-io/react-native-toast@0.14.0':
+    resolution: {integrity: sha512-vt75tajD+kgHnKiuUlDIEPqqg1qtZ8PMG1mce4WJOEeF+BVbsFrSmoDGCRbPUHkq7TFuIc/Hn89lYAUqPlTFVA==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+      react-native-gesture-handler: '>=2.2.1'
+      react-native-reanimated: '>=2.8.0'
+      react-native-safe-area-context: '>=4.2.4'
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
@@ -6599,12 +6617,6 @@ packages:
     resolution: {integrity: sha512-h+z7HKHYXj6wJU+AnS/+IH8Uh9fdcX1Lrhg1/VMdf9PwoBQXFcXiAdsy2tSK0P6gKwJLXp02r90ahUCqHk9rrw==}
     engines: {node: '>=8.0.0'}
 
-  sonner@2.0.7:
-    resolution: {integrity: sha512-W6ZN4p58k8aDKA4XPcx2hpIQXBRAgyiWVkYhT7CvK6D3iAu7xjvVyhQHg2/iaKJZ1XVJ4r7XuwGL+WGEK37i9w==}
-    peerDependencies:
-      react: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-      react-dom: ^18.0.0 || ^19.0.0 || ^19.0.0-rc
-
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
@@ -8156,6 +8168,23 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.27.1
+
+  '@backpackapp-io/react-native-toast@0.13.0(react-native-gesture-handler@2.24.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-reanimated@3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-safe-area-context@5.4.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      react: 19.0.0
+      react-native: 0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)
+      react-native-gesture-handler: 2.24.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      react-native-reanimated: 3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      react-native-safe-area-context: 5.4.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+
+  '@backpackapp-io/react-native-toast@0.14.0(react-native-gesture-handler@2.24.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-reanimated@3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-safe-area-context@5.4.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      '@backpackapp-io/react-native-toast': 0.13.0(react-native-gesture-handler@2.24.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-reanimated@3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native-safe-area-context@5.4.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      react: 19.0.0
+      react-native: 0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)
+      react-native-gesture-handler: 2.24.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      react-native-reanimated: 3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      react-native-safe-area-context: 5.4.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
 
   '@bcoe/v8-coverage@0.2.3': {}
 
@@ -15290,11 +15319,6 @@ snapshots:
       is-fullwidth-code-point: 5.0.0
 
   slugify@1.6.6: {}
-
-  sonner@2.0.7(react-dom@19.0.0(react@19.0.0))(react@19.0.0):
-    dependencies:
-      react: 19.0.0
-      react-dom: 19.0.0(react@19.0.0)
 
   source-map-js@1.2.1: {}
 

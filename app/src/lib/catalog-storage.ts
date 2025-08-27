@@ -1,7 +1,6 @@
 'use client';
 
 import { openDb } from './db';
-import { normalizeImageUrl } from './url-utils';
 
 export interface CatalogData {
   categories?: any[];
@@ -27,11 +26,22 @@ export class MobileCatalogStorage {
   async storeSourceCatalog(
     accountId: string,
     sourceId: string,
-    data: CatalogData,
-    server?: string
+    data: CatalogData
   ): Promise<void> {
+    console.log(`[STORE] 🚀 Starting store operation`, {
+      accountId,
+      sourceId,
+      dataCounts: {
+        categories: data.categories?.length || 0,
+        movies: data.movies?.length || 0,
+        series: data.series?.length || 0,
+        channels: data.channels?.length || 0,
+      },
+    });
+
     const db = await openDb();
     if (__DEV__) console.log('[store] begin', sourceId);
+
     const safeData: CatalogData = {
       categories: data.categories || [],
       movies: data.movies || [],
@@ -41,51 +51,73 @@ export class MobileCatalogStorage {
 
     const now = new Date().toISOString();
     const srcId = sourceId;
+
+    console.log(`[STORE] 📊 Safe data prepared`, {
+      categories: safeData.categories.length,
+      movies: safeData.movies.length,
+      series: safeData.series.length,
+      channels: safeData.channels.length,
+    });
+
     await db.execAsync('BEGIN');
     try {
+      console.log(`[STORE] 💾 Inserting source record...`);
       await db.runAsync(
-        `INSERT INTO sources (account_id, id, name, kind, base_url, created_at, updated_at)
-         VALUES ($account_id, $id, $name, $kind, $base_url, $created_at, $updated_at)
-         ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, base_url=excluded.base_url, updated_at=excluded.updated_at`,
+        `INSERT INTO sources (account_id, id, name, kind, created_at, updated_at)
+         VALUES ($account_id, $id, $name, $kind, $created_at, $updated_at)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, kind=excluded.kind, updated_at=excluded.updated_at`,
         {
           $account_id: accountId,
           $id: srcId,
           $name: 'Source',
           $kind: 'xtream',
-          $base_url: server || null,
           $created_at: now,
           $updated_at: now,
         }
       );
-      await this.insertCategories(
+      console.log(`[STORE] ✅ Source record inserted/updated successfully`);
+
+      console.log(`[STORE] 📂 Inserting categories...`);
+      const categoriesResult = await this.insertCategories(
         db,
         accountId,
         srcId,
         safeData.categories || []
       );
-      await this.insertMovies(
-        db,
-        accountId,
-        srcId,
-        safeData.movies || [],
-        server
-      );
-      await this.insertSeries(
-        db,
-        accountId,
-        srcId,
-        safeData.series || [],
-        server
-      );
-      await this.insertChannels(
-        db,
-        accountId,
-        srcId,
-        safeData.channels || [],
-        server
+      console.log(
+        `[STORE] ✅ Categories inserted: ${categoriesResult} records`
       );
 
+      console.log(`[STORE] 🎬 Inserting movies...`);
+      const moviesResult = await this.insertMovies(
+        db,
+        accountId,
+        srcId,
+        safeData.movies || []
+      );
+      console.log(`[STORE] ✅ Movies inserted: ${moviesResult} records`);
+
+      console.log(`[STORE] 📺 Inserting series...`);
+      const seriesResult = await this.insertSeries(
+        db,
+        accountId,
+        srcId,
+        safeData.series || []
+      );
+      console.log(`[STORE] ✅ Series inserted: ${seriesResult} records`);
+
+      console.log(`[STORE] 📻 Inserting channels...`);
+      const channelsResult = await this.insertChannels(
+        db,
+        accountId,
+        srcId,
+        safeData.channels || []
+      );
+      console.log(`[STORE] ✅ Channels inserted: ${channelsResult} records`);
+
       await db.execAsync('COMMIT');
+      console.log(`[STORE] 🎉 Transaction committed successfully!`);
+
       if (__DEV__)
         console.log('[store] commit', {
           categories: safeData.categories?.length || 0,
@@ -93,9 +125,22 @@ export class MobileCatalogStorage {
           series: safeData.series?.length || 0,
           channels: safeData.channels?.length || 0,
         });
+
+      console.log(`[STORE] 📈 Final store summary`, {
+        accountId,
+        sourceId,
+        stored: {
+          categories: categoriesResult,
+          movies: moviesResult,
+          series: seriesResult,
+          channels: channelsResult,
+          total:
+            categoriesResult + moviesResult + seriesResult + channelsResult,
+        },
+      });
     } catch (e) {
+      console.error(`[STORE] ❌ Database error during store operation:`, e);
       await db.execAsync('ROLLBACK');
-      if (__DEV__) console.log('[store] rollback', e);
       throw e;
     }
   }
@@ -105,176 +150,229 @@ export class MobileCatalogStorage {
     accountId: string,
     srcId: string,
     categories: any[]
-  ) {
+  ): Promise<number> {
+    console.log(`[STORE] 📂 Inserting ${categories.length} categories...`);
+    let insertedCount = 0;
+
     for (const cat of categories) {
-      const sourceCategoryId = String(cat.category_id ?? cat.id ?? '');
-      const id = `${srcId}:${String(cat.type ?? 'generic')}:${sourceCategoryId}`;
-      await db.runAsync(
-        `INSERT OR IGNORE INTO categories (account_id, id, source_id, source_category_id, name, type)
-         VALUES ($account_id, $id, $source_id, $source_category_id, $name, $type)`,
-        {
-          $account_id: accountId,
-          $id: id,
-          $source_id: srcId,
-          $source_category_id: sourceCategoryId,
-          $name: String(cat.category_name ?? cat.name ?? ''),
-          $type: String(cat.type ?? 'generic'),
-        }
-      );
+      try {
+        const sourceCategoryId = String(cat.category_id ?? cat.id ?? '');
+        const id = `${srcId}:${String(cat.type ?? 'generic')}:${sourceCategoryId}`;
+        await db.runAsync(
+          `INSERT OR REPLACE INTO categories (account_id, id, source_id, source_category_id, name, type)
+           VALUES ($account_id, $id, $source_id, $source_category_id, $name, $type)`,
+          {
+            $account_id: accountId,
+            $id: id,
+            $source_id: srcId,
+            $source_category_id: sourceCategoryId,
+            $name: String(cat.category_name ?? cat.name ?? ''),
+            $type: String(cat.type ?? 'generic'),
+          }
+        );
+        insertedCount++;
+      } catch (error) {
+        console.error(`[STORE] ❌ Error inserting category:`, error, cat);
+        throw error;
+      }
     }
+
+    console.log(
+      `[STORE] 📂 Categories insertion completed: ${insertedCount}/${categories.length} records`
+    );
+    return insertedCount;
   }
 
   private async insertMovies(
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    movies: any[],
-    server?: string
-  ) {
+    movies: any[]
+  ): Promise<number> {
+    console.log(`[STORE] 🎬 Inserting ${movies.length} movies...`);
+    let insertedCount = 0;
+
     for (const m of movies) {
-      const sourceItemId = String(m.stream_id ?? m.num ?? '');
-      const itemId = `${srcId}:movie:${sourceItemId}`;
-      const poster = normalizeImageUrl(String(m.stream_icon ?? ''), server);
-      // Extract tmdb id if present under common provider keys
-      const tmdbId = String(m.tmdb_id ?? m.tmdb ?? '').trim() || null;
-      await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json, tmdb_id)
-         VALUES ($account_id, $id, $source_id, $source_item_id, 'movie', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, $is_adult, $added_at, $last_modified, NULL, $payload, $tmdb_id)`,
-        {
-          $account_id: accountId,
-          $id: itemId,
-          $source_id: srcId,
-          $source_item_id: sourceItemId,
-          $title: String(m.name ?? ''),
-          $description: null,
-          $poster_url: poster,
-          $backdrop_url: null,
-          $release_date: null,
-          $rating: Number(m.rating ?? 0) || 0,
-          $rating_5based: Number(m.rating_5based ?? 0) || 0,
-          $is_adult: Number(m.is_adult ?? 0) || 0,
-          $added_at: m.added
-            ? new Date(Number(m.added) * 1000).toISOString()
-            : null,
-          $last_modified: null,
-          $payload: JSON.stringify(m),
-          $tmdb_id: tmdbId,
+      try {
+        const sourceItemId = String(m.stream_id ?? m.num ?? '');
+        const itemId = `${srcId}:movie:${sourceItemId}`;
+        const poster = String(m.stream_icon ?? '');
+        const tmdbId = String(m.tmdb_id ?? m.tmdb ?? '').trim() || null;
+        await db.runAsync(
+          `INSERT OR REPLACE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json, tmdb_id)
+           VALUES ($account_id, $id, $source_id, $source_item_id, 'movie', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, $is_adult, $added_at, $last_modified, NULL, $payload, $tmdb_id)`,
+          {
+            $account_id: accountId,
+            $id: itemId,
+            $source_id: srcId,
+            $source_item_id: sourceItemId,
+            $title: String(m.name ?? ''),
+            $description: null,
+            $poster_url: poster,
+            $backdrop_url: null,
+            $release_date: null,
+            $rating: Number(m.rating ?? 0) || 0,
+            $rating_5based: Number(m.rating_5based ?? 0) || 0,
+            $is_adult: Number(m.is_adult ?? 0) || 0,
+            $added_at: m.added
+              ? new Date(Number(m.added) * 1000).toISOString()
+              : null,
+            $last_modified: null,
+            $payload: JSON.stringify(m),
+            $tmdb_id: tmdbId,
+          }
+        );
+        insertedCount++;
+
+        // If the row already exists, ensure tmdb_id is backfilled (once)
+        if (tmdbId) {
+          await db.runAsync(
+            `UPDATE content_items SET tmdb_id = COALESCE(tmdb_id, $tmdb_id) WHERE id = $id`,
+            { $id: itemId, $tmdb_id: tmdbId }
+          );
         }
-      );
-      // If the row already exists, ensure tmdb_id is backfilled (once)
-      if (tmdbId) {
-        await db.runAsync(
-          `UPDATE content_items SET tmdb_id = COALESCE(tmdb_id, $tmdb_id) WHERE id = $id`,
-          { $id: itemId, $tmdb_id: tmdbId }
-        );
-      }
-      // Link item to its category if present
-      if (m.category_id != null) {
-        const categoryId = `${srcId}:vod:${String(m.category_id)}`;
-        await db.runAsync(
-          `INSERT OR IGNORE INTO content_item_categories (item_id, category_id)
-           VALUES ($item_id, $category_id)`,
-          { $item_id: itemId, $category_id: categoryId }
-        );
+        // Link item to its category if present
+        if (m.category_id != null) {
+          const categoryId = `${srcId}:vod:${String(m.category_id)}`;
+          await db.runAsync(
+            `INSERT OR IGNORE INTO content_item_categories (item_id, category_id)
+             VALUES ($item_id, $category_id)`,
+            { $item_id: itemId, $category_id: categoryId }
+          );
+        }
+      } catch (error) {
+        console.error(`[STORE] ❌ Error inserting movie:`, error);
       }
     }
+
+    console.log(
+      `[STORE] 🎬 Movies insertion completed: ${insertedCount}/${movies.length} records`
+    );
+    return insertedCount;
   }
 
   private async insertSeries(
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    series: any[],
-    server?: string
-  ) {
+    series: any[]
+  ): Promise<number> {
+    console.log(`[STORE] 📺 Inserting ${series.length} series...`);
+    let insertedCount = 0;
+
     for (const s of series) {
-      const sourceItemId = String(s.series_id ?? s.num ?? '');
-      const itemId = `${srcId}:series:${sourceItemId}`;
-      const poster = normalizeImageUrl(String(s.cover ?? ''), server);
-      const backdropCandidate = Array.isArray(s.backdrop_path)
-        ? String(s.backdrop_path[0] ?? '')
-        : null;
-      const backdrop = normalizeImageUrl(backdropCandidate || '', server);
-      const tmdbId = String(s.tmdb_id ?? s.tmdb ?? '').trim() || null;
-      await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json, tmdb_id)
-         VALUES ($account_id, $id, $source_id, $source_item_id, 'series', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, 0, $added_at, $last_modified, NULL, $payload, $tmdb_id)`,
-        {
-          $account_id: accountId,
-          $id: itemId,
-          $source_id: srcId,
-          $source_item_id: sourceItemId,
-          $title: String(s.name ?? ''),
-          $description: String(s.plot ?? ''),
-          $poster_url: poster,
-          $backdrop_url: backdrop,
-          $release_date: String(s.release_date ?? s.releaseDate ?? '') || null,
-          $rating: Number(s.rating ?? 0) || 0,
-          $rating_5based: Number(s.rating_5based ?? 0) || 0,
-          $added_at: null,
-          $last_modified: s.last_modified
-            ? new Date(Number(s.last_modified) * 1000).toISOString()
-            : null,
-          $payload: JSON.stringify(s),
-          $tmdb_id: tmdbId,
+      try {
+        const sourceItemId = String(s.series_id ?? s.num ?? '');
+        const itemId = `${srcId}:series:${sourceItemId}`;
+        const poster = String(s.cover ?? '');
+        const backdropCandidate = Array.isArray(s.backdrop_path)
+          ? String(s.backdrop_path[0] ?? '')
+          : null;
+        const backdrop = backdropCandidate || '';
+        const tmdbId = String(s.tmdb_id ?? s.tmdb ?? '').trim() || null;
+        await db.runAsync(
+          `INSERT OR REPLACE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json, tmdb_id)
+           VALUES ($account_id, $id, $source_id, $source_item_id, 'series', $title, $description, $poster_url, $backdrop_url, $release_date, $rating, $rating_5based, 0, $added_at, $last_modified, NULL, $payload, $tmdb_id)`,
+          {
+            $account_id: accountId,
+            $id: itemId,
+            $source_id: srcId,
+            $source_item_id: sourceItemId,
+            $title: String(s.name ?? ''),
+            $description: String(s.plot ?? ''),
+            $poster_url: poster,
+            $backdrop_url: backdrop,
+            $release_date:
+              String(s.release_date ?? s.releaseDate ?? '') || null,
+            $rating: Number(s.rating ?? 0) || 0,
+            $rating_5based: Number(s.rating_5based ?? 0) || 0,
+            $added_at: null,
+            $last_modified: s.last_modified
+              ? new Date(Number(s.last_modified) * 1000).toISOString()
+              : null,
+            $payload: JSON.stringify(s),
+            $tmdb_id: tmdbId,
+          }
+        );
+        insertedCount++;
+
+        if (tmdbId) {
+          await db.runAsync(
+            `UPDATE content_items SET tmdb_id = COALESCE(tmdb_id, $tmdb_id) WHERE id = $id`,
+            { $id: itemId, $tmdb_id: tmdbId }
+          );
         }
-      );
-      if (tmdbId) {
-        await db.runAsync(
-          `UPDATE content_items SET tmdb_id = COALESCE(tmdb_id, $tmdb_id) WHERE id = $id`,
-          { $id: itemId, $tmdb_id: tmdbId }
-        );
-      }
-      // Link item to its category if present
-      if (s.category_id != null) {
-        const categoryId = `${srcId}:series:${String(s.category_id)}`;
-        await db.runAsync(
-          `INSERT OR IGNORE INTO content_item_categories (item_id, category_id)
-           VALUES ($item_id, $category_id)`,
-          { $item_id: itemId, $category_id: categoryId }
-        );
+        // Link item to its category if present
+        if (s.category_id != null) {
+          const categoryId = `${srcId}:series:${String(s.category_id)}`;
+          await db.runAsync(
+            `INSERT OR IGNORE INTO content_item_categories (item_id, category_id)
+             VALUES ($item_id, $category_id)`,
+            { $item_id: itemId, $category_id: categoryId }
+          );
+        }
+      } catch (error) {
+        console.error(`[STORE] ❌ Error inserting series:`, error);
       }
     }
+
+    console.log(
+      `[STORE] 📺 Series insertion completed: ${insertedCount}/${series.length} records`
+    );
+    return insertedCount;
   }
 
   private async insertChannels(
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    channels: any[],
-    server?: string
-  ) {
+    channels: any[]
+  ): Promise<number> {
+    console.log(`[STORE] 📻 Inserting ${channels.length} channels...`);
+    let insertedCount = 0;
+
     for (const c of channels) {
-      const sourceItemId = String(c.stream_id ?? c.num ?? '');
-      const itemId = `${srcId}:live:${sourceItemId}`;
-      const poster = normalizeImageUrl(String(c.stream_icon ?? ''), server);
-      await db.runAsync(
-        `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
-         VALUES ($account_id, $id, $source_id, $source_item_id, 'live', $title, NULL, $poster_url, NULL, NULL, 0, 0, $is_adult, $added_at, NULL, NULL, $payload)`,
-        {
-          $account_id: accountId,
-          $id: itemId,
-          $source_id: srcId,
-          $source_item_id: sourceItemId,
-          $title: String(c.name ?? ''),
-          $poster_url: poster,
-          $is_adult: Number(c.is_adult ?? 0) || 0,
-          $added_at: c.added
-            ? new Date(Number(c.added) * 1000).toISOString()
-            : null,
-          $payload: JSON.stringify(c),
-        }
-      );
-      // Link item to its category if present
-      if (c.category_id != null) {
-        const categoryId = `${srcId}:live:${String(c.category_id)}`;
+      try {
+        const sourceItemId = String(c.stream_id ?? c.num ?? '');
+        const itemId = `${srcId}:live:${sourceItemId}`;
+        const poster = String(c.stream_icon ?? '');
         await db.runAsync(
-          `INSERT OR IGNORE INTO content_item_categories (item_id, category_id)
-           VALUES ($item_id, $category_id)`,
-          { $item_id: itemId, $category_id: categoryId }
+          `INSERT OR REPLACE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
+           VALUES ($account_id, $id, $source_id, $source_item_id, 'live', $title, NULL, $poster_url, NULL, NULL, 0, 0, $is_adult, $added_at, NULL, NULL, $payload)`,
+          {
+            $account_id: accountId,
+            $id: itemId,
+            $source_id: srcId,
+            $source_item_id: sourceItemId,
+            $title: String(c.name ?? ''),
+            $poster_url: poster,
+            $is_adult: Number(c.is_adult ?? 0) || 0,
+            $added_at: c.added
+              ? new Date(Number(c.added) * 1000).toISOString()
+              : null,
+            $payload: JSON.stringify(c),
+          }
         );
+        insertedCount++;
+
+        // Link item to its category if present
+        if (c.category_id != null) {
+          const categoryId = `${srcId}:live:${String(c.category_id)}`;
+          await db.runAsync(
+            `INSERT OR IGNORE INTO content_item_categories (item_id, category_id)
+             VALUES ($item_id, $category_id)`,
+            { $item_id: itemId, $category_id: categoryId }
+          );
+        }
+      } catch (error) {
+        console.error(`[STORE] ❌ Error inserting channel:`, error);
       }
     }
+
+    console.log(
+      `[STORE] 📻 Channels insertion completed: ${insertedCount}/${channels.length} records`
+    );
+    return insertedCount;
   }
 
   async getSourceCatalog(_sourceId: string): Promise<CatalogData | null> {

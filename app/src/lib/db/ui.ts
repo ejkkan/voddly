@@ -4,6 +4,7 @@ export type CatalogItemType = 'movie' | 'series' | 'live';
 
 export type UiCatalogItem = {
   id: string;
+  tmdbId?: string | null;
   type: CatalogItemType;
   title: string;
   subtitle?: string | null;
@@ -22,6 +23,7 @@ function mapRowToUiItem(row: any): UiCatalogItem {
     (typeof row.rating_5based === 'number' ? `${row.rating_5based}/5` : null);
   return {
     id: row.id,
+    tmdbId: row.tmdb_id ?? null,
     type: row.type,
     title: row.title,
     subtitle,
@@ -39,7 +41,7 @@ export async function fetchPreviewByType(
 ): Promise<UiCatalogItem[]> {
   const db = await openDb();
   const rows = await db.getAllAsync(
-    `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
+    `SELECT i.id, i.tmdb_id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
             ic.category_id, i.source_id
      FROM content_items i
      LEFT JOIN content_item_categories ic ON ic.item_id = i.id
@@ -107,7 +109,7 @@ export async function fetchCategoriesWithPreviews(
   }[] = [];
   for (const c of cats) {
     const rows = await db.getAllAsync(
-      `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
+      `SELECT i.id, i.tmdb_id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
               ic.category_id, i.source_id
        FROM content_items i
        JOIN content_item_categories ic ON ic.item_id = i.id
@@ -140,7 +142,7 @@ export async function fetchCategoryItems(
 ): Promise<UiCatalogItem[]> {
   const db = await openDb();
   const rows = await db.getAllAsync(
-    `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
+    `SELECT i.id, i.tmdb_id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
             ic.category_id, i.source_id
      FROM content_items i
      JOIN content_item_categories ic ON ic.item_id = i.id
@@ -188,7 +190,7 @@ export async function fetchRandomByType(
 ): Promise<UiCatalogItem[]> {
   const db = await openDb();
   const rows = await db.getAllAsync(
-    `SELECT i.id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
+    `SELECT i.id, i.tmdb_id, i.type, i.title, i.poster_url, i.backdrop_url, i.release_date, i.rating, i.rating_5based,
             ic.category_id, i.source_id
      FROM content_items i
      LEFT JOIN content_item_categories ic ON ic.item_id = i.id

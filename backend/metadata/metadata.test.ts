@@ -2,9 +2,11 @@ import { describe, expect, test, beforeAll } from "vitest";
 import { getMetadata, search } from "./tmdb";
 import { ContentType } from "./types";
 
-describe("TMDB Service", () => {
+const maybe = process.env.RUN_TMDB_TESTS ? describe : describe.skip;
+
+maybe("TMDB Service", () => {
   // Note: These are integration tests that require a valid TMDB API token
-  // Set the token with: encore secret set --type dev TMDBAccessToken "your_token"
+  // Set the token with: encore secret set --type test TMDBAccessToken "your_token"
   
   describe("getMetadata", () => {
     test("should fetch and cache movie metadata", async () => {

@@ -1,17 +1,63 @@
 /* eslint-disable */
-import { Platform } from 'react-native';
+import { toast as backpackToast, ToastPosition } from '@backpackapp-io/react-native-toast';
 
-type AnyNotify = {
-  success: (title: string, options?: any) => any;
-  error: (title: string, options?: any) => any;
-  info: (title: string, options?: any) => any;
-  warning: (title: string, options?: any) => any;
+export type ToastLevel = 'success' | 'error' | 'info' | 'warning';
+
+export type ToastOptions = {
+  description?: string;
+  duration?: number;
+  id?: string;
+  dismissible?: boolean;
+  action?: {
+    label: string;
+    onPress: () => void;
+  };
+  position?: ToastPosition;
 };
 
-// Defer requiring platform files so native builds don't pull web deps and vice versa
-const impl: AnyNotify = Platform.select<any>({
-  web: () => require('./toast.web').notify,
-  default: () => require('./toast.native').notify,
-})();
+function mapAndShow(level: ToastLevel, title: string, options?: ToastOptions) {
+  const opts: any = {};
+  
+  if (options?.description) opts.description = options.description;
+  if (options?.duration != null) opts.duration = options.duration;
+  if (options?.id) opts.id = options.id;
+  if (options?.dismissible != null) opts.dismissible = options.dismissible;
+  if (options?.position) opts.position = options.position;
 
-export const notify: AnyNotify = impl;
+  // Handle action-style toast with dismiss button
+  if (options?.action) {
+    opts.action = {
+      label: options.action.label,
+      onPress: options.action.onPress,
+    };
+  }
+
+  switch (level) {
+    case 'success':
+      return backpackToast.success(title, opts);
+    case 'error':
+      return backpackToast.error(title, opts);
+    case 'warning':
+      return backpackToast(title, { ...opts, icon: '⚠️' });
+    case 'info':
+    default:
+      return backpackToast(title, opts);
+  }
+}
+
+export const notify = Object.freeze({
+  success: (title: string, options?: ToastOptions) =>
+    mapAndShow('success', title, options),
+  error: (title: string, options?: ToastOptions) =>
+    mapAndShow('error', title, options),
+  info: (title: string, options?: ToastOptions) =>
+    mapAndShow('info', title, options),
+  warning: (title: string, options?: ToastOptions) =>
+    mapAndShow('warning', title, options),
+});
+
+// Export the raw toast function for advanced usage
+export { backpackToast as toast };
+
+// Export ToastPosition as a value so it can be used in examples
+export { ToastPosition };

@@ -3,6 +3,7 @@ import { admin } from 'better-auth/plugins';
 import pg from 'pg';
 import { userDB } from '../user/db';
 import { createCustomer, CreateCustomerRequest } from '../webhooks/stripe';
+import * as crypto from 'crypto';
 
 const { Pool } = pg;
 
@@ -80,29 +81,38 @@ export const auth: any = betterAuth({
             // Don't fail user creation if Stripe fails
           }
 
-          // TODO: Create user profile with default settings
-          // This is commented out until profile-helpers is implemented
-          /*
+          // Create Netflix-style account and default profile for new user
           try {
-            const { createUserProfile } = await import(
-              '../user/profile-helpers'
-            );
-            await createUserProfile(user.id, {
-              displayName: user.name,
-              preferredLanguage: 'en',
-              timezone: 'UTC',
-              notificationsEnabled: false,
-              emailNotificationsEnabled: false,
-              pushNotificationsEnabled: false,
-            });
-            console.log('[AUTH-HOOK] Created user profile:', {
+            const accountId = crypto.randomUUID();
+            const profileId = crypto.randomUUID();
+
+            // Create account (1:1 with user)
+            await userDB.exec`
+              INSERT INTO accounts (id, user_id, name, subscription_tier, subscription_status)
+              VALUES (${accountId}, ${user.id}, ${
+              user.name + "'s Account"
+            }, 'basic', 'active')
+              ON CONFLICT (user_id) DO NOTHING
+            `;
+
+            // Create default profile with user's name
+            await userDB.exec`
+              INSERT INTO profiles (id, account_id, name, is_owner)
+              VALUES (${profileId}, ${accountId}, ${user.name || 'Main'}, true)
+            `;
+
+            console.log('[AUTH-HOOK] Created account and profile:', {
               userId: user.id,
+              accountId: accountId,
+              profileId: profileId,
             });
           } catch (error) {
-            console.error('[AUTH-HOOK] Failed to create user profile:', error);
-            // Don't fail user creation if profile creation fails
+            console.error(
+              '[AUTH-HOOK] Failed to create account/profile:',
+              error
+            );
+            // Don't fail user creation if account creation fails
           }
-          */
         },
       },
     },

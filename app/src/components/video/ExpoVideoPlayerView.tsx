@@ -1,8 +1,9 @@
-import React from 'react';
-import { Platform, StatusBar, Dimensions } from 'react-native';
-import { View, Text, Pressable } from '@/components/ui';
 import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import React from 'react';
+import { Dimensions, StatusBar } from 'react-native';
+
+import { Pressable, Text, View } from '@/components/ui';
 
 type Props = {
   url: string;
@@ -26,7 +27,10 @@ export function ExpoVideoPlayerView(props: Props) {
   const { currentTime = 0, duration = 0 } = (useEvent(player, 'timeUpdate', {
     currentTime: (player as any).currentTime ?? 0,
     duration: (player as any).duration ?? 0,
-  }) as { currentTime: number; duration: number }) || { currentTime: 0, duration: 0 };
+  }) as { currentTime: number; duration: number }) || {
+    currentTime: 0,
+    duration: 0,
+  };
 
   const [showControls, setShowControls] = React.useState(true);
   const [isFull, setIsFull] = React.useState(false);
@@ -88,15 +92,18 @@ export function ExpoVideoPlayerView(props: Props) {
       </Pressable>
 
       {showControls && (
-        <View className="absolute left-0 right-0 top-0">
+        <View className="absolute inset-x-0 top-0">
           <View className="flex-row items-center p-3">
             {showBack ? (
-              <Pressable className="rounded-md bg-white/10 px-3 py-2 mr-2" onPress={onBack}>
+              <Pressable
+                className="mr-2 rounded-md bg-white/10 px-3 py-2"
+                onPress={onBack}
+              >
                 <Text className="text-white">Back</Text>
               </Pressable>
             ) : null}
             {title ? (
-              <Text className="text-white text-sm" numberOfLines={1}>
+              <Text className="text-sm text-white" numberOfLines={1}>
                 {title}
               </Text>
             ) : null}
@@ -105,8 +112,8 @@ export function ExpoVideoPlayerView(props: Props) {
       )}
 
       {showControls && (
-        <View className="absolute left-0 right-0 bottom-0 p-3">
-          <View className="flex-row items-center justify-between mb-2">
+        <View className="absolute inset-x-0 bottom-0 p-3">
+          <View className="mb-2 flex-row items-center justify-between">
             <Pressable
               className="rounded-md bg-white/10 px-3 py-2"
               onPress={() => {
@@ -121,13 +128,18 @@ export function ExpoVideoPlayerView(props: Props) {
             >
               <Text className="text-white">{isPlaying ? 'Pause' : 'Play'}</Text>
             </Pressable>
-            <Pressable className="rounded-md bg-white/10 px-3 py-2" onPress={toggleFullScreen}>
-              <Text className="text-white">{isFull ? 'Exit Fullscreen' : 'Fullscreen'}</Text>
+            <Pressable
+              className="rounded-md bg-white/10 px-3 py-2"
+              onPress={toggleFullScreen}
+            >
+              <Text className="text-white">
+                {isFull ? 'Exit Fullscreen' : 'Fullscreen'}
+              </Text>
             </Pressable>
           </View>
 
           <View className="flex-row items-center">
-            <Text className="text-white text-xs mr-2" style={{ width: 48 }}>
+            <Text className="mr-2 text-xs text-white" style={{ width: 48 }}>
               {fmt(currentTime)}
             </Text>
             <View
@@ -147,19 +159,25 @@ export function ExpoVideoPlayerView(props: Props) {
                 }}
               />
             </View>
-            <Text className="text-white text-xs ml-2" style={{ width: 48, textAlign: 'right' }}>
+            <Text
+              className="ml-2 text-xs text-white"
+              style={{ width: 48, textAlign: 'right' }}
+            >
               {fmt(duration)}
             </Text>
           </View>
 
-          <View className="flex-row items-center justify-between mt-2">
+          <View className="mt-2 flex-row items-center justify-between">
             <Pressable
               className="rounded-md bg-white/10 px-3 py-2"
               onPress={() => onSeek(Math.max(0, currentTime - 15))}
             >
               <Text className="text-white">-15s</Text>
             </Pressable>
-            <Pressable className="rounded-md bg-white/10 px-3 py-2" onPress={() => onSeek(currentTime + 30)}>
+            <Pressable
+              className="rounded-md bg-white/10 px-3 py-2"
+              onPress={() => onSeek(currentTime + 30)}
+            >
               <Text className="text-white">+30s</Text>
             </Pressable>
             {hasError ? (
@@ -176,7 +194,9 @@ export function ExpoVideoPlayerView(props: Props) {
               </Pressable>
             ) : null}
           </View>
-          {hasError ? <Text className="text-red-400 text-xs mt-2">{hasError}</Text> : null}
+          {hasError ? (
+            <Text className="mt-2 text-xs text-red-400">{hasError}</Text>
+          ) : null}
         </View>
       )}
     </View>
@@ -184,5 +204,3 @@ export function ExpoVideoPlayerView(props: Props) {
 }
 
 export default ExpoVideoPlayerView;
-
-

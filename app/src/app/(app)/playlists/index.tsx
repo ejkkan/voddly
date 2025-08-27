@@ -1,20 +1,22 @@
-import React from 'react';
 // @ts-ignore
 import { useRouter } from 'expo-router';
+import React from 'react';
+
+import { PlaylistCard } from '@/components/playlists/PlaylistCard';
 import {
+  Pressable,
   SafeAreaView,
   ScrollView,
-  View,
   Text,
-  Pressable,
+  View,
 } from '@/components/ui';
-import { useSession } from '@/lib/auth/hooks';
 import { useSources } from '@/hooks/useSources';
-import { PlaylistCard } from '@/components/playlists/PlaylistCard';
-import { SourceCredentialsManager } from '@/lib/source-credentials';
-import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
+import { useSession } from '@/lib/auth/hooks';
 import { passphraseCache } from '@/lib/passphrase-cache';
+import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
+import { SourceCredentialsManager } from '@/lib/source-credentials';
 import { XtreamClient } from '@/lib/xtream-client';
+import { toast, notify } from '@/lib/toast';
 
 export default function Playlists() {
   const router = useRouter();
@@ -94,8 +96,8 @@ export default function Playlists() {
         </View>
 
         {__DEV__ && sources.length > 0 && (
-          <View className="px-6 mb-2">
-            <Text className="text-sm text-neutral-700 dark:text-neutral-300 mb-2">
+          <View className="mb-2 px-6">
+            <Text className="mb-2 text-sm text-neutral-700 dark:text-neutral-300">
               Dev: Test category endpoints (first source)
             </Text>
             <View className="flex-row gap-2">
@@ -121,6 +123,43 @@ export default function Playlists() {
               >
                 <Text className="text-neutral-900 dark:text-neutral-50">
                   Series cats
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {__DEV__ && (
+          <View className="mb-2 px-6">
+            <Text className="mb-2 text-sm text-neutral-700 dark:text-neutral-300">
+              Dev: Test toast system
+            </Text>
+            <View className="flex-row gap-2">
+              <Pressable
+                className="rounded-xl border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+                onPress={() => {
+                  console.log('[test] showing simple toast');
+                  notify.success('Test toast!', { description: 'This is a test' });
+                }}
+              >
+                <Text className="text-neutral-900 dark:text-neutral-50">
+                  Test Toast
+                </Text>
+              </Pressable>
+              <Pressable
+                className="rounded-xl border border-neutral-300 px-3 py-2 dark:border-neutral-700"
+                onPress={() => {
+                  console.log('[test] showing loading toast');
+                  const id = toast.loading('Loading test...', { duration: 999999 });
+                  setTimeout(() => {
+                    console.log('[test] dismissing loading toast');
+                    toast.dismiss(id);
+                    notify.success('Done!');
+                  }, 3000);
+                }}
+              >
+                <Text className="text-neutral-900 dark:text-neutral-50">
+                  Test Loading
                 </Text>
               </Pressable>
             </View>

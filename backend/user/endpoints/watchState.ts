@@ -3,7 +3,8 @@ import { userDB } from '../db';
 import { getAuthData } from '~encore/auth';
 
 interface UpdateWatchStateRequest {
-  sourceId: string;
+  profileId: string;
+  sourceId?: string; // Optional for backward compatibility
   contentId: string;
   contentType?: string;
   lastPositionSeconds?: number | null;
@@ -22,6 +23,20 @@ interface GetWatchStateResponse {
   }>;
 }
 
+// Helper function to verify profile belongs to user
+async function verifyProfileAccess(
+  profileId: string,
+  userId: string
+): Promise<boolean> {
+  const profile = await userDB.queryRow<{ id: string }>`
+    SELECT p.id
+    FROM profiles p
+    JOIN accounts a ON p.account_id = a.id
+    WHERE p.id = ${profileId} AND a.user_id = ${userId}
+  `;
+  return !!profile;
+}
+
 // Update watch state for a piece of content
 export const updateWatchState = api(
   {
@@ -31,6 +46,7 @@ export const updateWatchState = api(
     path: '/watch-state',
   },
   async ({
+    profileId,
     sourceId,
     contentId,
     contentType,
@@ -41,26 +57,33 @@ export const updateWatchState = api(
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
-    if (!sourceId || !contentId) {
-      throw APIError.invalidArgument('sourceId and contentId are required');
+    if (!profileId || !contentId) {
+      throw APIError.invalidArgument('profileId and contentId are required');
+    }
+
+    // Verify profile belongs to user
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
     }
 
     await userDB.exec`
-      INSERT INTO member_watch_state (
-        user_id, source_id, content_id, content_type,
+      INSERT INTO profile_watch_state (
+        profile_id, source_id, content_id, content_type,
         last_position_seconds, total_duration_seconds, 
         is_favorite, last_watched_at
       ) VALUES (
-        ${auth.userID}, ${sourceId}, ${contentId}, ${contentType || null},
+        ${profileId}, ${sourceId || null}, ${contentId}, ${contentType || null},
         ${lastPositionSeconds ?? null}, ${totalDurationSeconds ?? null},
         ${isFavorite ?? false}, CURRENT_TIMESTAMP
       )
-      ON CONFLICT (user_id, source_id, content_id)
+      ON CONFLICT (profile_id, content_id)
       DO UPDATE SET 
-        content_type = COALESCE(EXCLUDED.content_type, member_watch_state.content_type),
-        last_position_seconds = COALESCE(EXCLUDED.last_position_seconds, member_watch_state.last_position_seconds),
-        total_duration_seconds = COALESCE(EXCLUDED.total_duration_seconds, member_watch_state.total_duration_seconds),
-        is_favorite = COALESCE(EXCLUDED.is_favorite, member_watch_state.is_favorite),
+        source_id = COALESCE(EXCLUDED.source_id, profile_watch_state.source_id),
+        content_type = COALESCE(EXCLUDED.content_type, profile_watch_state.content_type),
+        last_position_seconds = COALESCE(EXCLUDED.last_position_seconds, profile_watch_state.last_position_seconds),
+        total_duration_seconds = COALESCE(EXCLUDED.total_duration_seconds, profile_watch_state.total_duration_seconds),
+        is_favorite = COALESCE(EXCLUDED.is_favorite, profile_watch_state.is_favorite),
         last_watched_at = CURRENT_TIMESTAMP
     `;
 
@@ -68,21 +91,27 @@ export const updateWatchState = api(
   }
 );
 
-// Get watch state for a source
+// Get watch state for a profile
 export const getWatchState = api(
   {
     expose: true,
     auth: true,
     method: 'GET',
-    path: '/watch-state/:sourceId',
+    path: '/profiles/:profileId/watch-state',
   },
   async ({
-    sourceId,
+    profileId,
   }: {
-    sourceId: string;
+    profileId: string;
   }): Promise<GetWatchStateResponse> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // Verify profile belongs to user
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
 
     const rows = userDB.query<{
       content_id: string;
@@ -99,12 +128,12 @@ export const getWatchState = api(
         total_duration_seconds, 
         is_favorite, 
         last_watched_at
-      FROM member_watch_state
-      WHERE user_id = ${auth.userID} AND source_id = ${sourceId}
+      FROM profile_watch_state
+      WHERE profile_id = ${profileId}
       ORDER BY last_watched_at DESC
     `;
 
-    const states: GetWatchStateResponse['states'] = [];
+    const states = [];
     for await (const row of rows) {
       states.push({
         ...row,
@@ -116,19 +145,40 @@ export const getWatchState = api(
   }
 );
 
-// Get favorite content across all sources
-export const getFavorites = api(
+// Get watch state for a specific content item
+export const getContentWatchState = api(
   {
     expose: true,
     auth: true,
     method: 'GET',
-    path: '/watch-state/favorites',
+    path: '/profiles/:profileId/watch-state/:contentId',
   },
-  async (): Promise<GetWatchStateResponse> => {
+  async ({
+    profileId,
+    contentId,
+  }: {
+    profileId: string;
+    contentId: string;
+  }): Promise<{
+    state: {
+      content_id: string;
+      content_type: string | null;
+      last_position_seconds: number | null;
+      total_duration_seconds: number | null;
+      is_favorite: boolean;
+      last_watched_at: string;
+    } | null;
+  }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
-    const rows = userDB.query<{
+    // Verify profile belongs to user
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
+
+    const state = await userDB.queryRow<{
       content_id: string;
       content_type: string | null;
       last_position_seconds: number | null;
@@ -143,20 +193,79 @@ export const getFavorites = api(
         total_duration_seconds, 
         is_favorite, 
         last_watched_at
-      FROM member_watch_state
-      WHERE user_id = ${auth.userID} AND is_favorite = true
-      ORDER BY last_watched_at DESC
-      LIMIT 100
+      FROM profile_watch_state
+      WHERE profile_id = ${profileId} AND content_id = ${contentId}
     `;
 
-    const states: GetWatchStateResponse['states'] = [];
-    for await (const row of rows) {
-      states.push({
-        ...row,
-        last_watched_at: row.last_watched_at.toISOString(),
-      });
+    if (!state) {
+      return { state: null };
     }
 
-    return { states };
+    return {
+      state: {
+        ...state,
+        last_watched_at: state.last_watched_at.toISOString(),
+      },
+    };
+  }
+);
+
+// Delete watch state for content
+export const deleteWatchState = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'DELETE',
+    path: '/profiles/:profileId/watch-state/:contentId',
+  },
+  async ({
+    profileId,
+    contentId,
+  }: {
+    profileId: string;
+    contentId: string;
+  }): Promise<{ ok: true }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // Verify profile belongs to user
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
+
+    await userDB.exec`
+      DELETE FROM profile_watch_state
+      WHERE profile_id = ${profileId} AND content_id = ${contentId}
+    `;
+
+    return { ok: true };
+  }
+);
+
+// Clear all watch history for a profile
+export const clearWatchHistory = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'DELETE',
+    path: '/profiles/:profileId/watch-state',
+  },
+  async ({ profileId }: { profileId: string }): Promise<{ ok: true }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // Verify profile belongs to user
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
+
+    await userDB.exec`
+      DELETE FROM profile_watch_state
+      WHERE profile_id = ${profileId}
+    `;
+
+    return { ok: true };
   }
 );

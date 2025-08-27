@@ -1,8 +1,8 @@
 'use client';
 
 import type { IptvClient } from './clients/base';
-import { XtreamIptvClient } from './clients/xtream-adapter';
 import { M3UIptvClient } from './clients/m3u-client';
+import { XtreamIptvClient } from './clients/xtream-adapter';
 
 export type ProviderType = 'xtream' | 'm3u';
 

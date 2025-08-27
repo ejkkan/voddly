@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-import { XtreamClient } from '@/lib/xtream-client';
 import { useSourceCredentials } from '@/lib/source-credentials';
+import { XtreamClient } from '@/lib/xtream-client';
 
 type ContentType = 'live' | 'movie' | 'series';
 

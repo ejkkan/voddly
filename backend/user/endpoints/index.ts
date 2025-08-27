@@ -7,8 +7,14 @@ export * from './updateCurrentUser';
 // Account & source management
 export * from './accounts';
 
+// Profile management (Netflix-style)
+export * from './profiles';
+
 // Watch state management
 export * from './watchState';
 
 // Subtitles
 export * from './subtitles';
+
+// Trends proxy
+export * from './trends';

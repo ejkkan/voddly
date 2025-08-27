@@ -1,6 +1,4 @@
-import type * as SQLite from 'expo-sqlite';
-
-export type DatabaseHandle = SQLite.SQLiteDatabase;
+import { type DatabaseHandle } from 'expo-sqlite';
 
 export async function migrateDbIfNeeded(db: DatabaseHandle) {
   // Enable foreign keys first; broadly supported across platforms
@@ -38,6 +36,51 @@ export async function resetDatabase(db: DatabaseHandle) {
   }
 }
 
+// Clear all data for a specific account (for account deletion - use with caution!)
+export async function clearAccountData(db: DatabaseHandle, accountId: string) {
+  console.log(
+    `[DB-CLEAR] 🚨 clearAccountData called! accountId: ${accountId}, timestamp: ${new Date().toISOString()}, stack: ${new Error().stack}`
+  );
+
+  await db.execAsync('PRAGMA foreign_keys = ON; BEGIN');
+  try {
+    await db.execAsync(
+      `
+        DELETE FROM content_item_categories WHERE item_id IN (
+          SELECT id FROM content_items WHERE account_id = $account_id
+        );
+        DELETE FROM movies_ext WHERE item_id IN (
+          SELECT id FROM content_items WHERE account_id = $account_id
+        );
+        DELETE FROM series_ext WHERE series_item_id IN (
+          SELECT id FROM content_items WHERE account_id = $account_id
+        );
+        DELETE FROM episodes_ext WHERE series_item_id IN (
+          SELECT id FROM content_items WHERE account_id = $account_id
+        );
+        DELETE FROM live_ext WHERE item_id IN (
+          SELECT id FROM content_items WHERE account_id = $account_id
+        );
+        DELETE FROM content_items WHERE account_id = $account_id;
+        DELETE FROM categories WHERE account_id = $account_id;
+        DELETE FROM sources WHERE account_id = $account_id;
+      `,
+      { $account_id: accountId }
+    );
+    await db.execAsync('COMMIT');
+    // Reclaim space
+    await db.execAsync('VACUUM');
+
+    console.log(
+      `[DB-CLEAR] ✅ Database cleared successfully for account: ${accountId}`
+    );
+  } catch (e) {
+    await db.execAsync('ROLLBACK');
+    console.error(`[DB-CLEAR] ❌ Error clearing database: ${e}`);
+    throw e;
+  }
+}
+
 async function createCoreSchema(db: DatabaseHandle) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS sources (
@@ -45,7 +88,6 @@ async function createCoreSchema(db: DatabaseHandle) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       kind TEXT NOT NULL,
-      base_url TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -86,6 +128,11 @@ async function ensureExtraColumns(db: DatabaseHandle) {
   // sources: account_id
   if (!(await hasColumn('sources', 'account_id'))) {
     await db.execAsync(`ALTER TABLE sources ADD COLUMN account_id TEXT`);
+  }
+
+  // sources: remove base_url column (security: no plaintext URLs in DB)
+  if (await hasColumn('sources', 'base_url')) {
+    await db.execAsync(`ALTER TABLE sources DROP COLUMN base_url`);
   }
 
   // categories: account_id

@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { FlatList, Text, View } from '@/components/ui';
 
 type Item = {

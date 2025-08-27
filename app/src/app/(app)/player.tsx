@@ -7,7 +7,7 @@ import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlayba
 export default function Player() {
   const router = useRouter();
   const { url, loading, error, contentType } = useWebPlaybackSource();
-  
+
   // You can also get theme/layout preferences from params or user settings
   const params = useLocalSearchParams();
   const layout = (params.layout as 'netflix' | 'minimal') || 'netflix';

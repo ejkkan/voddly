@@ -1,6 +1,7 @@
 'use client';
 
 import { XtreamClient, type XtreamCredentials } from '@/lib/xtream-client';
+
 import type { CatalogResult, IptvClient } from './base';
 
 export class XtreamIptvClient implements IptvClient {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Pressable } from '@/components/ui';
+
+import { Pressable, Text, View } from '@/components/ui';
 import { openDb } from '@/lib/db';
 
 type SeasonRow = {

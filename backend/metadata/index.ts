@@ -1,13 +1,13 @@
 // Metadata Service exports
-export { 
-  getMetadata, 
-  getMetadataByExternalId, 
-  search, 
-  getCachedMetadata, 
-  clearCache 
+export {
+  getMetadata,
+  getMetadataByExternalId,
+  search,
+  getCachedMetadata,
+  clearCache,
 } from './metadata';
 
-export type { 
+export type {
   ContentType,
   MetadataProvider,
   ContentMetadata,
@@ -16,5 +16,15 @@ export type {
   SearchParams,
   SearchResult,
   TMDBMovieDetails,
-  TMDBTVDetails
+  TMDBTVDetails,
 } from './types';
+
+export type {
+  TrendFeed,
+  TrendsContentType,
+  TrendItem,
+  TrendsResponse,
+} from './endpoints/trends';
+
+// Ensure cron jobs are registered by importing their modules for side effects
+import './cron/trends';

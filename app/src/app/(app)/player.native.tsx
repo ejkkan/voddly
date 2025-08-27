@@ -9,9 +9,9 @@ import {
   getDefaultPlayerId,
 } from '@/components/video/players';
 import { VlcPlayerView } from '@/components/video/VlcPlayerView';
+import { getContainerInfoForContent } from '@/lib/container-extension';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
-import { getContainerInfoForContent } from '@/lib/container-extension';
 
 // eslint-disable-next-line max-lines-per-function
 export default function Player() {

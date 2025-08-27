@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import { useRouter } from 'expo-router';
+import React from 'react';
 
 import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { WebPlayer } from '@/components/video/web-player';

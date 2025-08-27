@@ -3,7 +3,7 @@ import {
   TMDBMovieDetails,
   TMDBTVDetails,
   SearchResult,
-} from './types';
+} from '../types';
 
 export class TMDBClient {
   private config: TMDBConfig;

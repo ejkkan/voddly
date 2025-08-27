@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { fetchXtreamLiveShortEPG } from '@/lib/item-fetchers';
+
 import { openDb } from '@/lib/db';
+import { fetchXtreamLiveShortEPG } from '@/lib/item-fetchers';
+import { useSourceCredentials } from '@/lib/source-credentials';
 
 export function useFetchRemoteLive() {
   const { getCredentials } = useSourceCredentials();

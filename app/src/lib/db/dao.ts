@@ -19,9 +19,8 @@ export async function searchCatalog(
       const paramsFts: Record<string, any> = { $q: q };
       if (type) paramsFts.$type = type;
       rows = await db.getAllAsync(
-        `SELECT i.*, s.base_url FROM item_fts f
+        `SELECT i.* FROM item_fts f
          JOIN content_items i ON i.id = f.rowid
-         LEFT JOIN sources s ON s.id = i.source_id
          WHERE item_fts MATCH $q ${whereType}
          ORDER BY rank LIMIT 200`,
         paramsFts as any
@@ -35,8 +34,7 @@ export async function searchCatalog(
     const params: Record<string, any> = { $like: `%${q}%` };
     if (type) params.$type = type;
     rows = await db.getAllAsync(
-      `SELECT i.*, s.base_url FROM content_items i
-       LEFT JOIN sources s ON s.id = i.source_id
+      `SELECT i.* FROM content_items i
        WHERE (i.title LIKE $like OR i.description LIKE $like) ${whereType}
        ORDER BY i.title LIMIT 200`,
       params as any

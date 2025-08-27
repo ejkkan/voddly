@@ -1,20 +1,21 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { SafeAreaView, View, Text, FlatList } from '@/components/ui';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
-import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
+import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
 import { useUiPreview, useUiSections } from '@/hooks/ui';
+import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 
 type Section = {
   categoryId?: string;
   title: string;
-  data: Array<{
+  data: {
     id: string;
     title: string;
     imageUrl?: string | null;
     sourceId?: string;
-  }>;
+  }[];
 };
 
 export default function Series() {

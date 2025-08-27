@@ -1,18 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+
 import {
-  SafeAreaView,
-  View,
-  Text,
   Image,
-  ScrollView,
   Pressable,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
 } from '@/components/ui';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { openDb } from '@/lib/db';
 import { useFetchRemoteLive } from '@/hooks/useFetchRemoteLive';
-import { normalizeImageUrl } from '@/lib/url-utils';
 import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
+import { openDb } from '@/lib/db';
+import { useSourceCredentials } from '@/lib/source-credentials';
+import { normalizeImageUrl } from '@/lib/url-utils';
 
 type ItemRow = {
   id: string;
@@ -44,10 +45,8 @@ export default function LiveDetails() {
           return;
         }
         const db = await openDb();
-        const row = await db.getFirstAsync<
-          ItemRow & { base_url?: string | null }
-        >(
-          `SELECT i.id, i.source_id, i.source_item_id, i.type, i.title, i.poster_url, i.rating, s.base_url FROM content_items i LEFT JOIN sources s ON s.id = i.source_id WHERE i.id = $id`,
+        const row = await db.getFirstAsync<ItemRow>(
+          `SELECT i.id, i.source_id, i.source_item_id, i.type, i.title, i.poster_url, i.rating FROM content_items i WHERE i.id = $id`,
           { $id: String(id) }
         );
         if (mounted) setItem(row ?? null);
@@ -124,9 +123,7 @@ export default function LiveDetails() {
             <View>
               <View className="overflow-hidden rounded-2xl bg-neutral-100 dark:bg-neutral-900">
                 {(() => {
-                  const base =
-                    ((item as any).base_url as string | undefined) ||
-                    (sourceBase.baseUrl as string | undefined);
+                  const base = sourceBase.baseUrl as string | undefined;
                   const normalized = normalizeImageUrl(
                     item.poster_url || null,
                     base

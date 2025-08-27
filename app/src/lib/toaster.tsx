@@ -1,11 +1,7 @@
 /* eslint-disable */
 import React from 'react';
-import { Platform } from 'react-native';
+import { Toasts } from '@backpackapp-io/react-native-toast';
 
 export function AppToasterHost() {
-  if (Platform.OS === 'web') {
-    const { AppToasterHost: WebHost } = require('./toaster.web');
-    return <WebHost />;
-  }
-  return null;
+  return <Toasts />;
 }

@@ -1,5 +1,5 @@
 import { Link, Redirect, router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
 import { type FormType, SignupForm } from '@/components/signup-form';
@@ -9,9 +9,11 @@ import { useSession, useSignUp } from '@/lib/auth/hooks';
 export default function SignUp() {
   const { data: session } = useSession();
   const signUp = useSignUp();
+  const [justSignedUp, setJustSignedUp] = useState(false);
 
-  if (session?.data?.user) {
-    return <Redirect href="/(app)" />;
+  // Only redirect if user is logged in and didn't just sign up
+  if (session?.data?.user && !justSignedUp) {
+    return <Redirect href="/" />;
   }
 
   const handleSubmit = async (_data: FormType) => {
@@ -21,7 +23,10 @@ export default function SignUp() {
       name: _data.name,
     });
     if ((result as any)?.data) {
-      router.replace('/(app)');
+      // Mark that we just signed up to prevent auto-redirect
+      setJustSignedUp(true);
+      // Go through root index which will redirect to passphrase-setup
+      router.replace('/');
     }
   };
 

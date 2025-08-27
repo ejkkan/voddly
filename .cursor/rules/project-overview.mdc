@@ -1,0 +1,48 @@
+---
+description: Voddly Project Overview and Key Workflows
+globs: ['**/*']
+alwaysApply: true
+---
+
+# Voddly Project Overview
+
+## Project Structure
+
+- **Backend**: `/backend` - Encore-based API services
+- **Frontend**: `/app` - React Native/Expo application
+- **tvOS App**: `/tvos-app` - Apple TV application
+
+## Key Workflows
+
+### Encore Client Management
+
+- **NEVER** edit `encore-client.ts` files manually
+- Make API changes in backend service files
+- Run `pnpm run gen:client` (local), `gen:client:staging`, or `gen:client:prod` to regenerate
+- See `encore-client.mdc` rule for details
+
+### Package Management
+
+- Use `pnpm` for all package operations
+- Never use `npm` or `yarn`
+- Commands: `pnpm install`, `pnpm run dev`, etc.
+
+### Development Workflow
+
+- Backend changes trigger client regeneration
+- Frontend hooks can query SQLite directly for metadata
+- Prefer local database queries over API calls for metadata
+- Use arrow functions consistently
+- Check linter errors before completing tasks
+
+## File Naming Conventions
+
+- Use snake_case for service names
+- Prefer absolute paths over relative paths
+- Follow React Native/Expo best practices
+
+## Database Access
+
+- Frontend can directly query SQLite when needed
+- Use local database queries for metadata enhancement
+- Backend provides API endpoints for core functionality

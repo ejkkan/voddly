@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { SafeAreaView, Text, View } from '@/components/ui';
 
 export default function Search() {

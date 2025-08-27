@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { fetchXtreamSeriesInfo } from '@/lib/item-fetchers';
+
 import { openDb } from '@/lib/db';
+import { parseSeriesData } from '@/lib/episode-parser';
+import { fetchXtreamSeriesInfo } from '@/lib/item-fetchers';
+import { useSourceCredentials } from '@/lib/source-credentials';
 
 export function useFetchRemoteSeries() {
   const { getCredentials } = useSourceCredentials();
@@ -87,33 +89,15 @@ export function useFetchRemoteSeries() {
           }
         );
 
-        // Upsert episodes into episodes_ext
-        const seasons = Array.isArray(data.seasons) ? data.seasons : [];
-        const episodesObj =
-          data.episodes && typeof data.episodes === 'object'
-            ? data.episodes
-            : {};
-        for (const seasonEntry of seasons) {
-          const seasonNum =
-            Number(seasonEntry?.season_number ?? seasonEntry?.season ?? 0) || 0;
-          const seasonEpisodes: any[] = Array.isArray(
-            episodesObj[String(seasonNum)]
-          )
-            ? episodesObj[String(seasonNum)]
-            : [];
-          for (const ep of seasonEpisodes) {
-            const episodeNumber =
-              Number(ep.episode_num ?? ep.episode ?? 0) || 0;
-            const episodeId = `${params.id}:${seasonNum}:${episodeNumber}`;
-            const titleEp = String(ep.title ?? 'Episode');
-            const descriptionEp = String(ep.info?.plot ?? '');
-            const airDate = String(ep.info?.release_date ?? '') || null;
-            const streamId = String(ep.id ?? '');
-            const lastModEp = ep.added
-              ? new Date(Number(ep.added) * 1000).toISOString()
-              : null;
-            const containerExtension =
-              String(ep.container_extension ?? '').trim() || null;
+        // Parse episodes using the unified parser
+        const { episodes, seasons } = parseSeriesData({
+          ...data,
+          seriesItemId: params.id,
+        });
+
+        // Store parsed episodes in the database
+        for (const episode of episodes) {
+          try {
             await db.runAsync(
               `INSERT INTO episodes_ext (id, series_item_id, season_number, episode_number, title, description, air_date, stream_id, container_extension, last_modified, original_payload_json)
                VALUES ($id, $series_item_id, $season_number, $episode_number, $title, $description, $air_date, $stream_id, $container_extension, $last_modified, $payload)
@@ -127,19 +111,21 @@ export function useFetchRemoteSeries() {
                  original_payload_json = excluded.original_payload_json
               `,
               {
-                $id: episodeId,
+                $id: episode.id,
                 $series_item_id: params.id,
-                $season_number: seasonNum,
-                $episode_number: episodeNumber,
-                $title: titleEp,
-                $description: descriptionEp || null,
-                $air_date: airDate,
-                $stream_id: streamId,
-                $container_extension: containerExtension,
-                $last_modified: lastModEp,
-                $payload: JSON.stringify(ep),
+                $season_number: episode.seasonNumber,
+                $episode_number: episode.episodeNumber,
+                $title: episode.title,
+                $description: episode.description,
+                $air_date: episode.airDate,
+                $stream_id: episode.streamId,
+                $container_extension: episode.containerExtension,
+                $last_modified: episode.lastModified,
+                $payload: JSON.stringify(episode.originalPayload),
               }
             );
+          } catch (epError) {
+            console.error(`Failed to store episode ${episode.id}:`, epError);
           }
         }
         return true;

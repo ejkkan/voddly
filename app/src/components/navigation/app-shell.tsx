@@ -3,6 +3,7 @@ import { Link, usePathname } from 'expo-router';
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
 import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
+import { ProfileSelector } from './profile-selector';
 
 type AppHref =
   | '/(app)/dashboard'
@@ -11,6 +12,7 @@ type AppHref =
   | '/(app)/series'
   | '/(app)/live'
   | '/(app)/playlists'
+  | '/(app)/profiles'
   | '/(app)/settings';
 
 type NavItem = {
@@ -25,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'VODs', href: '/(app)/vods' },
   { label: 'Live', href: '/(app)/live' },
   { label: 'Playlists', href: '/(app)/playlists' },
+  { label: 'Profiles', href: '/(app)/profiles' },
   { label: 'Settings', href: '/(app)/settings' },
 ];
 
@@ -60,6 +63,9 @@ function Sidebar() {
       <Text className="mb-4 text-xl font-bold text-neutral-900 dark:text-neutral-50">
         IPTV
       </Text>
+
+      <ProfileSelector />
+
       {NAV_ITEMS.map((item) => {
         const active = pathname.startsWith(item.href);
         return (

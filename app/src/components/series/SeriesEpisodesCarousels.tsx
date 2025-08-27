@@ -1,9 +1,10 @@
+import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { View } from '@/components/ui';
-import { openDb } from '@/lib/db';
+
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
-import { useRouter } from 'expo-router';
+import { View } from '@/components/ui';
+import { openDb } from '@/lib/db';
 import { useSourceCredentials } from '@/lib/source-credentials';
 
 type EpisodeRow = {
@@ -111,16 +112,21 @@ export function SeriesEpisodesCarousels(props: {
               onPress={async (id) => {
                 try {
                   const streamId = String(id);
-                  await prepareContentPlayback(sourceId, streamId, 'series', {
-                    title: 'Play Episode',
-                    message: 'Enter your passphrase to play this episode',
+                  await prepareContentPlayback({
+                    sourceId,
+                    contentId: streamId,
+                    contentType: 'series',
+                    options: {
+                      title: 'Play Episode',
+                      message: 'Enter your passphrase to play this episode',
+                    },
                   });
                   router.push({
                     pathname: '/(app)/player',
                     params: { playlist: sourceId, series: streamId },
                   });
-                } catch {
-                  // ignore
+                } catch (error) {
+                  console.error('Failed to play episode:', error);
                 }
               }}
             />

@@ -11,6 +11,7 @@ import {
   xchacha20Poly1305Decrypt,
 } from '@/lib/crypto-utils';
 import { passphraseCache } from '@/lib/passphrase-cache';
+import { debugLog } from '@/lib/passphrase-debug';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
 
 export type SourceCredentials = {
@@ -30,7 +31,7 @@ export type SourceInfo = {
     config_iv: string;
   };
   keyData: {
-    wrapped_master_key: string;
+    master_key_wrapped: string; // Changed from wrapped_master_key to match backend
     salt: string;
     iv: string;
     iterations?: number;
@@ -83,33 +84,23 @@ export class SourceCredentialsManager {
     sourceId: string,
     options: SourceCredentialsOptions = {}
   ): Promise<SourceCredentials> {
+    debugLog('getSourceCredentials:start', { sourceId });
     const info = await this.findSourceInfo(sourceId);
-    const attempt = async (
-      _forcePrompt: boolean
-    ): Promise<SourceCredentials> => {
-      const passphrase = await this.getPassphrase(info.account.id, {
-        title: options.title || 'Decrypt Source',
-        message:
-          options.message || 'Enter your passphrase to decrypt the source',
-        accountName: info.account.name,
-        validateFn: options.validatePassphrase,
-      });
-      const { salt, iv, wrapped } = validateAndParseKeyData(info.keyData);
-      const masterKeyBytes = await getOrDeriveMasterKey({
-        accountId: info.account.id,
-        passphrase,
-        keyData: info.keyData,
-        salt,
-        iv,
-        wrapped,
-      });
-      validateSourceConfig(info.source);
-      return this.decryptSourceConfigWithKey(info, masterKeyBytes);
-    };
+    debugLog('getSourceCredentials:resolvedSourceInfo', {
+      accountId: info.account.id,
+      accountName: info.account.name,
+      source: { id: info.source.id, name: info.source.name },
+      keyDataPresent: !!info.keyData,
+    });
     try {
-      return await attempt(false);
-    } catch (_e: any) {
-      // On crypto errors, clear caches and force re-prompt
+      const result = await this.attemptGetCredentials(info, options);
+      debugLog('getSourceCredentials:successFirstAttempt');
+      return result;
+    } catch (err: any) {
+      debugLog(
+        'getSourceCredentials:firstAttemptFailed:clearingCaches',
+        String(err?.message || err)
+      );
       try {
         passphraseCache.remove(info.account.id);
       } catch {}
@@ -118,7 +109,9 @@ export class SourceCredentialsManager {
         if (g.__masterKeyCache)
           g.__masterKeyCache.delete(`acct:${info.account.id}`);
       } catch {}
-      return attempt(true);
+      const result = await this.attemptGetCredentials(info, options);
+      debugLog('getSourceCredentials:successSecondAttempt');
+      return result;
     }
   }
   // Helper to decrypt config JSON given an unwrapped master key
@@ -126,6 +119,10 @@ export class SourceCredentialsManager {
     info: SourceInfo,
     masterKeyBytes: Uint8Array
   ): Promise<SourceCredentials> {
+    debugLog('decryptSourceConfigWithKey:start', {
+      cfgIvB64Len: String(info.source.config_iv || '').length,
+      encCfgB64Len: String(info.source.encrypted_config || '').length,
+    });
     const cfgIv = decodeBase64(String(info.source.config_iv || ''));
     const cfgEnc = decodeBase64(String(info.source.encrypted_config || ''));
     if (cfgIv.length === 0)
@@ -140,6 +137,10 @@ export class SourceCredentialsManager {
     // minimal logging removed
     try {
       const alg = String(info.keyData.wrap_algo || 'aes-gcm-256');
+      debugLog('decryptSourceConfigWithKey:usingAlgo', {
+        alg,
+        ivLen: cfgIv.length,
+      });
       const plain =
         alg === 'xchacha20poly1305'
           ? xchacha20Poly1305Decrypt(masterKeyBytes, cfgIv, cfgEnc)
@@ -150,22 +151,94 @@ export class SourceCredentialsManager {
       return credentials as SourceCredentials;
     } catch (err: any) {
       // no verbose logging
+      debugLog('decryptSourceConfigWithKey:error', String(err?.message || err));
       throw new Error(
         'Failed to decrypt source config: ' + String(err?.message || err)
       );
     }
   }
+
+  private async attemptGetCredentials(
+    info: SourceInfo,
+    options: SourceCredentialsOptions
+  ): Promise<SourceCredentials> {
+    debugLog('getSourceCredentials:promptingPassphrase');
+    const passphrase = await this.getPassphrase(info.account.id, {
+      title: options.title || 'Decrypt Source',
+      message: options.message || 'Enter your passphrase to decrypt the source',
+      accountName: info.account.name,
+      validateFn: options.validatePassphrase,
+    });
+    debugLog('getSourceCredentials:gotPassphrase', {
+      cached: passphraseCache.has(info.account.id),
+      length: passphrase?.length ?? 0,
+    });
+
+    // Web-only: avoid client-side Argon2 due to atob failures in env; use backend to decrypt
+    if (Platform.OS === 'web') {
+      try {
+        debugLog('getSourceCredentials:web:serverDecrypt:start', {
+          sourceId: info.source.id,
+        });
+        const resp = await apiClient.user.decryptSource(info.source.id, {
+          passphrase,
+        });
+        debugLog('getSourceCredentials:web:serverDecrypt:done', {
+          hasCreds: !!resp?.credentials,
+        });
+        return resp.credentials as SourceCredentials;
+      } catch (e: any) {
+        debugLog(
+          'getSourceCredentials:web:serverDecrypt:error',
+          String(e?.message || e)
+        );
+        throw e;
+      }
+    }
+
+    const { salt, iv, wrapped } = validateAndParseKeyData(info.keyData);
+    debugLog('getSourceCredentials:keyDataParsed', {
+      saltLen: salt.length,
+      ivLen: iv.length,
+      wrappedLen: wrapped.length,
+    });
+    const masterKeyBytes = await getOrDeriveMasterKey({
+      accountId: info.account.id,
+      passphrase,
+      keyData: info.keyData,
+      salt,
+      iv,
+      wrapped,
+    });
+    debugLog('getSourceCredentials:masterKeyDerived', {
+      masterKeyLen: masterKeyBytes.length,
+    });
+    validateSourceConfig(info.source);
+    const creds = await this.decryptSourceConfigWithKey(info, masterKeyBytes);
+    debugLog('getSourceCredentials:configDecrypted', {
+      serverPresent: !!creds.server,
+      usernamePresent: !!creds.username,
+    });
+    return creds;
+  }
 }
 
 // Helpers split out for readability and testability
 async function resolveSourceInfo(targetId: string): Promise<SourceInfo> {
+  debugLog('resolveSourceInfo:start', { targetId });
   const accounts = await apiClient.user.getAccounts();
   for (const account of accounts.accounts || []) {
     try {
+      debugLog('resolveSourceInfo:checkingAccount', { accountId: account.id });
       const { sources, keyData } = await apiClient.user.getSources(account.id);
       const list = sources || [];
+      debugLog('resolveSourceInfo:sourcesFetched', {
+        count: list.length,
+        hasKeyData: !!keyData,
+      });
       const source = list.find((s) => s.id === targetId || s.name === targetId);
       if (source && keyData) {
+        debugLog('resolveSourceInfo:foundExactSource', { sourceId: source.id });
         return {
           source: {
             id: source.id,
@@ -179,6 +252,9 @@ async function resolveSourceInfo(targetId: string): Promise<SourceInfo> {
       }
       if (!source && keyData && list.length === 1) {
         const only = list[0];
+        debugLog('resolveSourceInfo:defaultingSingleSource', {
+          sourceId: only.id,
+        });
         return {
           source: {
             id: only.id,
@@ -191,25 +267,64 @@ async function resolveSourceInfo(targetId: string): Promise<SourceInfo> {
         };
       }
     } catch {
+      debugLog('resolveSourceInfo:errorFetchingAccount', {
+        accountId: account.id,
+      });
       continue;
     }
   }
+  debugLog('resolveSourceInfo:notFound');
   throw new Error('Source not found in any account');
 }
 
-async function derivePBKDF2Key(
+async function deriveArgon2Key(
   passphrase: string,
   salt: Uint8Array,
-  keyData: { iterations?: number }
+  _keyData: { iterations?: number }
 ): Promise<Uint8Array> {
   if (salt.length !== 16) throw new Error('invalid salt length');
-  const iterations = keyData.iterations ?? 150_000;
-  const pwd = new TextEncoder().encode(passphrase);
-  // Using runtime import to avoid circular issues in tooling; main import at top is preferred
-  const { pbkdf2 } = await import('@noble/hashes/pbkdf2');
-  const { sha256 } = await import('@noble/hashes/sha256');
-  const derived = pbkdf2(sha256, pwd, salt, { c: iterations, dkLen: 32 });
-  return new Uint8Array(derived);
+
+  // Use Argon2id to match backend
+  if (Platform.OS === 'web') {
+    // Use argon2-browser for web
+    const argon2 = await import('argon2-browser');
+    debugLog('deriveArgon2Key:web:start', { saltLen: salt.length });
+    let result: any;
+    try {
+      // Temporarily bypass atob shim while argon2-browser runs to avoid interference
+      const g = globalThis as any;
+      const prevBypass = g.__BYPASS_ATOB_SHIM;
+      g.__BYPASS_ATOB_SHIM = true;
+      result = await argon2.hash({
+        pass: passphrase,
+        salt: salt,
+        type: argon2.ArgonType.Argon2id,
+        hashLen: 32,
+        time: 3, // iterations/time cost
+        mem: 65536, // 64MB memory cost
+        parallelism: 1,
+      });
+      g.__BYPASS_ATOB_SHIM = prevBypass;
+    } catch (e: any) {
+      debugLog('deriveArgon2Key:web:error', String(e?.message || e));
+      throw e;
+    }
+    debugLog('deriveArgon2Key:web:done');
+    return new Uint8Array(result.hash);
+  } else {
+    // Use react-native-argon2 for native
+    const Argon2 = await import('react-native-argon2').then((m) => m.default);
+    debugLog('deriveArgon2Key:native:start', { saltLen: salt.length });
+    const result = await Argon2.argon2(passphrase, encodeBase64(salt), {
+      iterations: 3,
+      memory: 65536,
+      parallelism: 1,
+      hashLength: 32,
+      mode: 'argon2id',
+    });
+    debugLog('deriveArgon2Key:native:done');
+    return decodeBase64(result.rawHash);
+  }
 }
 
 function validateAndParseKeyData(keyData: SourceInfo['keyData']): {
@@ -217,9 +332,10 @@ function validateAndParseKeyData(keyData: SourceInfo['keyData']): {
   iv: Uint8Array;
   wrapped: Uint8Array;
 } {
+  debugLog('validateAndParseKeyData:start');
   const salt = decodeBase64(String(keyData.salt || ''));
   const iv = decodeBase64(String(keyData.iv || ''));
-  const wrapped = decodeBase64(String(keyData.wrapped_master_key || ''));
+  const wrapped = decodeBase64(String(keyData.master_key_wrapped || ''));
   if (salt.length === 0) throw new Error('Invalid key data: missing salt');
   if (iv.length === 0) throw new Error('Invalid key data: missing IV');
   // Accept 12-byte (GCM) and 24-byte (XChaCha20) nonces
@@ -229,6 +345,11 @@ function validateAndParseKeyData(keyData: SourceInfo['keyData']): {
     );
   if (wrapped.length === 0)
     throw new Error('Invalid key data: missing wrapped key');
+  debugLog('validateAndParseKeyData:ok', {
+    saltLen: salt.length,
+    ivLen: iv.length,
+    wrappedLen: wrapped.length,
+  });
   return { salt, iv, wrapped };
 }
 
@@ -242,6 +363,10 @@ function validateSourceConfig(source: SourceInfo['source']): void {
     );
   if (cfgEnc.length === 0)
     throw new Error('Invalid source config: missing encrypted payload');
+  debugLog('validateSourceConfig:ok', {
+    ivLen: cfgIv.length,
+    encLen: cfgEnc.length,
+  });
 }
 
 type MasterKeyInputs = {
@@ -260,12 +385,14 @@ async function getOrDeriveMasterKey(
 ): Promise<Uint8Array> {
   const { accountId, passphrase, keyData, salt, iv, wrapped } = args;
   const cacheKeyPersist = `mk:${accountId}`;
+  debugLog('getOrDeriveMasterKey:start', { accountId });
   try {
     const packed = storage?.getString(cacheKeyPersist);
     if (packed) {
       const obj = JSON.parse(packed) as { b64: string; exp: number };
       if (Date.now() < obj.exp) {
         const keyBytes = decodeBase64(obj.b64);
+        debugLog('getOrDeriveMasterKey:hitPersistedCache');
         return keyBytes;
       }
     }
@@ -278,15 +405,19 @@ async function getOrDeriveMasterKey(
   const nowTs = Date.now();
   const cached: CacheEntry | undefined = g.__masterKeyCache.get(cacheKey);
   if (cached && cached.expiresAt > nowTs) {
+    debugLog('getOrDeriveMasterKey:hitMemoryCache');
     return cached.key;
   }
-  if (keyData.kdf && keyData.kdf !== 'pbkdf2') {
-    throw new Error(
-      'Unsupported key derivation scheme. Please migrate to PBKDF2.'
-    );
+  // Use Argon2id to match the backend
+  const personalKeyBytes = await deriveArgon2Key(passphrase, salt, keyData);
+  let masterKeyBytes: Uint8Array;
+  try {
+    masterKeyBytes = aesGcmDecrypt(personalKeyBytes, iv, wrapped);
+  } catch (e: any) {
+    debugLog('getOrDeriveMasterKey:aesGcm:error', String(e?.message || e));
+    throw e;
   }
-  const personalKeyBytes = await derivePBKDF2Key(passphrase, salt, keyData);
-  const masterKeyBytes = aesGcmDecrypt(personalKeyBytes, iv, wrapped);
+  debugLog('getOrDeriveMasterKey:derived');
   g.__masterKeyCache.set(cacheKey, {
     key: masterKeyBytes,
     expiresAt: nowTs + MASTER_KEY_CACHE_TTL_MS,
@@ -299,6 +430,7 @@ async function getOrDeriveMasterKey(
         exp: nowTs + MASTER_KEY_CACHE_TTL_MS,
       })
     );
+    debugLog('getOrDeriveMasterKey:persisted');
   } catch {}
   return masterKeyBytes;
 }
