@@ -1,16 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
+import { showMessage } from 'react-native-flash-message';
+
 import { apiClient } from '@/lib/api-client';
 import { MobileCatalogStorage } from '@/lib/catalog-storage';
-import { SourceCredentialsManager } from '@/lib/source-credentials';
-import {
-  downloadM3UCatalog,
-  downloadXtreamCatalog,
-} from '@/lib/catalog-downloaders';
 import { getIptvClient } from '@/lib/iptv/get-client';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
-import { showMessage } from 'react-native-flash-message';
+import { SourceCredentialsManager } from '@/lib/source-credentials';
 
 export type SourceSummary = { id: string; name: string; provider_type: string };
 

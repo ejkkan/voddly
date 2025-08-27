@@ -11,11 +11,6 @@ export function normalizeImageUrl(
     // Absolute URL
     if (/^https?:\/\//i.test(url)) {
       const u = new URL(url);
-      if (serverURL && u.hostname.toLowerCase() === 'ptv.is') {
-        u.protocol = serverURL.protocol;
-        u.host = serverURL.host;
-        return u.toString();
-      }
       return u.toString();
     }
     // Relative path

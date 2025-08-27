@@ -1,3 +1,195 @@
+/* eslint-disable unicorn/filename-case, max-lines-per-function */
+import { useQueries } from '@tanstack/react-query';
+
+import { apiClient } from '@/lib/api-client';
+import { openDb } from '@/lib/db';
+
+// Helper function to query local SQLite database for movie/series details
+async function getContentItemData(
+  id: string | number,
+  type: 'movie' | 'series'
+) {
+  try {
+    const db = await openDb();
+    const stringId = String(id);
+
+    let contentItem;
+
+    // First try to find by TMDB ID (for consistency with dashboard)
+    contentItem = await db.getFirstAsync<{
+      id: string;
+      title: string;
+      description: string | null;
+      poster_url: string | null;
+      backdrop_url: string | null;
+      release_date: string | null;
+      rating: number | null;
+      type: string;
+      tmdb_id: string | null;
+      source_item_id: string;
+      source_id: string;
+      original_payload_json: string;
+    }>(
+      `SELECT
+        ci.id,
+        ci.title,
+        ci.description,
+        ci.poster_url,
+        ci.backdrop_url,
+        ci.release_date,
+        ci.rating,
+        ci.type,
+        ci.tmdb_id,
+        ci.source_item_id,
+        ci.source_id,
+        ci.original_payload_json
+      FROM content_items ci
+      WHERE ci.tmdb_id = ? AND ci.type = ?`,
+      [stringId, type]
+    );
+
+    // If not found by TMDB ID, try by local database ID (fallback)
+    if (!contentItem) {
+      contentItem = await db.getFirstAsync<{
+        id: string;
+        title: string;
+        description: string | null;
+        poster_url: string | null;
+        backdrop_url: string | null;
+        release_date: string | null;
+        rating: number | null;
+        type: string;
+        tmdb_id: string | null;
+        source_item_id: string;
+        source_id: string;
+        original_payload_json: string;
+      }>(
+        `SELECT
+          ci.id,
+          ci.title,
+          ci.description,
+          ci.poster_url,
+          ci.backdrop_url,
+          ci.release_date,
+          ci.rating,
+          ci.type,
+          ci.tmdb_id,
+          ci.source_item_id,
+          ci.source_id,
+          ci.original_payload_json
+        FROM content_items ci
+        WHERE ci.id = ? AND ci.type = ?`,
+        [stringId, type]
+      );
+    }
+
+    if (!contentItem) return null;
+
+    // For series, also get series-specific data
+    if (type === 'series') {
+      const seriesData = await db.getFirstAsync<{
+        tmdb_id: string | null;
+        episode_run_time: number | null;
+      }>(
+        'SELECT tmdb_id, episode_run_time FROM series_ext WHERE item_id = ?',
+        contentItem.id // Use the actual database ID for the join
+      );
+
+      return {
+        ...contentItem,
+        seriesData: seriesData || null,
+      };
+    }
+
+    return contentItem;
+  } catch (error) {
+    console.error(
+      `Error querying local database for ${type} with ID ${id}:`,
+      error
+    );
+    return null;
+  }
+}
+
+// Helper function to query local SQLite database for live content details
+async function getLiveItemData(id: string | number) {
+  try {
+    const db = await openDb();
+    const stringId = String(id);
+
+    const liveItem = await db.getFirstAsync<{
+      id: string;
+      title: string;
+      description: string | null;
+      poster_url: string | null;
+      backdrop_url: string | null;
+      type: string;
+      source_item_id: string;
+      source_id: string;
+      original_payload_json: string;
+    }>(
+      `SELECT
+        ci.id,
+        ci.title,
+        ci.description,
+        ci.poster_url,
+        ci.backdrop_url,
+        ci.type,
+        ci.source_item_id,
+        ci.source_id,
+        ci.original_payload_json
+      FROM content_items ci
+      WHERE ci.id = ? AND ci.type = 'live'`,
+      [stringId]
+    );
+
+    if (!liveItem) return null;
+
+    // Get live-specific data
+    const liveData = await db.getFirstAsync<{
+      channel_number: number | null;
+      epg_channel_id: string | null;
+      tv_archive: number | null;
+      tv_archive_duration: number | null;
+    }>(
+      `SELECT channel_number, epg_channel_id, tv_archive, tv_archive_duration
+      FROM live_ext WHERE item_id = ?`,
+      [stringId]
+    );
+
+    return {
+      ...liveItem,
+      liveData: liveData || null,
+    };
+  } catch (error) {
+    console.error(
+      `Error querying local database for live content with ID ${id}:`,
+      error
+    );
+    return null;
+  }
+}
+
+// Main function to query local SQLite database for item details
+export async function getLocalItemData(
+  id: string | number,
+  type: 'movie' | 'series' | 'live'
+) {
+  if (type === 'live') {
+    const data = await getLiveItemData(id);
+    if (!data) {
+      console.warn(`No local data found for ${type} with ID: ${id}`);
+    }
+    return data;
+  }
+
+  const data = await getContentItemData(id, type);
+  if (!data) {
+    console.warn(`No local data found for ${type} with ID: ${id}`);
+  }
+  return data;
+}
+
 export type TrendItem = {
   rank: number;
   content_type: 'movie' | 'tv';
@@ -7,6 +199,8 @@ export type TrendItem = {
   title: string;
   year?: number | null;
   metrics?: Record<string, number>;
+  poster_path?: string | null;
+  local_id?: string | null;
 };
 
 export type TrendsFeedResponse = {
@@ -16,139 +210,126 @@ export type TrendsFeedResponse = {
   count: number;
 };
 
-import { useQuery } from '@tanstack/react-query';
-import { getApiRoot } from '@/lib/auth/auth-client';
-import { openDb } from '@/lib/db';
-import { useActiveAccountId } from './useAccounts';
+export const ALL_TREND_FEEDS = [
+  'trending',
+  'popular',
+  'watched_weekly',
+  'played_weekly',
+  'collected_weekly',
+  'anticipated',
+  'releases',
+  'premieres',
+] as const;
 
-async function fetchFeed(feed: string, contentType: 'movie' | 'tv', limit = 100): Promise<TrendsFeedResponse | null> {
-  const baseApi = getApiRoot();
-  const url = `${baseApi}/user/trends?feed=${encodeURIComponent(feed)}&content_type=${contentType}&limit=${limit}`;
-  const res = await fetch(url, {
-    method: 'GET',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as TrendsFeedResponse;
-}
+export type TrendFeed = (typeof ALL_TREND_FEEDS)[number];
 
-type LocalItemRow = {
-  id: string;
-  title: string;
-  poster_url?: string | null;
-  backdrop_url?: string | null;
-  source_id?: string | null;
-  tmdb_id?: string | null;
-};
-
-async function fetchLocalItemsByTmdbIds(
-  accountId: string | undefined,
-  type: 'movie' | 'tv',
-  tmdbIds: number[]
-): Promise<Map<string, LocalItemRow>> {
-  const map = new Map<string, LocalItemRow>();
-  if (!tmdbIds || tmdbIds.length === 0) return map;
-  const db = await openDb();
-  const placeholders = tmdbIds.map(() => '?').join(',');
-  const params: any[] = [];
-  const where: string[] = [];
-  where.push(`type = ${type === 'movie' ? `'movie'` : `'series'`}`);
-  if (accountId) {
-    where.push(`account_id = ?`);
-    params.push(accountId);
-  }
-  // tmdb_id is stored as TEXT
-  params.push(...tmdbIds.map((id) => String(id)));
-  const sql = `SELECT id, title, poster_url, backdrop_url, source_id, tmdb_id FROM content_items WHERE ${where.join(
-    ' AND '
-  )} AND tmdb_id IN (${placeholders})`;
-  const rows = (await db.getAllAsync(sql, params)) as LocalItemRow[];
-  for (const r of rows) {
-    const key = String(r.tmdb_id || '').trim();
-    if (key && !map.has(key)) {
-      map.set(key, r);
-    }
-  }
-  return map;
-}
-
-export type UiTrendItem = {
-  id: string; // local content_items.id
-  title: string;
-  posterUrl?: string | null;
-  tmdbId?: number | null;
-  sourceId?: string | null;
-};
+// Feeds currently supported and cached for the dashboard UI
+export const DASHBOARD_TREND_FEEDS = [
+  'trending',
+  'popular',
+  'watched_weekly',
+  'anticipated',
+] as const satisfies readonly TrendFeed[];
 
 export type UseDashboardTrendsResult = {
-  trendingMovies: UiTrendItem[];
-  trendingSeries: UiTrendItem[];
+  movies: Partial<Record<TrendFeed, TrendsFeedResponse | null>>;
+  series: Partial<Record<TrendFeed, TrendsFeedResponse | null>>;
   isLoading: boolean;
   error?: Error | null;
 };
 
-export function useDashboardTrends(limitPerRow = 20): UseDashboardTrendsResult {
-  const { accountId, isLoading: accountsLoading } = useActiveAccountId();
-
-  const query = useQuery({
-    queryKey: ['ui', 'dashboard', 'trends', limitPerRow, accountId ?? null],
-    enabled: !accountsLoading,
-    queryFn: async (): Promise<{ movies: UiTrendItem[]; series: UiTrendItem[] }> => {
-      const [feedMovies, feedSeries] = await Promise.all([
-        fetchFeed('trending', 'movie', 100),
-        fetchFeed('trending', 'tv', 100),
-      ]);
-
-      const movieTmdbIds = (feedMovies?.items || [])
-        .map((i) => (i.tmdb_id == null ? null : Number(i.tmdb_id)))
-        .filter((n): n is number => Number.isFinite(n));
-      const seriesTmdbIds = (feedSeries?.items || [])
-        .map((i) => (i.tmdb_id == null ? null : Number(i.tmdb_id)))
-        .filter((n): n is number => Number.isFinite(n));
-
-      const [localMoviesMap, localSeriesMap] = await Promise.all([
-        fetchLocalItemsByTmdbIds(accountId || undefined, 'movie', movieTmdbIds),
-        fetchLocalItemsByTmdbIds(accountId || undefined, 'tv', seriesTmdbIds),
-      ]);
-
-      const mapOrdered = (
-        feed: TrendsFeedResponse | null,
-        localMap: Map<string, LocalItemRow>
-      ): UiTrendItem[] => {
-        if (!feed) return [];
-        const out: UiTrendItem[] = [];
-        for (const item of feed.items) {
-          const key = item.tmdb_id == null ? '' : String(item.tmdb_id);
-          if (!key) continue;
-          const local = localMap.get(key);
-          if (!local) continue;
-          out.push({
-            id: local.id,
-            title: local.title || item.title,
-            posterUrl: local.poster_url || local.backdrop_url || null,
-            tmdbId: item.tmdb_id ?? undefined,
-            sourceId: local.source_id || undefined,
-          });
-          if (out.length >= limitPerRow) break;
-        }
-        return out;
-      };
-
-      const movies = mapOrdered(feedMovies, localMoviesMap);
-      const series = mapOrdered(feedSeries, localSeriesMap);
-      return { movies, series };
-    },
-    staleTime: 300_000,
-    gcTime: 900_000,
-    refetchOnWindowFocus: false,
-    keepPreviousData: true,
-  });
+// Helper function to enhance trends response with local poster data
+async function enhanceTrendsResponse(
+  response: TrendsFeedResponse,
+  contentType: 'movie' | 'tv'
+): Promise<TrendsFeedResponse> {
+  const localType = contentType === 'tv' ? 'series' : 'movie';
+  const enhancedItems = await Promise.all(
+    (response.items || []).map(async (item) => {
+      if (!item.tmdb_id)
+        return {
+          ...item,
+          poster_path: item.poster_path ?? null,
+          local_id: null,
+        };
+      const local = await getContentItemData(
+        String(item.tmdb_id),
+        localType as any
+      );
+      const poster = (local as any)?.poster_url || null;
+      return {
+        ...item,
+        poster_path: poster,
+        local_id: (local as any)?.id || null,
+      } as TrendItem;
+    })
+  );
 
   return {
-    trendingMovies: query.data?.movies || [],
-    trendingSeries: query.data?.series || [],
-    isLoading: query.isLoading,
-    error: (query.error as Error) || null,
+    ...response,
+    items: enhancedItems,
+    count: enhancedItems.length,
+  };
+}
+
+export function useDashboardTrends(): UseDashboardTrendsResult {
+  // Movie feeds
+  const movieQueries = useQueries({
+    queries: DASHBOARD_TREND_FEEDS.map((feed) => ({
+      queryKey: ['trends', 'movie', feed],
+      queryFn: async () => {
+        const response = await apiClient.user.getDashboardTrends({
+          feed,
+          content_type: 'movie',
+          limit: 20,
+        });
+        return enhanceTrendsResponse(response, 'movie');
+      },
+      refetchOnWindowFocus: false,
+    })),
+  });
+
+  // Series feeds
+  const seriesQueries = useQueries({
+    queries: DASHBOARD_TREND_FEEDS.map((feed) => ({
+      queryKey: ['trends', 'tv', feed],
+      queryFn: async () => {
+        const response = await apiClient.user.getDashboardTrends({
+          feed,
+          content_type: 'tv',
+          limit: 20,
+        });
+        return enhanceTrendsResponse(response, 'tv');
+      },
+      refetchOnWindowFocus: false,
+    })),
+  });
+
+  const movies = movieQueries.reduce<
+    Partial<Record<TrendFeed, TrendsFeedResponse | null>>
+  >((acc, q, idx) => {
+    acc[DASHBOARD_TREND_FEEDS[idx]] = q.data || null;
+    return acc;
+  }, {});
+
+  const series = seriesQueries.reduce<
+    Partial<Record<TrendFeed, TrendsFeedResponse | null>>
+  >((acc, q, idx) => {
+    acc[DASHBOARD_TREND_FEEDS[idx]] = q.data || null;
+    return acc;
+  }, {});
+
+  const isLoading =
+    movieQueries.some((q) => q.isLoading) ||
+    seriesQueries.some((q) => q.isLoading);
+  const movieError = movieQueries.find((q) => q.error)?.error;
+  const seriesError = seriesQueries.find((q) => q.error)?.error;
+  const error = (movieError || seriesError) as Error | null;
+
+  return {
+    movies,
+    series,
+    isLoading,
+    error,
   };
 }

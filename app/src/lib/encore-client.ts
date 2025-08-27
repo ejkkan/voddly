@@ -360,6 +360,7 @@ export namespace user {
       this.getAvailableLanguages = this.getAvailableLanguages.bind(this);
       this.getContentWatchState = this.getContentWatchState.bind(this);
       this.getCurrentUser = this.getCurrentUser.bind(this);
+      this.getDashboardTrends = this.getDashboardTrends.bind(this);
       this.getLanguagesByTmdb = this.getLanguagesByTmdb.bind(this);
       this.getMetadataForContent = this.getMetadataForContent.bind(this);
       this.getProfileSources = this.getProfileSources.bind(this);
@@ -753,6 +754,30 @@ export namespace user {
       return (await resp.json()) as User;
     }
 
+    public async getDashboardTrends(params: {
+      feed: endpoints.TrendFeed;
+      content_type: endpoints.TrendsContentType;
+      limit?: number;
+      refresh?: boolean;
+    }): Promise<endpoints.TrendsResponse> {
+      // Convert our params into the objects we need for the request
+      const query = makeRecord<string, string | string[]>({
+        content_type: String(params['content_type']),
+        feed: String(params.feed),
+        limit: params.limit === undefined ? undefined : String(params.limit),
+        refresh:
+          params.refresh === undefined ? undefined : String(params.refresh),
+      });
+
+      const resp = await this.baseClient.callTypedAPI(
+        'GET',
+        `/user/trends`,
+        undefined,
+        { query }
+      );
+      return (await resp.json()) as endpoints.TrendsResponse;
+    }
+
     /**
      * TMDB-first endpoint: check DB by TMDB, fetch/store metadata if missing, return languages
      */
@@ -851,7 +876,7 @@ export namespace user {
     /**
      * Get sources for account
      */
-    public async getSources(accountId?: string): Promise<{
+    public async getSources(): Promise<{
       sources: endpoints.SourceRow[];
       keyData?: {
         master_key_wrapped: string;
@@ -860,7 +885,6 @@ export namespace user {
       };
     }> {
       // Now make the actual call to the API
-      // Note: accountId parameter is ignored since users have only one account
       const resp = await this.baseClient.callTypedAPI(
         'GET',
         `/account/sources`
@@ -1585,6 +1609,18 @@ export namespace endpoints {
     download_count?: number;
     uploader?: string;
   }
+
+  export type TrendFeed =
+    | 'trending'
+    | 'popular'
+    | 'watched_weekly'
+    | 'played_weekly'
+    | 'collected_weekly'
+    | 'anticipated'
+    | 'releases'
+    | 'premieres';
+
+  export type TrendsContentType = 'movie' | 'tv';
 
   export interface UpdatePassphraseRequest {
     currentPassphrase: string;

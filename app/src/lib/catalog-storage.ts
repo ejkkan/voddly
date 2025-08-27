@@ -1,7 +1,6 @@
 'use client';
 
 import { openDb } from './db';
-import { normalizeImageUrl } from './url-utils';
 
 export interface CatalogData {
   categories?: any[];
@@ -63,27 +62,9 @@ export class MobileCatalogStorage {
         srcId,
         safeData.categories || []
       );
-      await this.insertMovies(
-        db,
-        accountId,
-        srcId,
-        safeData.movies || [],
-        server
-      );
-      await this.insertSeries(
-        db,
-        accountId,
-        srcId,
-        safeData.series || [],
-        server
-      );
-      await this.insertChannels(
-        db,
-        accountId,
-        srcId,
-        safeData.channels || [],
-        server
-      );
+      await this.insertMovies(db, accountId, srcId, safeData.movies || []);
+      await this.insertSeries(db, accountId, srcId, safeData.series || []);
+      await this.insertChannels(db, accountId, srcId, safeData.channels || []);
 
       await db.execAsync('COMMIT');
       if (__DEV__)
@@ -128,13 +109,12 @@ export class MobileCatalogStorage {
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    movies: any[],
-    server?: string
+    movies: any[]
   ) {
     for (const m of movies) {
       const sourceItemId = String(m.stream_id ?? m.num ?? '');
       const itemId = `${srcId}:movie:${sourceItemId}`;
-      const poster = normalizeImageUrl(String(m.stream_icon ?? ''), server);
+      const poster = String(m.stream_icon ?? '');
       // Extract tmdb id if present under common provider keys
       const tmdbId = String(m.tmdb_id ?? m.tmdb ?? '').trim() || null;
       await db.runAsync(
@@ -184,17 +164,16 @@ export class MobileCatalogStorage {
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    series: any[],
-    server?: string
+    series: any[]
   ) {
     for (const s of series) {
       const sourceItemId = String(s.series_id ?? s.num ?? '');
       const itemId = `${srcId}:series:${sourceItemId}`;
-      const poster = normalizeImageUrl(String(s.cover ?? ''), server);
+      const poster = String(s.cover ?? '');
       const backdropCandidate = Array.isArray(s.backdrop_path)
         ? String(s.backdrop_path[0] ?? '')
         : null;
-      const backdrop = normalizeImageUrl(backdropCandidate || '', server);
+      const backdrop = backdropCandidate || '';
       const tmdbId = String(s.tmdb_id ?? s.tmdb ?? '').trim() || null;
       await db.runAsync(
         `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json, tmdb_id)
@@ -241,13 +220,12 @@ export class MobileCatalogStorage {
     db: Awaited<ReturnType<typeof openDb>>,
     accountId: string,
     srcId: string,
-    channels: any[],
-    server?: string
+    channels: any[]
   ) {
     for (const c of channels) {
       const sourceItemId = String(c.stream_id ?? c.num ?? '');
       const itemId = `${srcId}:live:${sourceItemId}`;
-      const poster = normalizeImageUrl(String(c.stream_icon ?? ''), server);
+      const poster = String(c.stream_icon ?? '');
       await db.runAsync(
         `INSERT OR IGNORE INTO content_items (account_id, id, source_id, source_item_id, type, title, description, poster_url, backdrop_url, release_date, rating, rating_5based, is_adult, added_at, last_modified, popularity, original_payload_json)
          VALUES ($account_id, $id, $source_id, $source_item_id, 'live', $title, NULL, $poster_url, NULL, NULL, 0, 0, $is_adult, $added_at, NULL, NULL, $payload)`,
