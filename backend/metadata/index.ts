@@ -19,5 +19,12 @@ export type {
   TMDBTVDetails,
 } from './types';
 
+export type {
+  TrendFeed,
+  TrendsContentType,
+  TrendItem,
+  TrendsResponse,
+} from './endpoints/trends';
+
 // Ensure cron jobs are registered by importing their modules for side effects
 import './cron/trends';

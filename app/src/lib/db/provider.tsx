@@ -1,6 +1,7 @@
-import React from 'react';
 import { SQLiteProvider } from 'expo-sqlite';
+import React from 'react';
 import { Platform } from 'react-native';
+
 import { migrateDbIfNeeded } from './migrations';
 
 export function DbProvider({ children }: { children: React.ReactNode }) {

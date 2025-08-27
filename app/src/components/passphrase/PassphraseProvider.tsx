@@ -3,17 +3,14 @@ import React, {
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
 } from 'react';
-import { Platform, Modal, Keyboard } from 'react-native';
-import { Text, View, TouchableOpacity } from '@/components/ui';
+import { Keyboard, Modal, Platform } from 'react-native';
+
+import { Text, TouchableOpacity, View } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { passphraseCache } from '@/lib/passphrase-cache';
-import {
-  registerPassphraseResolver,
-  getRegisteredPassphraseResolver,
-} from '@/lib/passphrase-ui';
+import { registerPassphraseResolver } from '@/lib/passphrase-ui';
 
 type PromptState = {
   visible: boolean;

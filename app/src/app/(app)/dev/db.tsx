@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
+
 import {
+  Pressable,
   SafeAreaView,
   ScrollView,
-  View,
   Text,
-  Pressable,
+  View,
 } from '@/components/ui';
 import { openDb } from '@/lib/db';
 import { resetDatabase } from '@/lib/db/migrations';

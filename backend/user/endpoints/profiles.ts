@@ -12,6 +12,7 @@ interface Profile {
   account_id: string;
   name: string;
   has_source_restrictions: boolean;
+  is_owner: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -23,13 +24,11 @@ interface ProfileSource {
 
 interface CreateProfileRequest {
   name: string;
-  hasSourceRestrictions?: boolean;
   allowedSources?: string[];
 }
 
 interface UpdateProfileRequest {
   name?: string;
-  hasSourceRestrictions?: boolean;
   allowedSources?: string[];
 }
 
@@ -68,7 +67,7 @@ export const getProfiles = api(
         id, 
         account_id, 
         name, 
-        has_source_restrictions,
+        is_owner,
         created_at,
         updated_at
       FROM profiles
@@ -81,20 +80,18 @@ export const getProfiles = api(
     for await (const profile of profileRows) {
       const profileWithSources: ProfileWithSources = { ...profile };
 
-      // If profile has source restrictions, get the allowed sources
-      if (profile.has_source_restrictions) {
-        const sourceRows = userDB.query<{ source_id: string }>`
-          SELECT source_id 
-          FROM profile_sources 
-          WHERE profile_id = ${profile.id}
-        `;
+      // Get the allowed sources for this profile
+      const sourceRows = userDB.query<{ source_id: string }>`
+        SELECT source_id 
+        FROM profile_sources 
+        WHERE profile_id = ${profile.id}
+      `;
 
-        const allowedSources: string[] = [];
-        for await (const row of sourceRows) {
-          allowedSources.push(row.source_id);
-        }
-        profileWithSources.allowedSources = allowedSources;
+      const allowedSources: string[] = [];
+      for await (const row of sourceRows) {
+        allowedSources.push(row.source_id);
       }
+      profileWithSources.allowedSources = allowedSources;
 
       profiles.push(profileWithSources);
     }
@@ -113,9 +110,10 @@ export const createProfile = api(
   },
   async ({
     name,
-    hasSourceRestrictions = false,
     allowedSources = [],
-  }: CreateProfileRequest): Promise<{ profileId: string }> => {
+  }: CreateProfileRequest): Promise<{
+    profileId: string;
+  }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
@@ -129,6 +127,18 @@ export const createProfile = api(
 
     if (!account) {
       throw APIError.notFound('No account found for user');
+    }
+
+    // Check if user is the account owner by checking if they have an owner profile
+    const ownerProfile = await userDB.queryRow<{ id: string }>`
+      SELECT id FROM profiles 
+      WHERE account_id = ${account.id} AND is_owner = true
+    `;
+
+    if (!ownerProfile) {
+      throw APIError.permissionDenied(
+        'Only account owners can create profiles'
+      );
     }
 
     // Check profile limits based on subscription tier
@@ -146,14 +156,14 @@ export const createProfile = api(
     const profileId = crypto.randomUUID();
 
     try {
-      // Create the profile
+      // Create the profile (only the account owner can create profiles)
       await userDB.exec`
-        INSERT INTO profiles (id, account_id, name, has_source_restrictions)
-        VALUES (${profileId}, ${account.id}, ${name}, ${hasSourceRestrictions})
+        INSERT INTO profiles (id, account_id, name, is_owner)
+        VALUES (${profileId}, ${account.id}, ${name}, false)
       `;
 
-      // If source restrictions are enabled, add the allowed sources
-      if (hasSourceRestrictions && allowedSources.length > 0) {
+      // If specific sources are provided, add them to profile_sources
+      if (allowedSources.length > 0) {
         for (const sourceId of allowedSources) {
           await userDB.exec`
             INSERT INTO profile_sources (profile_id, source_id)
@@ -162,6 +172,7 @@ export const createProfile = api(
           `;
         }
       }
+      // If no sources provided, profile will have access to all sources (no restrictions)
     } catch (error: any) {
       if (error.code === '23505') {
         // Unique constraint violation
@@ -187,7 +198,6 @@ export const updateProfile = api(
   async ({
     profileId,
     name,
-    hasSourceRestrictions,
     allowedSources,
   }: UpdateProfileRequest & { profileId: string }): Promise<{
     success: boolean;
@@ -195,12 +205,25 @@ export const updateProfile = api(
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
+    // First check if the current user is the account owner
+    const userAccount = await userDB.queryRow<{
+      account_id: string;
+    }>`
+      SELECT a.id as account_id
+      FROM accounts a
+      JOIN profiles p ON a.id = p.account_id
+      WHERE a.user_id = ${auth.userID} AND p.is_owner = true
+    `;
+
+    if (!userAccount) {
+      throw APIError.permissionDenied('Only account owners can edit profiles');
+    }
+
     // Verify the profile belongs to the user's account
     const profile = await userDB.queryRow<{ account_id: string }>`
       SELECT p.account_id 
       FROM profiles p
-      JOIN accounts a ON p.account_id = a.id
-      WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
+      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
     `;
 
     if (!profile) {
@@ -217,14 +240,6 @@ export const updateProfile = api(
         `;
       }
 
-      if (hasSourceRestrictions !== undefined) {
-        await userDB.exec`
-          UPDATE profiles 
-          SET has_source_restrictions = ${hasSourceRestrictions}, updated_at = CURRENT_TIMESTAMP
-          WHERE id = ${profileId}
-        `;
-      }
-
       // Update allowed sources if provided
       if (allowedSources !== undefined) {
         // Clear existing sources
@@ -232,8 +247,8 @@ export const updateProfile = api(
           DELETE FROM profile_sources WHERE profile_id = ${profileId}
         `;
 
-        // Add new sources if restrictions are enabled
-        if (hasSourceRestrictions !== false && allowedSources.length > 0) {
+        // Add new sources if any are specified
+        if (allowedSources.length > 0) {
           for (const sourceId of allowedSources) {
             await userDB.exec`
               INSERT INTO profile_sources (profile_id, source_id)
@@ -242,6 +257,7 @@ export const updateProfile = api(
             `;
           }
         }
+        // If allowedSources is empty, profile will have access to all sources (no restrictions)
       }
     } catch (error: any) {
       if (error.code === '23505') {
@@ -272,21 +288,43 @@ export const deleteProfile = api(
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
+    // First check if the current user is the account owner
+    const userAccount = await userDB.queryRow<{
+      account_id: string;
+    }>`
+      SELECT a.id as account_id
+      FROM accounts a
+      JOIN profiles p ON a.id = p.account_id
+      WHERE a.user_id = ${auth.userID} AND p.is_owner = true
+    `;
+
+    if (!userAccount) {
+      throw APIError.permissionDenied(
+        'Only account owners can delete profiles'
+      );
+    }
+
     // Verify the profile belongs to the user's account and is not the only profile
     const profileCheck = await userDB.queryRow<{
-      account_id: string;
       profile_count: number;
     }>`
       SELECT 
-        p.account_id,
-        (SELECT COUNT(*) FROM profiles WHERE account_id = p.account_id) as profile_count
+        (SELECT COUNT(*) FROM profiles WHERE account_id = ${userAccount.account_id}) as profile_count
       FROM profiles p
-      JOIN accounts a ON p.account_id = a.id
-      WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
+      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
     `;
 
     if (!profileCheck) {
       throw APIError.notFound('Profile not found');
+    }
+
+    // Prevent deleting the owner profile
+    const isOwnerProfile = await userDB.queryRow<{ is_owner: boolean }>`
+      SELECT is_owner FROM profiles WHERE id = ${profileId}
+    `;
+
+    if (isOwnerProfile?.is_owner) {
+      throw APIError.failedPrecondition('Cannot delete the owner profile');
     }
 
     if (profileCheck.profile_count <= 1) {
@@ -301,62 +339,7 @@ export const deleteProfile = api(
   }
 );
 
-// Get sources accessible to a profile
-export const getProfileSources = api(
-  {
-    expose: true,
-    auth: true,
-    method: 'GET',
-    path: '/profiles/:profileId/sources',
-  },
-  async ({ profileId }: { profileId: string }): Promise<{ sources: any[] }> => {
-    const auth = getAuthData();
-    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
-
-    // Verify the profile belongs to the user's account
-    const profile = await userDB.queryRow<{
-      account_id: string;
-      has_source_restrictions: boolean;
-    }>`
-      SELECT p.account_id, p.has_source_restrictions
-      FROM profiles p
-      JOIN accounts a ON p.account_id = a.id
-      WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
-    `;
-
-    if (!profile) {
-      throw APIError.notFound('Profile not found');
-    }
-
-    // Get sources based on restrictions
-    let sourceQuery;
-    if (profile.has_source_restrictions) {
-      // Only get explicitly allowed sources
-      sourceQuery = userDB.query`
-        SELECT s.id, s.name, s.provider_type, s.encrypted_config, s.config_iv, s.is_active
-        FROM sources s
-        JOIN profile_sources ps ON s.id = ps.source_id
-        WHERE ps.profile_id = ${profileId} AND s.is_active = true
-        ORDER BY s.created_at DESC
-      `;
-    } else {
-      // Get all account sources
-      sourceQuery = userDB.query`
-        SELECT id, name, provider_type, encrypted_config, config_iv, is_active
-        FROM sources
-        WHERE account_id = ${profile.account_id} AND is_active = true
-        ORDER BY created_at DESC
-      `;
-    }
-
-    const sources = [];
-    for await (const source of sourceQuery) {
-      sources.push(source);
-    }
-
-    return { sources };
-  }
-);
+// Note: getProfileSources has been moved to profile-sources.ts for enhanced functionality
 
 // Helper function to determine profile limits based on subscription tier
 function getProfileLimit(tier: string): number {
@@ -404,5 +387,336 @@ export const switchProfile = api(
     // or update last_used timestamp
 
     return { success: true };
+  }
+);
+
+// Check if current user is owner of a profile
+export const isProfileOwner = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'GET',
+    path: '/profiles/:profileId/owner',
+  },
+  async ({
+    profileId,
+  }: {
+    profileId: string;
+  }): Promise<{ isOwner: boolean }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // Get user's account
+    const account = await userDB.queryRow<{ id: string }>`
+      SELECT id FROM accounts WHERE user_id = ${auth.userID}
+    `;
+
+    if (!account) {
+      throw APIError.notFound('No account found for user');
+    }
+
+    // Check if the profile belongs to the user's account and is owned by them
+    const profile = await userDB.queryRow<{ is_owner: boolean }>`
+      SELECT is_owner 
+      FROM profiles 
+      WHERE id = ${profileId} AND account_id = ${account.id}
+    `;
+
+    if (!profile) {
+      throw APIError.notFound('Profile not found');
+    }
+
+    return { isOwner: profile.is_owner };
+  }
+);
+
+// Owner-only: Update profile (only owner can modify profiles)
+export const updateProfileAsOwner = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'PUT',
+    path: '/profiles/:profileId/owner',
+  },
+  async ({
+    profileId,
+    name,
+    allowedSources,
+  }: UpdateProfileRequest & { profileId: string }): Promise<{
+    success: boolean;
+  }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // Verify the profile belongs to the user's account and they are the owner
+    const profile = await userDB.queryRow<{
+      account_id: string;
+      is_owner: boolean;
+    }>`
+      SELECT p.account_id, p.is_owner
+      FROM profiles p
+      JOIN accounts a ON p.account_id = a.id
+      WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
+    `;
+
+    if (!profile) {
+      throw APIError.notFound('Profile not found');
+    }
+
+    if (!profile.is_owner) {
+      throw APIError.permissionDenied('Only profile owner can modify profiles');
+    }
+
+    try {
+      // Update profile fields if provided
+      if (name !== undefined) {
+        await userDB.exec`
+          UPDATE profiles 
+          SET name = ${name}, updated_at = CURRENT_TIMESTAMP
+          WHERE id = ${profileId}
+        `;
+      }
+
+      // Update allowed sources if provided
+      if (allowedSources !== undefined) {
+        // Clear existing sources
+        await userDB.exec`
+          DELETE FROM profile_sources WHERE profile_id = ${profileId}
+        `;
+
+        // Add new sources if any are specified
+        if (allowedSources.length > 0) {
+          for (const sourceId of allowedSources) {
+            await userDB.exec`
+              INSERT INTO profile_sources (profile_id, source_id)
+              VALUES (${profileId}, ${sourceId})
+              ON CONFLICT DO NOTHING
+            `;
+          }
+        }
+        // If allowedSources is empty, profile will have access to all sources (no restrictions)
+      }
+    } catch (error: any) {
+      if (error.code === '23505') {
+        throw APIError.alreadyExists(
+          `Profile with name '${name}' already exists`
+        );
+      }
+      throw APIError.internal('Failed to update profile');
+    }
+
+    return { success: true };
+  }
+);
+
+// Owner-only: Delete profile (only owner can delete profiles)
+export const deleteProfileAsOwner = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'DELETE',
+    path: '/profiles/:profileId/owner',
+  },
+  async ({
+    profileId,
+  }: {
+    profileId: string;
+  }): Promise<{ success: boolean }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // First check if the current user is the account owner
+    const userAccount = await userDB.queryRow<{
+      account_id: string;
+    }>`
+      SELECT a.id as account_id
+      FROM accounts a
+      JOIN profiles p ON a.id = p.account_id
+      WHERE a.user_id = ${auth.userID} AND p.is_owner = true
+    `;
+
+    if (!userAccount) {
+      throw APIError.permissionDenied(
+        'Only account owners can delete profiles'
+      );
+    }
+
+    // Verify the profile belongs to the user's account
+    const profileCheck = await userDB.queryRow<{
+      profile_count: number;
+    }>`
+      SELECT 
+        (SELECT COUNT(*) FROM profiles WHERE account_id = ${userAccount.account_id}) as profile_count
+      FROM profiles p
+      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
+    `;
+
+    if (!profileCheck) {
+      throw APIError.notFound('Profile not found');
+    }
+
+    // Prevent deleting the owner profile
+    const isOwnerProfile = await userDB.queryRow<{ is_owner: boolean }>`
+      SELECT is_owner FROM profiles WHERE id = ${profileId}
+    `;
+
+    if (isOwnerProfile?.is_owner) {
+      throw APIError.failedPrecondition('Cannot delete the owner profile');
+    }
+
+    if (profileCheck.profile_count <= 1) {
+      throw APIError.failedPrecondition('Cannot delete the last profile');
+    }
+
+    await userDB.exec`
+      DELETE FROM profiles WHERE id = ${profileId}
+    `;
+
+    return { success: true };
+  }
+);
+
+// Owner-only: Create a new profile (only account owner can create profiles)
+export const createProfileAsOwner = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'POST',
+    path: '/profiles/owner',
+  },
+  async ({
+    name,
+    allowedSources = [],
+  }: CreateProfileRequest): Promise<{ profileId: string }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // Get user's account
+    const account = await userDB.queryRow<{
+      id: string;
+      subscription_tier: string;
+    }>`
+      SELECT id, subscription_tier FROM accounts WHERE user_id = ${auth.userID}
+    `;
+
+    if (!account) {
+      throw APIError.notFound('No account found for user');
+    }
+
+    // Check if user is the account owner by checking if they have an owner profile
+    const ownerProfile = await userDB.queryRow<{ id: string }>`
+      SELECT id FROM profiles 
+      WHERE account_id = ${account.id} AND is_owner = true
+    `;
+
+    if (!ownerProfile) {
+      throw APIError.permissionDenied(
+        'Only account owners can create profiles'
+      );
+    }
+
+    // Check profile limits based on subscription tier
+    const currentProfileCount = await userDB.queryRow<{ count: number }>`
+      SELECT COUNT(*) as count FROM profiles WHERE account_id = ${account.id}
+    `;
+
+    const profileLimit = getProfileLimit(account.subscription_tier);
+    if (currentProfileCount && currentProfileCount.count >= profileLimit) {
+      throw APIError.resourceExhausted(
+        `Profile limit reached. ${account.subscription_tier} plan allows ${profileLimit} profiles.`
+      );
+    }
+
+    const profileId = crypto.randomUUID();
+
+    try {
+      // Create the profile (non-owner profile)
+      await userDB.exec`
+        INSERT INTO profiles (id, account_id, name, is_owner)
+        VALUES (${profileId}, ${account.id}, ${name}, false)
+      `;
+
+      // If specific sources are provided, add them to profile_sources
+      if (allowedSources.length > 0) {
+        for (const sourceId of allowedSources) {
+          await userDB.exec`
+            INSERT INTO profile_sources (profile_id, source_id)
+            VALUES (${profileId}, ${sourceId})
+            ON CONFLICT DO NOTHING
+          `;
+        }
+      }
+      // If no sources provided, profile will have access to all sources (no restrictions)
+    } catch (error: any) {
+      if (error.code === '23505') {
+        // Unique constraint violation
+        throw APIError.alreadyExists(
+          `Profile with name '${name}' already exists`
+        );
+      }
+      throw APIError.internal('Failed to create profile');
+    }
+
+    return { profileId };
+  }
+);
+
+// Fix owner status for existing profiles (one-time fix for migration issues)
+export const fixProfileOwnerStatus = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'POST',
+    path: '/profiles/fix-owner-status',
+  },
+  async (): Promise<{ success: boolean; message: string }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    // Get user's account
+    const account = await userDB.queryRow<{ id: string }>`
+      SELECT id FROM accounts WHERE user_id = ${auth.userID}
+    `;
+
+    if (!account) {
+      throw APIError.notFound('No account found for user');
+    }
+
+    // Check if there's already an owner profile
+    const existingOwner = await userDB.queryRow<{ id: string }>`
+      SELECT id FROM profiles 
+      WHERE account_id = ${account.id} AND is_owner = true
+    `;
+
+    if (existingOwner) {
+      return {
+        success: true,
+        message: 'Account already has an owner profile',
+      };
+    }
+
+    // Find the first profile (oldest) and make it the owner
+    const firstProfile = await userDB.queryRow<{ id: string; name: string }>`
+      SELECT id, name FROM profiles 
+      WHERE account_id = ${account.id}
+      ORDER BY created_at ASC
+      LIMIT 1
+    `;
+
+    if (!firstProfile) {
+      throw APIError.notFound('No profiles found for account');
+    }
+
+    // Update the first profile to be the owner
+    await userDB.exec`
+      UPDATE profiles 
+      SET is_owner = true 
+      WHERE id = ${firstProfile.id}
+    `;
+
+    return {
+      success: true,
+      message: `Profile '${firstProfile.name}' is now the account owner`,
+    };
   }
 );

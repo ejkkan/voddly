@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import {
+  Dimensions,
   FlatList,
   Modal,
   Pressable,
-  View,
-  Dimensions,
   ScrollView,
+  View,
 } from 'react-native';
+
 import { Image, Text } from '@/components/ui';
 
 interface ImageItem {
@@ -166,7 +167,7 @@ export function ImageGallery({
               <Image
                 source={{ uri: selectedImage }}
                 contentFit="contain"
-                className="h-full w-full"
+                className="size-full"
               />
             )}
           </View>
@@ -205,7 +206,7 @@ function ImageThumbnail({
       <Image
         source={{ uri: imageUrl }}
         contentFit="cover"
-        className="h-full w-full"
+        className="size-full"
       />
     </Pressable>
   );

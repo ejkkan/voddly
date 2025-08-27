@@ -4,22 +4,23 @@ import '../../global.css';
 // Re-enable BottomSheet provider for components like Select/Modal
 // @ts-ignore
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { ThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 // @ts-ignore
 import { Stack } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
-import { ThemeProvider } from '@react-navigation/native';
 import FlashMessage from 'react-native-flash-message';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { PassphraseProvider } from '@/components/passphrase/PassphraseProvider';
 // Removed APIProvider – old API layer not used anymore
 import { loadSelectedTheme } from '@/lib';
 import { AppToasterHost } from '@/lib';
-import { useThemeConfig } from '@/lib/use-theme-config';
 import { DbProvider } from '@/lib/db/provider';
+import { useThemeConfig } from '@/lib/use-theme-config';
 
 // Install atob shim as early as possible on web to handle URL-safe base64 and missing padding
 
@@ -110,26 +111,28 @@ export default function RootLayout() {
 function Providers({ children }: { children: React.ReactNode }) {
   const theme = useThemeConfig();
   return (
-    <GestureHandlerRootView
-      style={styles.container}
-      className={theme.dark ? 'dark' : undefined}
-    >
-      <KeyboardProvider>
-        <ThemeProvider value={theme}>
-          <QueryClientProvider client={queryClient}>
-            <DbProvider>
-              <PassphraseProvider>
-                <BottomSheetModalProvider>
-                  {children}
-                  <AppToasterHost />
-                </BottomSheetModalProvider>
-              </PassphraseProvider>
-            </DbProvider>
-            <FlashMessage position="top" />
-          </QueryClientProvider>
-        </ThemeProvider>
-      </KeyboardProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView
+        style={styles.container}
+        className={theme.dark ? 'dark' : undefined}
+      >
+        <KeyboardProvider>
+          <ThemeProvider value={theme}>
+            <QueryClientProvider client={queryClient}>
+              <DbProvider>
+                <PassphraseProvider>
+                  <BottomSheetModalProvider>
+                    {children}
+                    <AppToasterHost />
+                  </BottomSheetModalProvider>
+                </PassphraseProvider>
+              </DbProvider>
+              <FlashMessage position="top" />
+            </QueryClientProvider>
+          </ThemeProvider>
+        </KeyboardProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 

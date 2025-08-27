@@ -5,13 +5,13 @@ export function shouldDebug(): boolean {
     if (typeof g.__PASS_DEBUG === 'boolean') return g.__PASS_DEBUG;
   } catch {}
   // Default to dev builds
-  // eslint-disable-next-line no-undef
+
   return typeof __DEV__ !== 'undefined' ? !!__DEV__ : false;
 }
 
 export function debugLog(...args: any[]) {
   if (!shouldDebug()) return;
   // Prefix for easy filtering
-  // eslint-disable-next-line no-console
+
   console.log('[passphrase]', ...args);
 }

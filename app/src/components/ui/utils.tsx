@@ -1,8 +1,8 @@
+import { Dimensions, Platform } from 'react-native';
+import { showMessage } from 'react-native-flash-message';
 type AxiosError = {
   response?: { data?: unknown } | undefined;
 };
-import { Dimensions, Platform } from 'react-native';
-import { showMessage } from 'react-native-flash-message';
 
 export const IS_IOS = Platform.OS === 'ios';
 const { width, height } = Dimensions.get('screen');

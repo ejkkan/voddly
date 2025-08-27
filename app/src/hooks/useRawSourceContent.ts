@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
-import { SourceCredentialsManager } from '@/lib/source-credentials';
+
+import { openDb } from '@/lib/db';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
-import { openDb } from '@/lib/db';
-import { constructStreamUrl, ContentType } from '@/lib/stream-url';
+import { SourceCredentialsManager } from '@/lib/source-credentials';
+import { constructStreamUrl, type ContentType } from '@/lib/stream-url';
 
 export function useRawSourceContent() {
   const prepare = useCallback(

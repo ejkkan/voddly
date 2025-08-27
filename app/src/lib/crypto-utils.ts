@@ -2,8 +2,7 @@
 
 import { gcm } from '@noble/ciphers/aes';
 import { xchacha20poly1305 } from '@noble/ciphers/chacha';
-import { toBytes } from '@noble/ciphers/utils';
-import { toByteArray, fromByteArray } from 'base64-js';
+import { fromByteArray, toByteArray } from 'base64-js';
 
 export function decodeBase64(input: string): Uint8Array {
   const fixed = input.replace(/-/g, '+').replace(/_/g, '/');

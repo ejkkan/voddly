@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
-import { showMessage } from 'react-native-flash-message';
 
 import { apiClient } from '@/lib/api-client';
 import { MobileCatalogStorage } from '@/lib/catalog-storage';
@@ -8,6 +7,8 @@ import { getIptvClient } from '@/lib/iptv/get-client';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
 import { SourceCredentialsManager } from '@/lib/source-credentials';
+import { toast, notify } from '@/lib/toast';
+import { showMessage, hideMessage } from 'react-native-flash-message';
 
 export type SourceSummary = { id: string; name: string; provider_type: string };
 
@@ -54,6 +55,21 @@ export function useSources() {
       return { accountId: first.id as string, sources: sources || [] };
     },
   });
+
+  // Store loading toast IDs for cleanup
+  const loadingToastIdRef = React.useRef<string | null>(null);
+  // Store FlashMessage reference for cleanup
+  const flashMessageRef = React.useRef<any>(null);
+
+  // Cleanup any lingering toasts on unmount
+  React.useEffect(() => {
+    return () => {
+      if (loadingToastIdRef.current) {
+        toast.dismiss(loadingToastIdRef.current);
+      }
+      // Don't hide FlashMessage on unmount - let it persist
+    };
+  }, []);
 
   const reloadMutation = useMutation({
     mutationFn: async ({ sourceId }: { sourceId: string }) => {
@@ -152,6 +168,34 @@ export function useSources() {
     onMutate: (vars) => {
       if (__DEV__) console.log('[reload] start', vars);
       setReloadingId(vars.sourceId);
+      
+      // Find the source name for a better toast message
+      const source = sourcesQuery.data?.sources?.find(s => s.id === vars.sourceId);
+      const sourceName = source?.name || 'playlist';
+      
+      // Create a persistent loading toast with a unique ID
+      const toastId = `reload-${vars.sourceId}`;
+      loadingToastIdRef.current = toastId;
+      
+      if (__DEV__) console.log('[reload] showing loading toast', toastId, sourceName);
+      
+      // Try both toast systems
+      toast.loading(`Reloading ${sourceName}...`, {
+        id: toastId,
+        duration: 999999, // Very long duration (instead of Infinity)
+      });
+      
+      // Also show with FlashMessage as fallback
+      flashMessageRef.current = showMessage({
+        message: `Reloading ${sourceName}...`,
+        description: 'Please wait while we update your playlist',
+        type: 'info',
+        duration: 999999,
+        autoHide: false,
+        floating: true,
+        hideOnPress: false, // Don't hide when pressed
+        icon: 'auto', // Show icon
+      });
     },
     onSuccess: (data) => {
       if (__DEV__) console.log('[reload] success', data);
@@ -166,23 +210,73 @@ export function useSources() {
           [data.sourceId]: { channels: data.channels },
         })
       );
-      showMessage({
-        message: 'Playlist updated',
-        description: 'Catalog stored successfully',
-        type: 'success',
+      
+      // Dismiss the loading toast
+      if (loadingToastIdRef.current) {
+        if (__DEV__) console.log('[reload] dismissing loading toast', loadingToastIdRef.current);
+        toast.dismiss(loadingToastIdRef.current);
+      }
+      
+      // Show success notification
+      const source = sourcesQuery.data?.sources?.find(s => s.id === data.sourceId);
+      const sourceName = source?.name || 'Playlist';
+      
+      if (__DEV__) console.log('[reload] showing success toast', sourceName, data.channels);
+      
+      // Try new toast
+      notify.success(`${sourceName} updated successfully!`, {
+        description: `Loaded ${data.channels} channels`,
+        duration: 4000,
       });
+      
+      // Hide loading message and show success with FlashMessage
+      hideMessage();
+      setTimeout(() => {
+        showMessage({
+          message: `${sourceName} updated successfully!`,
+          description: `Loaded ${data.channels} channels`,
+          type: 'success',
+          duration: 4000,
+          autoHide: true,
+          icon: 'success',
+        });
+      }, 100); // Small delay to ensure loading message is hidden first
     },
     onError: (err: any) => {
       if (__DEV__) console.log('[reload] error', err);
-      showMessage({
-        message: 'Reload failed',
+      
+      // Dismiss the loading toast
+      if (loadingToastIdRef.current) {
+        if (__DEV__) console.log('[reload] dismissing loading toast on error', loadingToastIdRef.current);
+        toast.dismiss(loadingToastIdRef.current);
+      }
+      
+      // Show error notification
+      if (__DEV__) console.log('[reload] showing error toast', err?.message || err);
+      
+      // Try new toast
+      notify.error('Reload failed', {
         description: String(err?.message || err),
-        type: 'danger',
+        duration: 5000,
       });
+      
+      // Hide loading message and show error with FlashMessage
+      hideMessage();
+      setTimeout(() => {
+        showMessage({
+          message: 'Reload failed',
+          description: String(err?.message || err),
+          type: 'danger',
+          duration: 5000,
+          autoHide: true,
+          icon: 'danger',
+        });
+      }, 100); // Small delay to ensure loading message is hidden first
     },
     onSettled: () => {
       if (__DEV__) console.log('[reload] settled');
       setReloadingId(null);
+      loadingToastIdRef.current = null;
       void queryClient.invalidateQueries({ queryKey: ['source-stats'] });
     },
   });

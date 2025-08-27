@@ -52,6 +52,7 @@ export default function ProtectedLayout() {
         <Stack.Screen name="series" />
         <Stack.Screen name="live" />
         <Stack.Screen name="playlists" />
+        <Stack.Screen name="profiles" />
         <Stack.Screen name="settings" />
         <Stack.Screen name="test" />
       </Stack>

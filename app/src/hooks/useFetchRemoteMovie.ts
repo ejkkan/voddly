@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { fetchXtreamVodInfo } from '@/lib/item-fetchers';
+
 import { openDb } from '@/lib/db';
+import { fetchXtreamVodInfo } from '@/lib/item-fetchers';
+import { useSourceCredentials } from '@/lib/source-credentials';
 
 export function useFetchRemoteMovie() {
   const { getCredentials } = useSourceCredentials();

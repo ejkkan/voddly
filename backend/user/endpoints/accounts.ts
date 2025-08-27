@@ -175,10 +175,10 @@ export const createAccount = api(
         )
       `;
 
-      // Create default profile
+      // Create default profile (owner)
       await userDB.exec`
-        INSERT INTO profiles (id, account_id, name)
-        VALUES (${profileId}, ${accountId}, 'Main')
+        INSERT INTO profiles (id, account_id, name, is_owner)
+        VALUES (${profileId}, ${accountId}, 'Main', true)
       `;
 
       // Create first source

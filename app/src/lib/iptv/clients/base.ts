@@ -1,7 +1,7 @@
 'use client';
 
 export type CatalogResult = {
-  categories: Array<any & { type?: 'live' | 'vod' | 'series' }>;
+  categories: (any & { type?: 'live' | 'vod' | 'series' })[];
   movies: any[];
   series: any[];
   channels: any[];

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Pressable } from '@/components/ui';
+
+import { Pressable, Text, View } from '@/components/ui';
 
 export function PlaylistCard({
   id,
@@ -30,7 +31,7 @@ export function PlaylistCard({
         {label}
         {typeof channels === 'number' ? ` • ${channels} channels` : ''}
       </Text>
-      <Text className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+      <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
         ID: {id}
       </Text>
       <View className="mt-3 flex-row gap-3">
@@ -38,7 +39,7 @@ export function PlaylistCard({
           disabled={!!isLoading}
           className={`rounded-xl px-3 py-2 ${
             isLoading && isActiveReload
-              ? 'opacity-60 border border-neutral-300 dark:border-neutral-700'
+              ? 'border border-neutral-300 opacity-60 dark:border-neutral-700'
               : 'bg-neutral-900'
           }`}
           onPress={() => onReload(id)}

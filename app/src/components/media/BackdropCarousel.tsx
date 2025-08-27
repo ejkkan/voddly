@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   View,
   type ViewToken,
-  ActivityIndicator,
 } from 'react-native';
+
 import { Image } from '@/components/ui';
 
 interface BackdropCarouselProps {
@@ -102,11 +103,11 @@ export function BackdropCarousel({
 
       {/* Pagination dots */}
       {backdrops.length > 1 && (
-        <View className="absolute bottom-4 left-0 right-0 flex-row justify-center gap-2">
+        <View className="absolute inset-x-0 bottom-4 flex-row justify-center gap-2">
           {backdrops.map((_, index) => (
             <View
               key={index}
-              className={`h-2 w-2 rounded-full ${
+              className={`size-2 rounded-full ${
                 index === currentIndex ? 'bg-white' : 'bg-white/40'
               }`}
             />

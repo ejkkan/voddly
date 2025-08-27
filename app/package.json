@@ -49,6 +49,7 @@
     "gen:client:prod": "encore gen client iptvtest-gibi --output=./src/lib/encore-client.ts --env=production"
   },
   "dependencies": {
+    "@backpackapp-io/react-native-toast": "^0.14.0",
     "@expo/metro-runtime": "^5.0.4",
     "@gorhom/bottom-sheet": "^5.0.5",
     "@hookform/resolvers": "^3.9.0",
@@ -105,7 +106,6 @@
     "react-native-web": "~0.20.0",
     "react-query-kit": "^3.3.0",
     "shaka-player": "^4.15.9",
-    "sonner": "^2.0.7",
     "tailwind-variants": "^0.2.1",
     "zod": "^3.23.8",
     "zustand": "^5.0.5"

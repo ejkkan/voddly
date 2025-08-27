@@ -1,9 +1,9 @@
+import { Link, Redirect } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Redirect } from 'expo-router';
-import { SafeAreaView, Text, View, Button } from '@/components/ui';
-import { useSession } from '@/lib/auth/hooks';
+
+import { Button, SafeAreaView, Text, View } from '@/components/ui';
 import { apiClient } from '@/lib/api-client';
-import { Link } from 'expo-router';
+import { useSession } from '@/lib/auth/hooks';
 
 export default function PublicHome() {
   const { data: session, isLoading: sessionLoading } = useSession();
@@ -52,7 +52,7 @@ export default function PublicHome() {
   // Show public landing page for non-authenticated users
   return (
     <SafeAreaView>
-      <View className="flex-1 items-center justify-center p-6 gap-6 bg-white dark:bg-black">
+      <View className="flex-1 items-center justify-center gap-6 bg-white p-6 dark:bg-black">
         <Text className="text-3xl font-bold text-neutral-900 dark:text-neutral-50">
           Welcome
         </Text>

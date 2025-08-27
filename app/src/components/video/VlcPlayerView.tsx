@@ -1,8 +1,16 @@
 import React from 'react';
-import { Dimensions, Platform, StatusBar, StyleSheet } from 'react-native';
-import { VLCPlayer } from 'react-native-vlc-media-player';
+import { Platform, StatusBar } from 'react-native';
 
 import { Pressable, Text, View } from '@/components/ui';
+
+// Try to import VLCPlayer, but fallback gracefully if it fails
+let VLCPlayer: any = null;
+try {
+  const vlcModule = require('react-native-vlc-media-player');
+  VLCPlayer = vlcModule.VLCPlayer || vlcModule.default?.VLCPlayer;
+} catch {
+  console.warn('VLC Player not available, falling back to Expo Video Player');
+}
 
 type Props = {
   url: string;
@@ -13,6 +21,8 @@ type Props = {
 
 export function VlcPlayerView(props: Props) {
   const { url, title, showBack, onBack } = props;
+
+  // Always call hooks at the top level, regardless of VLC availability
   const playerRef = React.useRef<any>(null);
   const [paused, setPaused] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -67,7 +77,28 @@ export function VlcPlayerView(props: Props) {
     return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
   };
 
-  const { width, height } = Dimensions.get('window');
+  // If VLC is not available, show a fallback message
+  if (!VLCPlayer) {
+    return (
+      <View className="flex-1 items-center justify-center bg-black">
+        <Text className="mb-4 text-lg text-white">
+          VLC Player Not Available
+        </Text>
+        <Text className="px-4 text-center text-white/70">
+          The VLC media player is not available on this device. Please use the
+          Expo Video Player instead.
+        </Text>
+        {showBack && onBack && (
+          <Pressable
+            className="mt-6 rounded-md bg-white/10 px-4 py-2"
+            onPress={onBack}
+          >
+            <Text className="text-white">Go Back</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
 
   return (
     <View className={isFull ? 'flex-1 bg-black' : 'flex-1 bg-black'}>

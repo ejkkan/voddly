@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { syncSourcesWithBackend } from './management';
 
 /**
@@ -7,14 +8,14 @@ import { syncSourcesWithBackend } from './management';
  */
 export function useSyncSources() {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: async ({
       accountId,
       backendSources,
     }: {
       accountId: string;
-      backendSources: Array<{ id: string; name: string; kind: string }>;
+      backendSources: { id: string; name: string; kind: string }[];
     }) => {
       return syncSourcesWithBackend(accountId, backendSources);
     },

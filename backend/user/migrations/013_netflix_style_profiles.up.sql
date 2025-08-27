@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   name VARCHAR(100) NOT NULL,
   has_source_restrictions BOOLEAN DEFAULT FALSE,
+  is_owner BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(account_id, name)
@@ -132,7 +133,7 @@ WHERE a.user_id = u.id
 
 -- Create profiles for each account
 -- First, create main profile for account owner
-INSERT INTO profiles (account_id, name)
+INSERT INTO profiles (account_id, name, is_owner)
 SELECT DISTINCT
   tao.account_id,
   COALESCE(
@@ -141,7 +142,8 @@ SELECT DISTINCT
       ELSE u.name
     END,
     'Main'
-  )
+  ),
+  true
 FROM temp_account_owners tao
 JOIN "user" u ON tao.user_id = u.id
 ON CONFLICT DO NOTHING;

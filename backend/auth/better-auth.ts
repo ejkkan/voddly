@@ -97,8 +97,8 @@ export const auth: any = betterAuth({
 
             // Create default profile with user's name
             await userDB.exec`
-              INSERT INTO profiles (id, account_id, name)
-              VALUES (${profileId}, ${accountId}, ${user.name || 'Main'})
+              INSERT INTO profiles (id, account_id, name, is_owner)
+              VALUES (${profileId}, ${accountId}, ${user.name || 'Main'}, true)
             `;
 
             console.log('[AUTH-HOOK] Created account and profile:', {

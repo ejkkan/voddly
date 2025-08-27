@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { fetchXtreamSeriesInfo } from '@/lib/item-fetchers';
+
 import { openDb } from '@/lib/db';
 import { parseSeriesData } from '@/lib/episode-parser';
+import { fetchXtreamSeriesInfo } from '@/lib/item-fetchers';
+import { useSourceCredentials } from '@/lib/source-credentials';
 
 export function useFetchRemoteSeries() {
   const { getCredentials } = useSourceCredentials();

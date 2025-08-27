@@ -56,15 +56,19 @@ export function parseSeriesData(data: any): {
 } {
   const episodes: ParsedEpisode[] = [];
   const seasons: ParsedSeason[] = [];
-  
+
   if (!data) {
     return { episodes, seasons };
   }
-  
+
   const seriesItemId = data.seriesItemId || '';
 
   // Check for V1 format (episodes object with season keys)
-  if (data.episodes && typeof data.episodes === 'object' && !Array.isArray(data.episodes)) {
+  if (
+    data.episodes &&
+    typeof data.episodes === 'object' &&
+    !Array.isArray(data.episodes)
+  ) {
     // V1 format
     const episodesObj = data.episodes;
     const seasonNumbers = new Set<number>();
@@ -78,11 +82,12 @@ export function parseSeriesData(data: any): {
       if (Array.isArray(seasonEpisodes)) {
         for (const ep of seasonEpisodes as V1Episode[]) {
           try {
-            const episodeNumber = Number(ep.episode_num || ep.episode || 0) || 0;
-            const episodeId = seriesItemId 
+            const episodeNumber =
+              Number(ep.episode_num || ep.episode || 0) || 0;
+            const episodeId = seriesItemId
               ? `${seriesItemId}:${seasonNum}:${episodeNumber}`
               : `${seasonNum}:${episodeNumber}`;
-            
+
             const parsedEpisode: ParsedEpisode = {
               id: episodeId,
               seasonNumber: seasonNum,
@@ -91,8 +96,10 @@ export function parseSeriesData(data: any): {
               description: ep.info?.plot ? String(ep.info.plot) : null,
               airDate: ep.info?.air_date || ep.info?.release_date || null,
               streamId: String(ep.id || ''),
-              containerExtension: ep.container_extension ? String(ep.container_extension).trim() : null,
-              lastModified: ep.added 
+              containerExtension: ep.container_extension
+                ? String(ep.container_extension).trim()
+                : null,
+              lastModified: ep.added
                 ? new Date(Number(ep.added) * 1000).toISOString()
                 : null,
               originalPayload: ep,
@@ -100,7 +107,10 @@ export function parseSeriesData(data: any): {
 
             episodes.push(parsedEpisode);
           } catch (error) {
-            console.error(`Error parsing episode in season ${seasonNum}:`, error);
+            console.error(
+              `Error parsing episode in season ${seasonNum}:`,
+              error
+            );
           }
         }
       }
@@ -108,7 +118,9 @@ export function parseSeriesData(data: any): {
 
     // Create season metadata from episode data
     for (const seasonNum of Array.from(seasonNumbers).sort((a, b) => a - b)) {
-      const seasonEpisodes = episodes.filter(ep => ep.seasonNumber === seasonNum);
+      const seasonEpisodes = episodes.filter(
+        (ep) => ep.seasonNumber === seasonNum
+      );
       seasons.push({
         seasonNumber: seasonNum,
         episodeCount: seasonEpisodes.length,
@@ -123,7 +135,7 @@ export function parseSeriesData(data: any): {
     for (const season of data.seasons as V2Season[]) {
       const seasonNum = Number(season.season_number || 0);
       if (seasonNum === 0) continue; // Skip specials season for now
-      
+
       seasons.push({
         seasonNumber: seasonNum,
         episodeCount: season.episode_count,
@@ -141,23 +153,31 @@ export function parseSeriesData(data: any): {
       for (const ep of data.episodes) {
         try {
           const seasonNum = Number(ep.season || ep.season_number || 1);
-          const episodeNumber = Number(ep.episode || ep.episode_num || ep.episode_number || 0);
-          const episodeId = seriesItemId 
+          const episodeNumber = Number(
+            ep.episode || ep.episode_num || ep.episode_number || 0
+          );
+          const episodeId = seriesItemId
             ? `${seriesItemId}:${seasonNum}:${episodeNumber}`
             : `${seasonNum}:${episodeNumber}`;
-          
+
           const parsedEpisode: ParsedEpisode = {
             id: episodeId,
             seasonNumber: seasonNum,
             episodeNumber,
             title: String(ep.title || ep.name || `Episode ${episodeNumber}`),
             description: ep.plot || ep.overview || ep.info?.plot || null,
-            airDate: ep.air_date || ep.release_date || ep.info?.air_date || null,
+            airDate:
+              ep.air_date || ep.release_date || ep.info?.air_date || null,
             streamId: String(ep.id || ep.stream_id || ''),
-            containerExtension: ep.container_extension ? String(ep.container_extension).trim() : null,
-            lastModified: ep.added || ep.last_modified
-              ? new Date(Number(ep.added || ep.last_modified) * 1000).toISOString()
+            containerExtension: ep.container_extension
+              ? String(ep.container_extension).trim()
               : null,
+            lastModified:
+              ep.added || ep.last_modified
+                ? new Date(
+                    Number(ep.added || ep.last_modified) * 1000
+                  ).toISOString()
+                : null,
             originalPayload: ep,
           };
 
@@ -176,7 +196,10 @@ export async function fetchAndParseEpisodes(
   getSeriesInfo: (seriesId: string | number) => Promise<any>,
   seriesId: string | number,
   seriesItemId?: string,
-  getSeasonEpisodes?: (seriesId: string | number, seasonNumber: number) => Promise<any>
+  getSeasonEpisodes?: (
+    seriesId: string | number,
+    seasonNumber: number
+  ) => Promise<any>
 ): Promise<{ episodes: ParsedEpisode[]; seasons: ParsedSeason[] }> {
   try {
     const data = await getSeriesInfo(seriesId);
@@ -193,32 +216,51 @@ export async function fetchAndParseEpisodes(
 
     // If we have seasons but no episodes and a season episode fetcher is provided,
     // fetch episodes for each season (V2 format that requires separate calls)
-    if (result.seasons.length > 0 && result.episodes.length === 0 && getSeasonEpisodes) {
+    if (
+      result.seasons.length > 0 &&
+      result.episodes.length === 0 &&
+      getSeasonEpisodes
+    ) {
       const allEpisodes: ParsedEpisode[] = [];
-      
+
       for (const season of result.seasons) {
         try {
-          const seasonData = await getSeasonEpisodes(seriesId, season.seasonNumber);
+          const seasonData = await getSeasonEpisodes(
+            seriesId,
+            season.seasonNumber
+          );
           if (seasonData && Array.isArray(seasonData)) {
             // Parse episodes from the season-specific response
             for (const ep of seasonData) {
-              const episodeNumber = Number(ep.episode || ep.episode_num || ep.episode_number || 0);
-              const episodeId = seriesItemId 
+              const episodeNumber = Number(
+                ep.episode || ep.episode_num || ep.episode_number || 0
+              );
+              const episodeId = seriesItemId
                 ? `${seriesItemId}:${season.seasonNumber}:${episodeNumber}`
                 : `${season.seasonNumber}:${episodeNumber}`;
-              
+
               const parsedEpisode: ParsedEpisode = {
                 id: episodeId,
                 seasonNumber: season.seasonNumber,
                 episodeNumber,
-                title: String(ep.title || ep.name || `S${season.seasonNumber}E${episodeNumber}`),
+                title: String(
+                  ep.title ||
+                    ep.name ||
+                    `S${season.seasonNumber}E${episodeNumber}`
+                ),
                 description: ep.plot || ep.overview || ep.info?.plot || null,
-                airDate: ep.air_date || ep.release_date || ep.info?.air_date || null,
+                airDate:
+                  ep.air_date || ep.release_date || ep.info?.air_date || null,
                 streamId: String(ep.id || ep.stream_id || ''),
-                containerExtension: ep.container_extension ? String(ep.container_extension).trim() : null,
-                lastModified: ep.added || ep.last_modified
-                  ? new Date(Number(ep.added || ep.last_modified) * 1000).toISOString()
+                containerExtension: ep.container_extension
+                  ? String(ep.container_extension).trim()
                   : null,
+                lastModified:
+                  ep.added || ep.last_modified
+                    ? new Date(
+                        Number(ep.added || ep.last_modified) * 1000
+                      ).toISOString()
+                    : null,
                 originalPayload: ep,
               };
 
@@ -226,10 +268,13 @@ export async function fetchAndParseEpisodes(
             }
           }
         } catch (error) {
-          console.error(`Failed to fetch episodes for season ${season.seasonNumber}:`, error);
+          console.error(
+            `Failed to fetch episodes for season ${season.seasonNumber}:`,
+            error
+          );
         }
       }
-      
+
       return { episodes: allEpisodes, seasons: result.seasons };
     }
 

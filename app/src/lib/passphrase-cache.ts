@@ -1,7 +1,8 @@
 'use client';
 
 import { Platform } from 'react-native';
-import { getItem, removeItem, setItem } from '@/lib/storage';
+
+import { getItem, setItem } from '@/lib/storage';
 
 type CachedPassphrase = {
   passphrase: string;

@@ -2,37 +2,7 @@ import { api, APIError } from 'encore.dev/api';
 import log from 'encore.dev/log';
 import { getAuthData } from '~encore/auth';
 import { metadata } from '~encore/clients';
-
-export type TrendFeed =
-  | 'trending'
-  | 'popular'
-  | 'watched_weekly'
-  | 'played_weekly'
-  | 'collected_weekly'
-  | 'anticipated'
-  | 'releases'
-  | 'premieres';
-
-export type TrendsContentType = 'movie' | 'tv';
-
-export interface TrendItem {
-  rank: number;
-  content_type: TrendsContentType;
-  tmdb_id?: number | null;
-  trakt_id: number;
-  slug?: string | null;
-  title: string;
-  year?: number | null;
-  metrics?: Record<string, number>;
-  event_date?: string | null;
-}
-
-export interface TrendsResponse {
-  key: string;
-  run_at: string;
-  items: TrendItem[];
-  count: number;
-}
+import type { TrendFeed, TrendsContentType, TrendItem, TrendsResponse } from '../../metadata';
 
 export const getDashboardTrends = api(
   {

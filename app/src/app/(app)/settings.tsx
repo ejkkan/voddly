@@ -1,9 +1,8 @@
-/* eslint-disable react/react-in-jsx-scope */
 import { Env } from '@env';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import React from 'react';
-import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
 
 import { Item } from '@/components/settings/item';
 import { ItemsContainer } from '@/components/settings/items-container';
@@ -32,7 +31,7 @@ export default function Settings() {
       <FocusAwareStatusBar />
 
       <ScrollView>
-        <View className="flex-1 px-4 pt-16 bg-white dark:bg-black">
+        <View className="flex-1 bg-white px-4 pt-16 dark:bg-black">
           <Text className="text-xl font-bold">
             {translate('settings.title')}
           </Text>

@@ -110,14 +110,16 @@ export class XtreamClient {
     try {
       response = await fetchWithTimeout(url, opts);
     } catch (err) {
-      if (__DEV__) console.log('[xtream] fetch failed', { url, err: String(err) });
+      if (__DEV__)
+        console.log('[xtream] fetch failed', { url, err: String(err) });
       throw err;
     }
     let text: string;
     try {
       text = await response.text();
     } catch (err) {
-      if (__DEV__) console.log('[xtream] read body failed', { url, err: String(err) });
+      if (__DEV__)
+        console.log('[xtream] read body failed', { url, err: String(err) });
       throw err;
     }
     try {
@@ -182,7 +184,7 @@ export class XtreamClient {
 
   // Aggregate
   async getCatalog(): Promise<{
-    categories: Array<any & { type: 'live' | 'vod' | 'series' }>;
+    categories: (any & { type: 'live' | 'vod' | 'series' })[];
     movies: any[];
     series: any[];
     channels: any[];
@@ -209,7 +211,10 @@ export class XtreamClient {
     const categories = [
       ...liveCategories.map((cat: any) => ({ ...cat, type: 'live' as const })),
       ...vodCategories.map((cat: any) => ({ ...cat, type: 'vod' as const })),
-      ...seriesCategories.map((cat: any) => ({ ...cat, type: 'series' as const })),
+      ...seriesCategories.map((cat: any) => ({
+        ...cat,
+        type: 'series' as const,
+      })),
     ];
 
     const streamResults = await Promise.allSettled([
@@ -231,13 +236,24 @@ export class XtreamClient {
         ? seriesRes.value
         : [];
 
-    const catFailures = catResults.filter((r) => r.status === 'rejected').length;
-    const streamFailures = streamResults.filter((r) => r.status === 'rejected').length;
-    if (catFailures === catResults.length && streamFailures === streamResults.length) {
+    const catFailures = catResults.filter(
+      (r) => r.status === 'rejected'
+    ).length;
+    const streamFailures = streamResults.filter(
+      (r) => r.status === 'rejected'
+    ).length;
+    if (
+      catFailures === catResults.length &&
+      streamFailures === streamResults.length
+    ) {
       if (__DEV__)
         console.log('[xtream] all catalog fetches failed', {
-          catErrors: catResults.map((r) => (r.status === 'rejected' ? String(r.reason) : null)),
-          streamErrors: streamResults.map((r) => (r.status === 'rejected' ? String(r.reason) : null)),
+          catErrors: catResults.map((r) =>
+            r.status === 'rejected' ? String(r.reason) : null
+          ),
+          streamErrors: streamResults.map((r) =>
+            r.status === 'rejected' ? String(r.reason) : null
+          ),
         });
       throw new Error('Failed to fetch catalog from Xtream server');
     }

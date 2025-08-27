@@ -1,18 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+
 import {
-  SafeAreaView,
-  View,
-  Text,
   Image,
-  ScrollView,
   Pressable,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  View,
 } from '@/components/ui';
-import { useSourceCredentials } from '@/lib/source-credentials';
-import { openDb } from '@/lib/db';
 import { useFetchRemoteLive } from '@/hooks/useFetchRemoteLive';
-import { normalizeImageUrl } from '@/lib/url-utils';
 import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
+import { openDb } from '@/lib/db';
+import { useSourceCredentials } from '@/lib/source-credentials';
+import { normalizeImageUrl } from '@/lib/url-utils';
 
 type ItemRow = {
   id: string;

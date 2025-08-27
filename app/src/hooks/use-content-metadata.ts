@@ -2,7 +2,6 @@
 
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 
 import { getApiRoot } from '@/lib/auth/auth-client';
 

@@ -1,7 +1,12 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Dimensions } from 'react-native';
 
+import { BackdropCarousel } from '@/components/media/BackdropCarousel';
+import { CastCarousel } from '@/components/media/CastCarousel';
+import { ImageGallery } from '@/components/media/ImageGallery';
+import { RatingsDisplay } from '@/components/media/RatingsDisplay';
+import { VideoGallery } from '@/components/media/VideoGallery';
 import {
   Image,
   Pressable,
@@ -10,22 +15,16 @@ import {
   Text,
   View,
 } from '@/components/ui';
+import {
+  type EnrichedMetadata,
+  extractDisplayMetadata,
+  useMovieMetadata,
+} from '@/hooks/use-content-metadata';
 import { useFetchRemoteMovie } from '@/hooks/useFetchRemoteMovie';
 import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
-import {
-  useMovieMetadata,
-  extractDisplayMetadata,
-  type EnrichedMetadata,
-  type MovieMetadata,
-} from '@/hooks/use-content-metadata';
 import { openDb } from '@/lib/db';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { normalizeImageUrl } from '@/lib/url-utils';
-import { BackdropCarousel } from '@/components/media/BackdropCarousel';
-import { CastCarousel } from '@/components/media/CastCarousel';
-import { RatingsDisplay } from '@/components/media/RatingsDisplay';
-import { ImageGallery } from '@/components/media/ImageGallery';
-import { VideoGallery } from '@/components/media/VideoGallery';
 
 type ItemRow = {
   id: string;
@@ -269,10 +268,10 @@ export default function MovieDetails() {
                           uri: displayData?.posterUrl || normalizedPoster || '',
                         }}
                         contentFit="cover"
-                        className="h-full w-full"
+                        className="size-full"
                       />
                     ) : (
-                      <View className="h-full w-full items-center justify-center">
+                      <View className="size-full items-center justify-center">
                         <Text className="text-6xl">🎬</Text>
                       </View>
                     )}
@@ -287,7 +286,7 @@ export default function MovieDetails() {
                   </Text>
 
                   {displayData?.tagline ? (
-                    <Text className="mt-2 text-neutral-600 dark:text-neutral-400 italic">
+                    <Text className="mt-2 italic text-neutral-600 dark:text-neutral-400">
                       "{displayData.tagline}"
                     </Text>
                   ) : null}
@@ -323,7 +322,7 @@ export default function MovieDetails() {
                       {displayData.genres.map((genre) => (
                         <View
                           key={genre.id}
-                          className="rounded-full bg-neutral-200 dark:bg-neutral-800 px-3 py-1"
+                          className="rounded-full bg-neutral-200 px-3 py-1 dark:bg-neutral-800"
                         >
                           <Text className="text-sm text-neutral-700 dark:text-neutral-300">
                             {genre.name}
@@ -425,7 +424,7 @@ export default function MovieDetails() {
                   <Text className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
                     Production Details
                   </Text>
-                  <View className="rounded-lg bg-neutral-100 dark:bg-neutral-900 p-4">
+                  <View className="rounded-lg bg-neutral-100 p-4 dark:bg-neutral-900">
                     {displayData?.budget && (
                       <View className="mb-2">
                         <Text className="text-xs text-neutral-600 dark:text-neutral-400">
@@ -484,7 +483,7 @@ export default function MovieDetails() {
             {/* Loading overlay for metadata */}
             {metadataLoading && (
               <View className="mt-6 px-4">
-                <View className="flex-row items-center rounded-lg bg-neutral-100 dark:bg-neutral-900 p-4">
+                <View className="flex-row items-center rounded-lg bg-neutral-100 p-4 dark:bg-neutral-900">
                   <ActivityIndicator size="small" />
                   <Text className="ml-3 text-neutral-600 dark:text-neutral-400">
                     Loading additional metadata...

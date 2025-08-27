@@ -1,0 +1,793 @@
+# Encore.ts Development Guide
+
+## Overview
+
+Encore.ts is a TypeScript backend framework that provides type-safe API endpoints with built-in request validation, SQL database support, and cloud-native features.
+
+## Core Concepts
+
+### API Endpoints
+
+```typescript
+import { api } from "encore.dev/api";
+
+export const endpoint = api(options, async handler);
+```
+
+**Options:**
+
+- `method`: HTTP method (GET, POST, etc.)
+- `expose`: Boolean controlling public access (default: false)
+- `auth`: Boolean requiring authentication (optional)
+- `path`: URL path pattern (optional)
+
+**Basic Example:**
+
+```typescript
+import { api } from 'encore.dev/api';
+
+interface PingParams {
+  name: string;
+}
+
+interface PingResponse {
+  message: string;
+}
+
+export const ping = api(
+  { method: 'POST' },
+  async (p: PingParams): Promise<PingResponse> => {
+    return { message: `Hello ${p.name}!` };
+  }
+);
+```
+
+### Parameter Types
+
+#### Headers
+
+```typescript
+fieldName: Header<'Header-Name'>;
+```
+
+#### Query Parameters
+
+```typescript
+fieldName: Query<type>;
+```
+
+#### Path Parameters
+
+```typescript
+path: '/route/:param/*wildcard';
+```
+
+### Service-to-Service Calls
+
+```typescript
+import { hello } from '~encore/clients';
+
+export const myOtherAPI = api({}, async (): Promise<void> => {
+  const resp = await hello.ping({ name: 'World' });
+  console.log(resp.message); // "Hello World!"
+});
+```
+
+## Application Structure
+
+### Service Definition
+
+```typescript
+import { Service } from 'encore.dev/service';
+
+export default new Service('my-service');
+```
+
+### Application Patterns
+
+#### Single Service (Recommended for new projects)
+
+```
+/my-app
+├── package.json
+├── encore.app
+├── encore.service.ts    // service root
+├── api.ts              // endpoints
+└── db.ts               // database
+```
+
+#### Multi-Service
+
+```
+/my-app
+├── encore.app
+├── hello/
+│   ├── migrations/
+│   ├── encore.service.ts
+│   ├── hello.ts
+│   └── hello_test.ts
+└── world/
+    ├── encore.service.ts
+    └── world.ts
+```
+
+#### Large Scale (Systems-based)
+
+```
+/my-trello-clone
+├── encore.app
+├── trello/             // system
+│   ├── board/         // service
+│   └── card/          // service
+├── premium/           // system
+│   ├── payment/       // service
+│   └── subscription/  // service
+└── usr/               // system
+    ├── org/           // service
+    └── user/          // service
+```
+
+## Raw Endpoints
+
+For webhooks and custom HTTP handling:
+
+```typescript
+import { api } from 'encore.dev/api';
+
+export const myRawEndpoint = api.raw(
+  { expose: true, path: '/raw', method: 'GET' },
+  async (req, resp) => {
+    resp.writeHead(200, { 'Content-Type': 'text/plain' });
+    resp.end('Hello, raw world!');
+  }
+);
+```
+
+## Error Handling
+
+### API Errors
+
+```typescript
+import { APIError, ErrCode } from 'encore.dev/api';
+
+// Full syntax
+throw new APIError(ErrCode.NotFound, 'sprocket not found');
+
+// Shorthand
+throw APIError.notFound('sprocket not found');
+```
+
+### Error Codes
+
+- `OK` (200 OK)
+- `Canceled` (499 Client Closed Request)
+- `Unknown` (500 Internal Server Error)
+- `InvalidArgument` (400 Bad Request)
+- `DeadlineExceeded` (504 Gateway Timeout)
+- `NotFound` (404 Not Found)
+- `AlreadyExists` (409 Conflict)
+- `PermissionDenied` (403 Forbidden)
+- `ResourceExhausted` (429 Too Many Requests)
+- `FailedPrecondition` (400 Bad Request)
+- `Aborted` (409 Conflict)
+- `OutOfRange` (400 Bad Request)
+- `Unimplemented` (501 Not Implemented)
+- `Internal` (500 Internal Server Error)
+- `Unavailable` (503 Unavailable)
+- `DataLoss` (500 Internal Server Error)
+- `Unauthenticated` (401 Unauthorized)
+
+## SQL Databases
+
+### Database Creation
+
+```typescript
+import { SQLDatabase } from 'encore.dev/storage/sqldb';
+
+const db = new SQLDatabase('todo', {
+  migrations: './migrations',
+});
+```
+
+### Migrations
+
+- Start with number followed by underscore
+- Must increase sequentially
+- End with `.up.sql`
+- Examples: `001_first_migration.up.sql`, `002_second_migration.up.sql`
+
+### Database Operations
+
+#### Querying
+
+```typescript
+// Multiple rows
+const allTodos = await db.query`SELECT * FROM todo_item`;
+for await (const todo of allTodos) {
+  // Process each todo
+}
+
+// Single row
+const row = await db.queryRow`SELECT title FROM todo_item WHERE id = ${id}`;
+return row?.title;
+```
+
+#### Inserting
+
+```typescript
+await db.exec`
+  INSERT INTO todo_item (title, done)
+  VALUES (${title}, false)
+`;
+```
+
+### CLI Commands
+
+- `encore db shell` - Opens psql shell
+- `encore db conn-uri` - Outputs connection string
+- `encore db proxy` - Sets up local connection proxy
+
+## Cron Jobs
+
+```typescript
+import { CronJob } from 'encore.dev/cron';
+import { api } from 'encore.dev/api';
+
+const _ = new CronJob('welcome-email', {
+  title: 'Send welcome emails',
+  every: '2h', // Must divide 24 hours evenly
+  endpoint: sendWelcomeEmail,
+});
+
+export const sendWelcomeEmail = api({}, async () => {
+  // Send welcome emails...
+});
+```
+
+**Advanced Scheduling:**
+
+```typescript
+const _ = new CronJob('monthly-report', {
+  title: 'Monthly report',
+  schedule: '0 4 15 * *', // 4am UTC on 15th of each month
+  endpoint: generateReport,
+});
+```
+
+## Pub/Sub
+
+### Topics
+
+```typescript
+import { Topic } from 'encore.dev/pubsub';
+
+export interface SignupEvent {
+  userID: string;
+}
+
+export const signups = new Topic<SignupEvent>('signups', {
+  deliveryGuarantee: 'at-least-once',
+});
+```
+
+### Publishing
+
+```typescript
+const messageID = await signups.publish({ userID: id });
+```
+
+### Subscriptions
+
+```typescript
+import { Subscription } from 'encore.dev/pubsub';
+
+const _ = new Subscription(signups, 'send-welcome-email', {
+  handler: async (event) => {
+    // Send a welcome email using the event.
+  },
+});
+```
+
+### Delivery Guarantees
+
+- `at-least-once`: Default, possible duplication
+- `exactly-once`: Stronger guarantees, limited throughput
+
+## Object Storage
+
+### Buckets
+
+```typescript
+import { Bucket } from 'encore.dev/storage/objects';
+
+export const profilePictures = new Bucket('profile-pictures', {
+  versioned: false,
+});
+```
+
+### Operations
+
+```typescript
+// Upload
+const data = Buffer.from(...);
+const attributes = await profilePictures.upload("my-image.jpeg", data, {
+  contentType: "image/jpeg",
+});
+
+// Download
+const data = await profilePictures.download("my-image.jpeg");
+
+// List
+for await (const entry of profilePictures.list({})) {
+  // Process entry
+}
+
+// Delete
+await profilePictures.remove("my-image.jpeg");
+
+// Attributes
+const attrs = await profilePictures.attrs("my-image.jpeg");
+const exists = await profilePictures.exists("my-image.jpeg");
+```
+
+### Public Access
+
+```typescript
+export const publicProfilePictures = new Bucket('public-profile-pictures', {
+  public: true,
+  versioned: false,
+});
+
+const url = publicProfilePictures.publicUrl('my-image.jpeg');
+```
+
+## Secrets Management
+
+```typescript
+import { secret } from 'encore.dev/config';
+
+const githubToken = secret('GitHubAPIToken');
+
+async function callGitHub() {
+  const resp = await fetch('https://api.github.com/user', {
+    credentials: 'include',
+    headers: {
+      Authorization: `token ${githubToken()}`,
+    },
+  });
+}
+```
+
+### Setting Secrets
+
+```bash
+# Cloud Dashboard
+# Navigate to Settings > Secrets in https://app.encore.cloud
+
+# CLI
+encore secret set --type prod SSHPrivateKey
+
+# Local Override (.secrets.local.cue)
+GitHubAPIToken: "my-local-override-token"
+SSHPrivateKey: "custom-ssh-private-key"
+```
+
+## Streaming APIs
+
+### Stream In (Client to Server)
+
+```typescript
+import { api } from 'encore.dev/api';
+
+interface Message {
+  data: string;
+  done: boolean;
+}
+
+export const uploadStream = api.streamIn<Message>(
+  { path: '/upload', expose: true },
+  async (stream) => {
+    for await (const data of stream) {
+      // Process incoming data
+      if (data.done) break;
+    }
+  }
+);
+```
+
+### Stream Out (Server to Client)
+
+```typescript
+export const dataStream = api.streamOut<Message>(
+  { path: '/stream', expose: true },
+  async (stream) => {
+    // Send messages to client
+    await stream.send({ data: 'message' });
+    await stream.close();
+  }
+);
+```
+
+### Stream In/Out (Bidirectional)
+
+```typescript
+export const chatStream = api.streamInOut<InMessage, OutMessage>(
+  { path: '/chat', expose: true },
+  async (stream) => {
+    for await (const msg of stream) {
+      await stream.send(/* response */);
+    }
+  }
+);
+```
+
+## Validation
+
+### Basic Types
+
+```typescript
+interface Request {
+  name: string; // Required string
+  age?: number; // Optional number
+  isActive: boolean; // Required boolean
+  tags: string[]; // Array of strings
+  type: 'BLOG_POST' | 'COMMENT'; // Enum
+}
+```
+
+### Validation Rules
+
+```typescript
+interface ValidatedRequest {
+  count: number & (Min<3> & Max<1000>); // Range validation
+  username: string & (MinLen<5> & MaxLen<20>); // Length validation
+  contact: string & (IsURL | IsEmail); // Format validation
+}
+```
+
+### Source Types
+
+- **Body**: Default for methods with request bodies
+- **Query**: URL query parameters (use `Query<type>` or default for GET/HEAD/DELETE)
+- **Headers**: HTTP headers (use `Header<"Name-Of-Header">`)
+- **Params**: URL path parameters
+
+## Static Assets
+
+```typescript
+import { api } from 'encore.dev/api';
+
+// Serve files from ./assets under /frontend path
+export const assets = api.static({
+  expose: true,
+  path: '/frontend/*path',
+  dir: './assets',
+});
+
+// Serve at domain root
+export const rootAssets = api.static({
+  expose: true,
+  path: '/!path',
+  dir: './assets',
+});
+
+// Custom 404
+export const customAssets = api.static({
+  expose: true,
+  path: '/!path',
+  dir: './assets',
+  notFound: './not_found.html',
+});
+```
+
+## GraphQL Support
+
+```typescript
+import { api } from 'encore.dev/api';
+import { HeaderMap } from '@apollo/server';
+const { ApolloServer, gql } = require('apollo-server');
+import { json } from 'node:stream/consumers';
+
+const server = new ApolloServer({ typeDefs, resolvers });
+await server.start();
+
+export const graphqlAPI = api.raw(
+  { expose: true, path: '/graphql', method: '*' },
+  async (req, res) => {
+    server.assertStarted('/graphql');
+
+    const headers = new HeaderMap();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value !== undefined) {
+        headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+      }
+    }
+
+    const httpGraphQLResponse = await server.executeHTTPGraphQLRequest({
+      httpGraphQLRequest: {
+        headers,
+        method: req.method!.toUpperCase(),
+        body: await json(req),
+        search: new URLSearchParams(req.url ?? '').toString(),
+      },
+      context: async () => ({ req, res }),
+    });
+
+    // Set response headers and status
+    for (const [key, value] of httpGraphQLResponse.headers) {
+      res.setHeader(key, value);
+    }
+    res.statusCode = httpGraphQLResponse.status || 200;
+
+    // Write response
+    if (httpGraphQLResponse.body.kind === 'complete') {
+      res.end(httpGraphQLResponse.body.string);
+      return;
+    }
+
+    for await (const chunk of httpGraphQLResponse.body.asyncIterator) {
+      res.write(chunk);
+    }
+    res.end();
+  }
+);
+```
+
+## Authentication
+
+### Auth Handler
+
+```typescript
+import { Header, Gateway } from 'encore.dev/api';
+import { authHandler } from 'encore.dev/auth';
+
+interface AuthParams {
+  authorization: Header<'Authorization'>;
+}
+
+interface AuthData {
+  userID: string;
+}
+
+export const auth = authHandler<AuthParams, AuthData>(async (params) => {
+  // Authenticate user based on params
+  return { userID: 'my-user-id' };
+});
+
+export const gateway = new Gateway({
+  authHandler: auth,
+});
+```
+
+### Rejecting Authentication
+
+```typescript
+throw APIError.unauthenticated('bad credentials');
+```
+
+### Using Auth Data
+
+```typescript
+import { getAuthData } from '~encore/auth';
+
+const authData = getAuthData();
+// Type-safe access to authenticated user data
+```
+
+## Metadata
+
+### App Metadata
+
+```typescript
+import { appMeta } from 'encore.dev';
+
+const meta = appMeta();
+// meta.appId, meta.apiBaseUrl, meta.environment, meta.build, meta.deploy
+```
+
+### Request Metadata
+
+```typescript
+import { currentRequest } from 'encore.dev';
+
+const reqMeta = currentRequest();
+// reqMeta.type, reqMeta.api, reqMeta.method, reqMeta.path, etc.
+```
+
+## Middleware
+
+```typescript
+import { middleware } from 'encore.dev/api';
+
+export default new Service('myService', {
+  middlewares: [
+    middleware({ target: { auth: true } }, async (req, next) => {
+      // Pre-handler logic
+      const resp = await next(req);
+      // Post-handler logic
+      return resp;
+    }),
+  ],
+});
+```
+
+### Request Access
+
+- **Typed API**: `req.requestMeta`
+- **Streaming**: `req.requestMeta`, `req.stream`
+- **Raw**: `req.rawRequest`, `req.rawResponse`
+
+### Response Handling
+
+```typescript
+resp.header.set(key, value);
+resp.header.add(key, value);
+```
+
+## ORM Integration
+
+### Drizzle Example
+
+```typescript
+// database.ts
+import { SQLDatabase } from 'encore.dev/storage/sqldb';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import { users } from './schema';
+
+const db = new SQLDatabase('test', {
+  migrations: {
+    path: 'migrations',
+    source: 'drizzle',
+  },
+});
+
+const orm = drizzle(db.connectionString);
+await orm.select().from(users);
+
+// drizzle.config.ts
+import 'dotenv/config';
+import { defineConfig } from 'drizzle-kit';
+
+export default defineConfig({
+  out: 'migrations',
+  schema: 'schema.ts',
+  dialect: 'postgresql',
+});
+
+// schema.ts
+import * as p from 'drizzle-orm/pg-core';
+
+export const users = p.pgTable('users', {
+  id: p.serial().primaryKey(),
+  name: p.text(),
+  email: p.text().unique(),
+});
+```
+
+## CORS Configuration
+
+```yaml
+# encore.app
+global_cors:
+  debug: false
+  allow_headers: ['*']
+  expose_headers: ['*']
+  allow_origins_without_credentials: ['*']
+  allow_origins_with_credentials:
+    - 'https://*.example.com'
+    - 'https://*-myapp.example.com'
+```
+
+## Logging
+
+```typescript
+import log from 'encore.dev/log';
+
+// Basic logging
+log.info('log message', { is_subscriber: true });
+log.error(err, 'something went terribly wrong!');
+
+// With context
+const logger = log.with({ is_subscriber: true });
+logger.info('user logged in', { login_method: 'oauth' });
+```
+
+**Log Levels:**
+
+- `error`: Critical issues
+- `warn`: Warning conditions
+- `info`: General information
+- `debug`: Debugging information
+- `trace`: Detailed tracing
+
+## CLI Reference
+
+### Execution
+
+```bash
+encore run [--debug] [--watch=true] [flags]
+```
+
+### App Management
+
+```bash
+encore app create [name]
+encore app init [name]
+encore app clone [app-id] [directory]
+encore app link [app-id]
+```
+
+### Authentication
+
+```bash
+encore auth login
+encore auth logout
+encore auth signup
+encore auth whoami
+```
+
+### Database
+
+```bash
+encore db shell database-name [--env=name]
+encore db conn-uri database-name [--env=name]
+encore db proxy [--env=name]
+encore db reset [service-names...]
+```
+
+### Code Generation
+
+```bash
+encore gen client [app-id] [--env=name] [--lang=lang]
+# Languages: go, typescript, javascript, openapi
+```
+
+### Secrets
+
+```bash
+encore secret set --type types secret-name
+encore secret list [keys...]
+encore secret archive id
+encore secret unarchive id
+```
+
+### Other Commands
+
+```bash
+encore logs [--env=prod] [--json]
+encore k8s configure --env=ENV_NAME
+encore version
+encore version update
+encore vpn start|status|stop
+encore build docker [--base string] [--push]
+```
+
+## Package Management
+
+**Default Approach:** Use a single root-level `package.json` file (monorepo approach) for Encore.ts projects including frontend dependencies.
+
+**Alternative:** Separate `package.json` files in sub-packages, but Encore.ts application must use one package with a single `package.json` file.
+
+## Example Apps
+
+- **Hello World**: https://github.com/encoredev/examples/tree/main/ts/hello-world
+- **URL Shortener**: https://github.com/encoredev/examples/tree/main/ts/url-shortener
+- **Uptime Monitor**: https://github.com/encoredev/examples/tree/main/ts/uptime
+
+## Best Practices
+
+1. **Never manually edit** `encore-client.ts` files - they are auto-generated
+2. **Use ES6+ syntax** and Node.js v20+ features
+3. **Use built-in `fetch`** for HTTP requests
+4. **Use Node.js `import`** syntax, never `require`
+5. **Define interfaces/types** for complex objects
+6. **Prefer TypeScript utility types** over `any`
+7. **Work with API definitions first**, then regenerate clients
+8. **Use arrow functions** consistently
+9. **Check linter errors** before completing tasks
+10. **Prefer absolute paths** over relative paths
+
+- Inconsistent API contracts
+- Maintenance nightmares
+
+**Remember: If you need to change the client, change the API first!**

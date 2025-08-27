@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
-import { View, Pressable } from 'react-native';
+import { View } from 'react-native';
+
 import { Text } from '@/components/ui';
 
 interface RatingsDisplayProps {
@@ -172,7 +173,7 @@ function RatingCard({
   isPercentage?: boolean;
 }) {
   return (
-    <View className={`flex-1 min-w-[100px] rounded-lg p-3 ${color}`}>
+    <View className={`min-w-[100px] flex-1 rounded-lg p-3 ${color}`}>
       <Text className="mb-1 text-xs font-medium text-neutral-600 dark:text-neutral-400">
         {source}
       </Text>

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
+  Dimensions,
   FlatList,
-  View,
   Pressable,
   ScrollView,
-  Dimensions,
+  View,
 } from 'react-native';
+
 import { Image, Text } from '@/components/ui';
 
 interface CastMember {
@@ -93,10 +94,10 @@ function CastMemberCard({
           <Image
             source={{ uri: profileUrl }}
             contentFit="cover"
-            className="h-full w-full"
+            className="size-full"
           />
         ) : (
-          <View className="h-full w-full items-center justify-center">
+          <View className="size-full items-center justify-center">
             <Text className="text-4xl">👤</Text>
           </View>
         )}

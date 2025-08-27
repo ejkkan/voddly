@@ -1,5 +1,4 @@
-import { Redirect } from 'expo-router';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 import React from 'react';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 

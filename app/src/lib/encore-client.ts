@@ -8,1900 +8,1730 @@
 /**
  * BaseURL is the base URL for calling the Encore application's API.
  */
-export type BaseURL = string;
+export type BaseURL = string
 
-export const Local: BaseURL = 'http://localhost:4000';
+export const Local: BaseURL = "http://localhost:4000"
 
 /**
  * Environment returns a BaseURL for calling the cloud environment with the given name.
  */
 export function Environment(name: string): BaseURL {
-  return `https://${name}-iptvtest-gibi.encr.app`;
+    return `https://${name}-iptvtest-gibi.encr.app`
 }
 
 /**
  * PreviewEnv returns a BaseURL for calling the preview environment with the given PR number.
  */
 export function PreviewEnv(pr: number | string): BaseURL {
-  return Environment(`pr${pr}`);
+    return Environment(`pr${pr}`)
 }
 
-const BROWSER = typeof globalThis === 'object' && 'window' in globalThis;
+const BROWSER = typeof globalThis === "object" && ("window" in globalThis);
 
 /**
  * Client is an API client for the iptvtest-gibi Encore application.
  */
 export default class Client {
-  public readonly auth: auth.ServiceClient;
-  public readonly metadata: metadata.ServiceClient;
-  public readonly user: user.ServiceClient;
-  public readonly webhooks: webhooks.ServiceClient;
-  private readonly options: ClientOptions;
-  private readonly target: string;
+    public readonly auth: auth.ServiceClient
+    public readonly metadata: metadata.ServiceClient
+    public readonly user: user.ServiceClient
+    public readonly webhooks: webhooks.ServiceClient
+    private readonly options: ClientOptions
+    private readonly target: string
 
-  /**
-   * Creates a Client for calling the public and authenticated APIs of your Encore application.
-   *
-   * @param target  The target which the client should be configured to use. See Local and Environment for options.
-   * @param options Options for the client
-   */
-  constructor(target: BaseURL, options?: ClientOptions) {
-    this.target = target;
-    this.options = options ?? {};
-    const base = new BaseClient(this.target, this.options);
-    this.auth = new auth.ServiceClient(base);
-    this.metadata = new metadata.ServiceClient(base);
-    this.user = new user.ServiceClient(base);
-    this.webhooks = new webhooks.ServiceClient(base);
-  }
 
-  /**
-   * Creates a new Encore client with the given client options set.
-   *
-   * @param options Client options to set. They are merged with existing options.
-   **/
-  public with(options: ClientOptions): Client {
-    return new Client(this.target, {
-      ...this.options,
-      ...options,
-    });
-  }
+    /**
+     * Creates a Client for calling the public and authenticated APIs of your Encore application.
+     *
+     * @param target  The target which the client should be configured to use. See Local and Environment for options.
+     * @param options Options for the client
+     */
+    constructor(target: BaseURL, options?: ClientOptions) {
+        this.target = target
+        this.options = options ?? {}
+        const base = new BaseClient(this.target, this.options)
+        this.auth = new auth.ServiceClient(base)
+        this.metadata = new metadata.ServiceClient(base)
+        this.user = new user.ServiceClient(base)
+        this.webhooks = new webhooks.ServiceClient(base)
+    }
+
+    /**
+     * Creates a new Encore client with the given client options set.
+     *
+     * @param options Client options to set. They are merged with existing options.
+     **/
+    public with(options: ClientOptions): Client {
+        return new Client(this.target, {
+            ...this.options,
+            ...options,
+        })
+    }
 }
 
 /**
  * ClientOptions allows you to override any default behaviour within the generated Encore client.
  */
 export interface ClientOptions {
-  /**
-   * By default the client will use the inbuilt fetch function for making the API requests.
-   * however you can override it with your own implementation here if you want to run custom
-   * code on each API request made or response received.
-   */
-  fetcher?: Fetcher;
+    /**
+     * By default the client will use the inbuilt fetch function for making the API requests.
+     * however you can override it with your own implementation here if you want to run custom
+     * code on each API request made or response received.
+     */
+    fetcher?: Fetcher
 
-  /** Default RequestInit to be used for the client */
-  requestInit?: Omit<RequestInit, 'headers'> & {
-    headers?: Record<string, string>;
-  };
+    /** Default RequestInit to be used for the client */
+    requestInit?: Omit<RequestInit, "headers"> & { headers?: Record<string, string> }
 
-  /**
-   * Allows you to set the authentication data to be used for each
-   * request either by passing in a static object or by passing in
-   * a function which returns a new object for each request.
-   */
-  auth?: auth.AuthParams | AuthDataGenerator;
+    /**
+     * Allows you to set the authentication data to be used for each
+     * request either by passing in a static object or by passing in
+     * a function which returns a new object for each request.
+     */
+    auth?: auth.AuthParams | AuthDataGenerator
 }
 
 export namespace auth {
-  export interface AuthParams {
-    cookie: string;
-  }
-
-  export class ServiceClient {
-    private baseClient: BaseClient;
-
-    constructor(baseClient: BaseClient) {
-      this.baseClient = baseClient;
-      this.authRouter = this.authRouter.bind(this);
-      this.debugUser = this.debugUser.bind(this);
-      this.healthCheck = this.healthCheck.bind(this);
-      this.testAuth = this.testAuth.bind(this);
+    export interface AuthParams {
+        cookie: string
     }
 
-    public async authRouter(
-      method:
-        | 'GET'
-        | 'POST'
-        | 'PATCH'
-        | 'PUT'
-        | 'DELETE'
-        | 'HEAD'
-        | 'OPTIONS'
-        | 'TRACE',
-      _params: string[],
-      body?: RequestInit['body'],
-      options?: CallParameters
-    ): Promise<globalThis.Response> {
-      return this.baseClient.callAPI(
-        method,
-        `/api/auth/${_params.map(encodeURIComponent).join('/')}`,
-        body,
-        options
-      );
-    }
+    export class ServiceClient {
+        private baseClient: BaseClient
 
-    /**
-     * Debug endpoint to check what's in the database
-     */
-    public async debugUser(userId: string): Promise<void> {
-      await this.baseClient.callTypedAPI(
-        'GET',
-        `/debug/user/${encodeURIComponent(userId)}`
-      );
-    }
+        constructor(baseClient: BaseClient) {
+            this.baseClient = baseClient
+            this.authRouter = this.authRouter.bind(this)
+            this.debugUser = this.debugUser.bind(this)
+            this.healthCheck = this.healthCheck.bind(this)
+            this.testAuth = this.testAuth.bind(this)
+        }
 
-    /**
-     * Public endpoint to test the API is responding
-     */
-    public async healthCheck(): Promise<{
-      status: string;
-      message: string;
-      timestamp: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI('GET', `/test/health`);
-      return (await resp.json()) as {
-        status: string;
-        message: string;
-        timestamp: string;
-      };
-    }
+        public async authRouter(method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE" | "HEAD" | "OPTIONS" | "TRACE", _params: string[], body?: RequestInit["body"], options?: CallParameters): Promise<globalThis.Response> {
+            return this.baseClient.callAPI(method, `/api/auth/${_params.map(encodeURIComponent).join("/")}`, body, options)
+        }
 
-    /**
-     * Test endpoint to verify auth integration is working
-     */
-    public async testAuth(): Promise<{
-      message: string;
-      userId: string;
-      timestamp: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI('GET', `/test/auth`);
-      return (await resp.json()) as {
-        message: string;
-        userId: string;
-        timestamp: string;
-      };
+        /**
+         * Debug endpoint to check what's in the database
+         */
+        public async debugUser(userId: string): Promise<void> {
+            await this.baseClient.callTypedAPI("GET", `/debug/user/${encodeURIComponent(userId)}`)
+        }
+
+        /**
+         * Public endpoint to test the API is responding
+         */
+        public async healthCheck(): Promise<{
+    status: string
+    message: string
+    timestamp: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/test/health`)
+            return await resp.json() as {
+    status: string
+    message: string
+    timestamp: string
+}
+        }
+
+        /**
+         * Test endpoint to verify auth integration is working
+         */
+        public async testAuth(): Promise<{
+    message: string
+    userId: string
+    timestamp: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/test/auth`)
+            return await resp.json() as {
+    message: string
+    userId: string
+    timestamp: string
+}
+        }
     }
-  }
 }
 
 export namespace metadata {
-  export interface ContentMetadata {
-    id: number;
-    provider: MetadataProvider;
-    provider_id: string;
-    content_type: ContentType;
-    title?: string;
-    original_title?: string;
-    overview?: string;
-    release_date?: string;
-    poster_path?: string;
-    backdrop_path?: string;
-    vote_average?: number;
-    vote_count?: number;
-    popularity?: number;
-    original_language?: string;
-    genres?: any[];
-    production_companies?: any[];
-    runtime?: number;
-    status?: string;
-    tagline?: string;
-    /**
-     * TV Show specific
-     */
-    number_of_seasons?: number;
+    export interface ContentMetadata {
+        id: number
+        provider: MetadataProvider
+        "provider_id": string
+        "content_type": ContentType
+        title?: string
+        "original_title"?: string
+        overview?: string
+        "release_date"?: string
+        "poster_path"?: string
+        "backdrop_path"?: string
+        "vote_average"?: number
+        "vote_count"?: number
+        popularity?: number
+        "original_language"?: string
+        genres?: any[]
+        "production_companies"?: any[]
+        runtime?: number
+        status?: string
+        tagline?: string
+        /**
+         * TV Show specific
+         */
+        "number_of_seasons"?: number
 
-    number_of_episodes?: number;
-    first_air_date?: string;
-    last_air_date?: string;
-    episode_run_time?: number[];
-    networks?: any[];
-    created_by?: any[];
-    /**
-     * Season specific
-     */
-    season_number?: number;
+        "number_of_episodes"?: number
+        "first_air_date"?: string
+        "last_air_date"?: string
+        "episode_run_time"?: number[]
+        networks?: any[]
+        "created_by"?: any[]
+        /**
+         * Season specific
+         */
+        "season_number"?: number
 
-    air_date?: string;
-    /**
-     * Episode specific
-     */
-    episode_number?: number;
+        "air_date"?: string
+        /**
+         * Episode specific
+         */
+        "episode_number"?: number
 
-    /**
-     * Parent references
-     */
-    parent_provider_id?: string;
+        /**
+         * Parent references
+         */
+        "parent_provider_id"?: string
 
-    /**
-     * Cross-reference IDs
-     */
-    external_ids?: { [key: string]: any };
+        /**
+         * Cross-reference IDs
+         */
+        "external_ids"?: { [key: string]: any }
 
-    /**
-     * Additional metadata
-     */
-    videos?: any;
+        /**
+         * Additional metadata
+         */
+        videos?: any
 
-    images?: any;
-    cast?: any[];
-    crew?: any[];
-    keywords?: any;
-    /**
-     * Cache management
-     */
-    raw_response?: any;
+        images?: any
+        cast?: any[]
+        crew?: any[]
+        keywords?: any
+        /**
+         * Cache management
+         */
+        "raw_response"?: any
 
-    fetched_at?: string;
-    updated_at?: string;
-  }
-
-  export type ContentType = 'movie' | 'tv' | 'season' | 'episode';
-
-  export interface GetMetadataParams {
-    provider: MetadataProvider;
-    provider_id: string;
-    content_type: ContentType;
-    season_number?: number;
-    episode_number?: number;
-    force_refresh?: boolean;
-    append_to_response?: string;
-  }
-
-  export type MetadataProvider = 'tmdb' | 'imdb' | 'tvdb' | 'custom';
-
-  export class ServiceClient {
-    private baseClient: BaseClient;
-
-    constructor(baseClient: BaseClient) {
-      this.baseClient = baseClient;
-      this.getMetadata = this.getMetadata.bind(this);
+        "fetched_at"?: string
+        "updated_at"?: string
     }
 
-    /**
-     * Get metadata for a specific content ID
-     */
-    public async getMetadata(
-      params: GetMetadataParams
-    ): Promise<ContentMetadata> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        append_to_response: params['append_to_response'],
-        content_type: String(params['content_type']),
-        episode_number:
-          params['episode_number'] === undefined
-            ? undefined
-            : String(params['episode_number']),
-        force_refresh:
-          params['force_refresh'] === undefined
-            ? undefined
-            : String(params['force_refresh']),
-        provider: String(params.provider),
-        provider_id: params['provider_id'],
-        season_number:
-          params['season_number'] === undefined
-            ? undefined
-            : String(params['season_number']),
-      });
+    export type ContentType = "movie" | "tv" | "season" | "episode"
 
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/metadata`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as ContentMetadata;
+    export interface GetMetadataParams {
+        provider: MetadataProvider
+        "provider_id": string
+        "content_type": ContentType
+        "season_number"?: number
+        "episode_number"?: number
+        "force_refresh"?: boolean
+        "append_to_response"?: string
     }
-  }
+
+    export type MetadataProvider = "tmdb" | "imdb" | "tvdb" | "custom"
+
+    export class ServiceClient {
+        private baseClient: BaseClient
+
+        constructor(baseClient: BaseClient) {
+            this.baseClient = baseClient
+            this.getMetadata = this.getMetadata.bind(this)
+            this.getTrendsFromDB = this.getTrendsFromDB.bind(this)
+        }
+
+        /**
+         * Get metadata for a specific content ID
+         */
+        public async getMetadata(params: GetMetadataParams): Promise<ContentMetadata> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "append_to_response": params["append_to_response"],
+                "content_type":       String(params["content_type"]),
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "force_refresh":      params["force_refresh"] === undefined ? undefined : String(params["force_refresh"]),
+                provider:             String(params.provider),
+                "provider_id":        params["provider_id"],
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/metadata`, undefined, {query})
+            return await resp.json() as ContentMetadata
+        }
+
+        /**
+         * DB-only fetch endpoint (no remote calls)
+         */
+        public async getTrendsFromDB(params: {
+    feed: endpoints.TrendFeed
+    "content_type": endpoints.TrendsContentType
+    limit?: number
+}): Promise<endpoints.TrendsResponse> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "content_type": String(params["content_type"]),
+                feed:           String(params.feed),
+                limit:          params.limit === undefined ? undefined : String(params.limit),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/metadata/trends`, undefined, {query})
+            return await resp.json() as endpoints.TrendsResponse
+        }
+    }
 }
 
 export namespace user {
-  export interface CreatePortalSessionRequest {
-    returnUrl?: string;
-  }
-
-  export interface CreatePortalSessionResponse {
-    url: string;
-  }
-
-  export interface User {
-    id: string;
-    name: string;
-    email: string;
-    emailVerified: boolean;
-    image: string | null;
-    createdAt: string;
-    updatedAt: string;
-    stripeCustomerId: string | null;
-    role: string;
-    banned: boolean;
-    banReason: string | null;
-    banExpires: number | null;
-    subscriptionTier: string;
-    subscriptionStatus: string | null;
-    subscriptionId: string | null;
-    subscriptionCurrentPeriodEnd: string | null;
-  }
-
-  export class ServiceClient {
-    private baseClient: BaseClient;
-
-    constructor(baseClient: BaseClient) {
-      this.baseClient = baseClient;
-      this.addSource = this.addSource.bind(this);
-      this.clearWatchHistory = this.clearWatchHistory.bind(this);
-      this.createAccount = this.createAccount.bind(this);
-      this.createPortalSession = this.createPortalSession.bind(this);
-      this.createProfile = this.createProfile.bind(this);
-      this.decryptSource = this.decryptSource.bind(this);
-      this.deleteProfile = this.deleteProfile.bind(this);
-      this.deleteSource = this.deleteSource.bind(this);
-      this.deleteWatchState = this.deleteWatchState.bind(this);
-      this.detectEmbeddedSubtitles = this.detectEmbeddedSubtitles.bind(this);
-      this.downloadSubtitleFile = this.downloadSubtitleFile.bind(this);
-      this.extractMKVSubtitle = this.extractMKVSubtitle.bind(this);
-      this.extractOriginalSubtitleContent =
-        this.extractOriginalSubtitleContent.bind(this);
-      this.extractOriginalSubtitles = this.extractOriginalSubtitles.bind(this);
-      this.getAccount = this.getAccount.bind(this);
-      this.getAccounts = this.getAccounts.bind(this);
-      this.getAvailableLanguages = this.getAvailableLanguages.bind(this);
-      this.getContentWatchState = this.getContentWatchState.bind(this);
-      this.getCurrentUser = this.getCurrentUser.bind(this);
-      this.getDashboardTrends = this.getDashboardTrends.bind(this);
-      this.getLanguagesByTmdb = this.getLanguagesByTmdb.bind(this);
-      this.getMetadataForContent = this.getMetadataForContent.bind(this);
-      this.getProfileSources = this.getProfileSources.bind(this);
-      this.getProfiles = this.getProfiles.bind(this);
-      this.getSources = this.getSources.bind(this);
-      this.getSubtitleById = this.getSubtitleById.bind(this);
-      this.getSubtitleContent = this.getSubtitleContent.bind(this);
-      this.getSubtitleContentById = this.getSubtitleContentById.bind(this);
-      this.getSubtitleContentByTmdb = this.getSubtitleContentByTmdb.bind(this);
-      this.getSubtitleVariants = this.getSubtitleVariants.bind(this);
-      this.getSubtitles = this.getSubtitles.bind(this);
-      this.getUserById = this.getUserById.bind(this);
-      this.getWatchState = this.getWatchState.bind(this);
-      this.initializeAccountEncryption =
-        this.initializeAccountEncryption.bind(this);
-      this.initializeNewAccount = this.initializeNewAccount.bind(this);
-      this.resolveSubtitles = this.resolveSubtitles.bind(this);
-      this.searchSubtitles = this.searchSubtitles.bind(this);
-      this.switchProfile = this.switchProfile.bind(this);
-      this.updateCurrentUser = this.updateCurrentUser.bind(this);
-      this.updatePassphrase = this.updatePassphrase.bind(this);
-      this.updateProfile = this.updateProfile.bind(this);
-      this.updateSubscription = this.updateSubscription.bind(this);
-      this.updateWatchState = this.updateWatchState.bind(this);
+    export interface CreatePortalSessionRequest {
+        returnUrl?: string
     }
 
-    /**
-     * Add source to account
-     */
-    public async addSource(params: endpoints.AddSourceRequest): Promise<{
-      sourceId: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/account/sources`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        sourceId: string;
-      };
+    export interface CreatePortalSessionResponse {
+        url: string
     }
 
-    /**
-     * Clear all watch history for a profile
-     */
-    public async clearWatchHistory(profileId: string): Promise<{
-      ok: true;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'DELETE',
-        `/profiles/${encodeURIComponent(profileId)}/watch-state`
-      );
-      return (await resp.json()) as {
-        ok: true;
-      };
+    export interface User {
+        id: string
+        name: string
+        email: string
+        emailVerified: boolean
+        image: string | null
+        createdAt: string
+        updatedAt: string
+        stripeCustomerId: string | null
+        role: string
+        banned: boolean
+        banReason: string | null
+        banExpires: number | null
+        subscriptionTier: string
+        subscriptionStatus: string | null
+        subscriptionId: string | null
+        subscriptionCurrentPeriodEnd: string | null
     }
 
-    /**
-     * Create account with initial source and default profile
-     */
-    public async createAccount(
-      params: endpoints.CreateAccountRequest
-    ): Promise<{
-      accountId: string;
-      sourceId: string;
-      profileId: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/accounts`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        accountId: string;
-        sourceId: string;
-        profileId: string;
-      };
+    export class ServiceClient {
+        private baseClient: BaseClient
+
+        constructor(baseClient: BaseClient) {
+            this.baseClient = baseClient
+            this.addSource = this.addSource.bind(this)
+            this.clearWatchHistory = this.clearWatchHistory.bind(this)
+            this.createAccount = this.createAccount.bind(this)
+            this.createPortalSession = this.createPortalSession.bind(this)
+            this.createProfile = this.createProfile.bind(this)
+            this.createProfileAsOwner = this.createProfileAsOwner.bind(this)
+            this.decryptSource = this.decryptSource.bind(this)
+            this.deleteProfile = this.deleteProfile.bind(this)
+            this.deleteProfileAsOwner = this.deleteProfileAsOwner.bind(this)
+            this.deleteSource = this.deleteSource.bind(this)
+            this.deleteWatchState = this.deleteWatchState.bind(this)
+            this.detectEmbeddedSubtitles = this.detectEmbeddedSubtitles.bind(this)
+            this.downloadSubtitleFile = this.downloadSubtitleFile.bind(this)
+            this.extractMKVSubtitle = this.extractMKVSubtitle.bind(this)
+            this.extractOriginalSubtitleContent = this.extractOriginalSubtitleContent.bind(this)
+            this.extractOriginalSubtitles = this.extractOriginalSubtitles.bind(this)
+            this.fixProfileOwnerStatus = this.fixProfileOwnerStatus.bind(this)
+            this.getAccount = this.getAccount.bind(this)
+            this.getAccountSources = this.getAccountSources.bind(this)
+            this.getAccounts = this.getAccounts.bind(this)
+            this.getAvailableLanguages = this.getAvailableLanguages.bind(this)
+            this.getContentWatchState = this.getContentWatchState.bind(this)
+            this.getCurrentUser = this.getCurrentUser.bind(this)
+            this.getDashboardTrends = this.getDashboardTrends.bind(this)
+            this.getLanguagesByTmdb = this.getLanguagesByTmdb.bind(this)
+            this.getMetadataForContent = this.getMetadataForContent.bind(this)
+            this.getProfileSourceAudit = this.getProfileSourceAudit.bind(this)
+            this.getProfileSources = this.getProfileSources.bind(this)
+            this.getProfiles = this.getProfiles.bind(this)
+            this.getSources = this.getSources.bind(this)
+            this.getSubtitleById = this.getSubtitleById.bind(this)
+            this.getSubtitleContent = this.getSubtitleContent.bind(this)
+            this.getSubtitleContentById = this.getSubtitleContentById.bind(this)
+            this.getSubtitleContentByTmdb = this.getSubtitleContentByTmdb.bind(this)
+            this.getSubtitleVariants = this.getSubtitleVariants.bind(this)
+            this.getSubtitles = this.getSubtitles.bind(this)
+            this.getUserById = this.getUserById.bind(this)
+            this.getWatchState = this.getWatchState.bind(this)
+            this.initializeAccountEncryption = this.initializeAccountEncryption.bind(this)
+            this.initializeNewAccount = this.initializeNewAccount.bind(this)
+            this.isProfileOwner = this.isProfileOwner.bind(this)
+            this.removeProfileSource = this.removeProfileSource.bind(this)
+            this.resolveSubtitles = this.resolveSubtitles.bind(this)
+            this.searchSubtitles = this.searchSubtitles.bind(this)
+            this.switchProfile = this.switchProfile.bind(this)
+            this.updateCurrentUser = this.updateCurrentUser.bind(this)
+            this.updatePassphrase = this.updatePassphrase.bind(this)
+            this.updateProfile = this.updateProfile.bind(this)
+            this.updateProfileAsOwner = this.updateProfileAsOwner.bind(this)
+            this.updateProfileSources = this.updateProfileSources.bind(this)
+            this.updateSubscription = this.updateSubscription.bind(this)
+            this.updateWatchState = this.updateWatchState.bind(this)
+        }
+
+        /**
+         * Add source to account
+         */
+        public async addSource(params: endpoints.AddSourceRequest): Promise<{
+    sourceId: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/account/sources`, JSON.stringify(params))
+            return await resp.json() as {
+    sourceId: string
+}
+        }
+
+        /**
+         * Clear all watch history for a profile
+         */
+        public async clearWatchHistory(profileId: string): Promise<{
+    ok: true
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/watch-state`)
+            return await resp.json() as {
+    ok: true
+}
+        }
+
+        /**
+         * Create account with initial source and default profile
+         */
+        public async createAccount(params: endpoints.CreateAccountRequest): Promise<{
+    accountId: string
+    sourceId: string
+    profileId: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/accounts`, JSON.stringify(params))
+            return await resp.json() as {
+    accountId: string
+    sourceId: string
+    profileId: string
+}
+        }
+
+        /**
+         * Creates a Stripe customer portal session for managing billing
+         */
+        public async createPortalSession(params: CreatePortalSessionRequest): Promise<CreatePortalSessionResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/user/billing/portal`, JSON.stringify(params))
+            return await resp.json() as CreatePortalSessionResponse
+        }
+
+        /**
+         * Create a new profile
+         */
+        public async createProfile(params: endpoints.CreateProfileRequest): Promise<{
+    profileId: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/profiles`, JSON.stringify(params))
+            return await resp.json() as {
+    profileId: string
+}
+        }
+
+        /**
+         * Owner-only: Create a new profile (only account owner can create profiles)
+         */
+        public async createProfileAsOwner(params: endpoints.CreateProfileRequest): Promise<{
+    profileId: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/profiles/owner`, JSON.stringify(params))
+            return await resp.json() as {
+    profileId: string
+}
+        }
+
+        /**
+         * Decrypt source credentials (requires passphrase)
+         */
+        public async decryptSource(sourceId: string, params: {
+    passphrase: string
+}): Promise<{
+    credentials: any
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/account/sources/${encodeURIComponent(sourceId)}/decrypt`, JSON.stringify(params))
+            return await resp.json() as {
+    credentials: any
+}
+        }
+
+        /**
+         * Delete a profile
+         */
+        public async deleteProfile(profileId: string): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}`)
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Owner-only: Delete profile (only owner can delete profiles)
+         */
+        public async deleteProfileAsOwner(profileId: string): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/owner`)
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Delete source
+         */
+        public async deleteSource(sourceId: string): Promise<{
+    deleted: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/account/sources/${encodeURIComponent(sourceId)}`)
+            return await resp.json() as {
+    deleted: boolean
+}
+        }
+
+        /**
+         * Delete watch state for content
+         */
+        public async deleteWatchState(profileId: string, contentId: string): Promise<{
+    ok: true
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/watch-state/${encodeURIComponent(contentId)}`)
+            return await resp.json() as {
+    ok: true
+}
+        }
+
+        public async detectEmbeddedSubtitles(params: endpoints.DetectEmbeddedTracksParams): Promise<endpoints.DetectEmbeddedTracksResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/user/subtitles/detect-embedded`, JSON.stringify(params))
+            return await resp.json() as endpoints.DetectEmbeddedTracksResponse
+        }
+
+        /**
+         * Legacy download endpoint - kept for backward compatibility
+         */
+        public async downloadSubtitleFile(params: {
+    "file_id"?: string
+    "subtitle_id"?: string
+}): Promise<{
+    content: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/subtitles/download`, JSON.stringify(params))
+            return await resp.json() as {
+    content: string
+}
+        }
+
+        public async extractMKVSubtitle(params: endpoints.ExtractMKVSubtitleParams): Promise<endpoints.ExtractMKVSubtitleResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/subtitles/mkv-extract`, JSON.stringify(params))
+            return await resp.json() as endpoints.ExtractMKVSubtitleResponse
+        }
+
+        public async extractOriginalSubtitleContent(params: endpoints.ExtractOriginalSubtitleContentParams): Promise<endpoints.ExtractOriginalSubtitleContentResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/subtitles/extract-original-content`, JSON.stringify(params))
+            return await resp.json() as endpoints.ExtractOriginalSubtitleContentResponse
+        }
+
+        public async extractOriginalSubtitles(params: endpoints.ExtractOriginalSubtitlesParams): Promise<endpoints.ExtractOriginalSubtitlesResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/subtitles/extract-original`, JSON.stringify(params))
+            return await resp.json() as endpoints.ExtractOriginalSubtitlesResponse
+        }
+
+        /**
+         * Fix owner status for existing profiles (one-time fix for migration issues)
+         */
+        public async fixProfileOwnerStatus(): Promise<{
+    success: boolean
+    message: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/profiles/fix-owner-status`)
+            return await resp.json() as {
+    success: boolean
+    message: string
+}
+        }
+
+        /**
+         * Get user's account (now just one)
+         */
+        public async getAccount(): Promise<{
+    account: endpoints.AccountRow | null
+    hasEncryption?: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/account`)
+            return await resp.json() as {
+    account: endpoints.AccountRow | null
+    hasEncryption?: boolean
+}
+        }
+
+        /**
+         * Get all sources available to the account (for selection)
+         */
+        public async getAccountSources(): Promise<{
+    sources: endpoints.SourceInfo[]
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/account/sources/available`)
+            return await resp.json() as {
+    sources: endpoints.SourceInfo[]
+}
+        }
+
+        /**
+         * Get user's accounts (backward compatibility - returns single account in array)
+         */
+        public async getAccounts(): Promise<{
+    accounts: endpoints.AccountRow[]
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/accounts`)
+            return await resp.json() as {
+    accounts: endpoints.AccountRow[]
+}
+        }
+
+        public async getAvailableLanguages(movieId: string, params: {
+    "imdb_id"?: number
+    "tmdb_id"?: number
+    "parent_imdb_id"?: number
+    "parent_tmdb_id"?: number
+    "season_number"?: number
+    "episode_number"?: number
+    query?: string
+    moviehash?: string
+    type?: "movie" | "episode" | "all"
+    year?: number
+    "preferred_provider"?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    languages: subtitles.SubtitleLanguage[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "imdb_id":            params["imdb_id"] === undefined ? undefined : String(params["imdb_id"]),
+                moviehash:            params.moviehash,
+                "parent_imdb_id":     params["parent_imdb_id"] === undefined ? undefined : String(params["parent_imdb_id"]),
+                "parent_tmdb_id":     params["parent_tmdb_id"] === undefined ? undefined : String(params["parent_tmdb_id"]),
+                "preferred_provider": params["preferred_provider"] === undefined ? undefined : String(params["preferred_provider"]),
+                query:                params.query,
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+                type:                 params.type === undefined ? undefined : String(params.type),
+                year:                 params.year === undefined ? undefined : String(params.year),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/${encodeURIComponent(movieId)}/languages`, undefined, {query})
+            return await resp.json() as {
+    languages: subtitles.SubtitleLanguage[]
+}
+        }
+
+        /**
+         * Get watch state for a specific content item
+         */
+        public async getContentWatchState(profileId: string, contentId: string): Promise<{
+    state: {
+        "content_id": string
+        "content_type": string | null
+        "last_position_seconds": number | null
+        "total_duration_seconds": number | null
+        "is_favorite": boolean
+        "last_watched_at": string
+    } | null
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/watch-state/${encodeURIComponent(contentId)}`)
+            return await resp.json() as {
+    state: {
+        "content_id": string
+        "content_type": string | null
+        "last_position_seconds": number | null
+        "total_duration_seconds": number | null
+        "is_favorite": boolean
+        "last_watched_at": string
+    } | null
+}
+        }
+
+        /**
+         * Get current user endpoint
+         */
+        public async getCurrentUser(): Promise<User> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/user/me`)
+            return await resp.json() as User
+        }
+
+        public async getDashboardTrends(params: {
+    feed: endpoints.TrendFeed
+    "content_type": endpoints.TrendsContentType
+    limit?: number
+    refresh?: boolean
+}): Promise<endpoints.TrendsResponse> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "content_type": String(params["content_type"]),
+                feed:           String(params.feed),
+                limit:          params.limit === undefined ? undefined : String(params.limit),
+                refresh:        params.refresh === undefined ? undefined : String(params.refresh),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/user/trends`, undefined, {query})
+            return await resp.json() as endpoints.TrendsResponse
+        }
+
+        /**
+         * TMDB-first endpoint: check DB by TMDB, fetch/store metadata if missing, return languages
+         */
+        public async getLanguagesByTmdb(tmdbId: number, params: {
+    provider?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    languages: subtitles.SubtitleLanguage[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                provider: params.provider === undefined ? undefined : String(params.provider),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/tmdb/${encodeURIComponent(tmdbId)}/languages`, undefined, {query})
+            return await resp.json() as {
+    languages: subtitles.SubtitleLanguage[]
+}
+        }
+
+        public async getMetadataForContent(params: {
+    "tmdb_id": number
+    "content_type": endpoints.ContentType
+    "season_number"?: number
+    "episode_number"?: number
+    "force_refresh"?: boolean
+    "append_to_response"?: string
+}): Promise<metadata.ContentMetadata> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "append_to_response": params["append_to_response"],
+                "content_type":       String(params["content_type"]),
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "force_refresh":      params["force_refresh"] === undefined ? undefined : String(params["force_refresh"]),
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            String(params["tmdb_id"]),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/user/metadata`, undefined, {query})
+            return await resp.json() as metadata.ContentMetadata
+        }
+
+        /**
+         * Get profile source audit information
+         */
+        public async getProfileSourceAudit(): Promise<{
+    audit: any[]
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/profiles/sources/audit`)
+            return await resp.json() as {
+    audit: any[]
+}
+        }
+
+        /**
+         * Get sources accessible to a specific profile
+         */
+        public async getProfileSources(profileId: string): Promise<{
+    sources: endpoints.ProfileSourceInfo[]
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/sources`)
+            return await resp.json() as {
+    sources: endpoints.ProfileSourceInfo[]
+}
+        }
+
+        /**
+         * Get all profiles for the user's account
+         */
+        public async getProfiles(): Promise<{
+    profiles: endpoints.ProfileWithSources[]
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/profiles`)
+            return await resp.json() as {
+    profiles: endpoints.ProfileWithSources[]
+}
+        }
+
+        /**
+         * Get sources for account
+         */
+        public async getSources(): Promise<{
+    sources: endpoints.SourceRow[]
+    keyData?: {
+        "master_key_wrapped": string
+        salt: string
+        iv: string
     }
-
-    /**
-     * Creates a Stripe customer portal session for managing billing
-     */
-    public async createPortalSession(
-      params: CreatePortalSessionRequest
-    ): Promise<CreatePortalSessionResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/user/billing/portal`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as CreatePortalSessionResponse;
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/account/sources`)
+            return await resp.json() as {
+    sources: endpoints.SourceRow[]
+    keyData?: {
+        "master_key_wrapped": string
+        salt: string
+        iv: string
     }
+}
+        }
 
-    /**
-     * Create a new profile
-     */
-    public async createProfile(
-      params: endpoints.CreateProfileRequest
-    ): Promise<{
-      profileId: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/profiles`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        profileId: string;
-      };
+        /**
+         * Get subtitle content by row id. If content is missing, attempt to download via its stored metadata.
+         */
+        public async getSubtitleById(id: string): Promise<{
+    subtitle: endpoints.Subtitle | null
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/by-id/${encodeURIComponent(id)}`)
+            return await resp.json() as {
+    subtitle: endpoints.Subtitle | null
+}
+        }
+
+        /**
+         * New endpoint for getting subtitle content on demand
+         */
+        public async getSubtitleContent(movieId: string, languageCode: string, params: {
+    "imdb_id"?: number
+    "tmdb_id"?: number
+    "parent_imdb_id"?: number
+    "parent_tmdb_id"?: number
+    "season_number"?: number
+    "episode_number"?: number
+    query?: string
+    moviehash?: string
+    type?: "movie" | "episode" | "all"
+    year?: number
+    "preferred_provider"?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitle: endpoints.Subtitle | null
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "imdb_id":            params["imdb_id"] === undefined ? undefined : String(params["imdb_id"]),
+                moviehash:            params.moviehash,
+                "parent_imdb_id":     params["parent_imdb_id"] === undefined ? undefined : String(params["parent_imdb_id"]),
+                "parent_tmdb_id":     params["parent_tmdb_id"] === undefined ? undefined : String(params["parent_tmdb_id"]),
+                "preferred_provider": params["preferred_provider"] === undefined ? undefined : String(params["preferred_provider"]),
+                query:                params.query,
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+                type:                 params.type === undefined ? undefined : String(params.type),
+                year:                 params.year === undefined ? undefined : String(params.year),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/${encodeURIComponent(movieId)}/content/${encodeURIComponent(languageCode)}`, undefined, {query})
+            return await resp.json() as {
+    subtitle: endpoints.Subtitle | null
+}
+        }
+
+        /**
+         * Get subtitle content by specific variant ID
+         */
+        public async getSubtitleContentById(variantId: string): Promise<{
+    subtitle: endpoints.Subtitle | null
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/variant/${encodeURIComponent(variantId)}/content`)
+            return await resp.json() as {
+    subtitle: endpoints.Subtitle | null
+}
+        }
+
+        /**
+         * TMDB-first endpoint: fetch/return content for selected language
+         */
+        public async getSubtitleContentByTmdb(tmdbId: number, languageCode: string, params: {
+    provider?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitle: endpoints.Subtitle | null
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                provider: params.provider === undefined ? undefined : String(params.provider),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/tmdb/${encodeURIComponent(tmdbId)}/content/${encodeURIComponent(languageCode)}`, undefined, {query})
+            return await resp.json() as {
+    subtitle: endpoints.Subtitle | null
+}
+        }
+
+        /**
+         * Get all subtitle variants for a specific language
+         */
+        public async getSubtitleVariants(movieId: string, languageCode: string, params: {
+    "tmdb_id"?: number
+}): Promise<{
+    variants: endpoints.SubtitleRowItem[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "tmdb_id": params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/${encodeURIComponent(movieId)}/variants/${encodeURIComponent(languageCode)}`, undefined, {query})
+            return await resp.json() as {
+    variants: endpoints.SubtitleRowItem[]
+}
+        }
+
+        public async getSubtitles(movieId: string, params: {
+    "imdb_id"?: number
+    "tmdb_id"?: number
+    "parent_imdb_id"?: number
+    "parent_tmdb_id"?: number
+    "season_number"?: number
+    "episode_number"?: number
+    query?: string
+    moviehash?: string
+    languages?: string
+    type?: "movie" | "episode" | "all"
+    year?: number
+    "preferred_provider"?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitles: endpoints.Subtitle[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                "imdb_id":            params["imdb_id"] === undefined ? undefined : String(params["imdb_id"]),
+                languages:            params.languages,
+                moviehash:            params.moviehash,
+                "parent_imdb_id":     params["parent_imdb_id"] === undefined ? undefined : String(params["parent_imdb_id"]),
+                "parent_tmdb_id":     params["parent_tmdb_id"] === undefined ? undefined : String(params["parent_tmdb_id"]),
+                "preferred_provider": params["preferred_provider"] === undefined ? undefined : String(params["preferred_provider"]),
+                query:                params.query,
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+                type:                 params.type === undefined ? undefined : String(params.type),
+                year:                 params.year === undefined ? undefined : String(params.year),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/${encodeURIComponent(movieId)}`, undefined, {query})
+            return await resp.json() as {
+    subtitles: endpoints.Subtitle[]
+}
+        }
+
+        /**
+         * Get user by ID endpoint (for admin/internal use)
+         */
+        public async getUserById(id: string): Promise<endpoints.SimpleUser> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/user/${encodeURIComponent(id)}`)
+            return await resp.json() as endpoints.SimpleUser
+        }
+
+        /**
+         * Get watch state for a profile
+         */
+        public async getWatchState(profileId: string): Promise<endpoints.GetWatchStateResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/watch-state`)
+            return await resp.json() as endpoints.GetWatchStateResponse
+        }
+
+        /**
+         * Initialize encryption for existing accounts (migration helper)
+         */
+        public async initializeAccountEncryption(params: endpoints.InitializeEncryptionRequest): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/account/initialize-encryption`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Initialize new account with just encryption (no sources)
+         */
+        public async initializeNewAccount(params: endpoints.InitializeNewAccountRequest): Promise<{
+    accountId: string
+    profileId: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/account/initialize`, JSON.stringify(params))
+            return await resp.json() as {
+    accountId: string
+    profileId: string
+}
+        }
+
+        /**
+         * Check if current user is owner of a profile
+         */
+        public async isProfileOwner(profileId: string): Promise<{
+    isOwner: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/owner`)
+            return await resp.json() as {
+    isOwner: boolean
+}
+        }
+
+        /**
+         * Remove a specific source from a profile
+         */
+        public async removeProfileSource(profileId: string, sourceId: string): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/sources/${encodeURIComponent(sourceId)}`)
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Unified resolver for UI: list rows or fetch content for a selected row
+         */
+        public async resolveSubtitles(params: {
+    movieId?: string
+    "tmdb_id"?: number
+    "parent_imdb_id"?: number
+    "parent_tmdb_id"?: number
+    "season_number"?: number
+    "episode_number"?: number
+    query?: string
+    type?: "movie" | "episode" | "all"
+    year?: number
+    "preferred_provider"?: "opensubs" | "subdl" | "all"
+    "row_id"?: string
+}): Promise<endpoints.ResolveSubtitlesResponse> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
+                movieId:              params.movieId,
+                "parent_imdb_id":     params["parent_imdb_id"] === undefined ? undefined : String(params["parent_imdb_id"]),
+                "parent_tmdb_id":     params["parent_tmdb_id"] === undefined ? undefined : String(params["parent_tmdb_id"]),
+                "preferred_provider": params["preferred_provider"] === undefined ? undefined : String(params["preferred_provider"]),
+                query:                params.query,
+                "row_id":             params["row_id"],
+                "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+                type:                 params.type === undefined ? undefined : String(params.type),
+                year:                 params.year === undefined ? undefined : String(params.year),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/resolve`, undefined, {query})
+            return await resp.json() as endpoints.ResolveSubtitlesResponse
+        }
+
+        /**
+         * Legacy search endpoint - deprecated in favor of getAvailableLanguages + getSubtitleContent
+         */
+        public async searchSubtitles(): Promise<{
+    results: any
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/search`)
+            return await resp.json() as {
+    results: any
+}
+        }
+
+        /**
+         * Switch active profile (for tracking purposes)
+         */
+        public async switchProfile(profileId: string): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/profiles/${encodeURIComponent(profileId)}/switch`)
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Update current user endpoint
+         */
+        public async updateCurrentUser(params: {
+    name?: string
+    email?: string
+}): Promise<User> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("PATCH", `/user/me`, JSON.stringify(params))
+            return await resp.json() as User
+        }
+
+        /**
+         * Update account passphrase
+         */
+        public async updatePassphrase(params: endpoints.UpdatePassphraseRequest): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("PUT", `/account/passphrase`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Update a profile
+         */
+        public async updateProfile(profileId: string, params: {
+    name?: string
+    allowedSources?: string[]
+}): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("PUT", `/profiles/${encodeURIComponent(profileId)}`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Owner-only: Update profile (only owner can modify profiles)
+         */
+        public async updateProfileAsOwner(profileId: string, params: {
+    name?: string
+    allowedSources?: string[]
+}): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("PUT", `/profiles/${encodeURIComponent(profileId)}/owner`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Update profile source restrictions (owner only)
+         */
+        public async updateProfileSources(profileId: string, params: {
+    sourceIds: string[]
+    notes?: string
+}): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("PUT", `/profiles/${encodeURIComponent(profileId)}/sources`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Update subscription tier
+         */
+        public async updateSubscription(params: {
+    tier: "basic" | "standard" | "premium"
+}): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("PUT", `/account/subscription`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
+         * Update watch state for a piece of content
+         */
+        public async updateWatchState(params: endpoints.UpdateWatchStateRequest): Promise<{
+    ok: true
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/watch-state`, JSON.stringify(params))
+            return await resp.json() as {
+    ok: true
+}
+        }
     }
-
-    /**
-     * Decrypt source credentials (requires passphrase)
-     */
-    public async decryptSource(
-      sourceId: string,
-      params: {
-        passphrase: string;
-      }
-    ): Promise<{
-      credentials: any;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/account/sources/${encodeURIComponent(sourceId)}/decrypt`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        credentials: any;
-      };
-    }
-
-    /**
-     * Delete a profile
-     */
-    public async deleteProfile(profileId: string): Promise<{
-      success: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'DELETE',
-        `/profiles/${encodeURIComponent(profileId)}`
-      );
-      return (await resp.json()) as {
-        success: boolean;
-      };
-    }
-
-    /**
-     * Delete source
-     */
-    public async deleteSource(sourceId: string): Promise<{
-      deleted: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'DELETE',
-        `/account/sources/${encodeURIComponent(sourceId)}`
-      );
-      return (await resp.json()) as {
-        deleted: boolean;
-      };
-    }
-
-    /**
-     * Delete watch state for content
-     */
-    public async deleteWatchState(
-      profileId: string,
-      contentId: string
-    ): Promise<{
-      ok: true;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'DELETE',
-        `/profiles/${encodeURIComponent(profileId)}/watch-state/${encodeURIComponent(contentId)}`
-      );
-      return (await resp.json()) as {
-        ok: true;
-      };
-    }
-
-    public async detectEmbeddedSubtitles(
-      params: endpoints.DetectEmbeddedTracksParams
-    ): Promise<endpoints.DetectEmbeddedTracksResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/user/subtitles/detect-embedded`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as endpoints.DetectEmbeddedTracksResponse;
-    }
-
-    /**
-     * Legacy download endpoint - kept for backward compatibility
-     */
-    public async downloadSubtitleFile(params: {
-      file_id?: string;
-      subtitle_id?: string;
-    }): Promise<{
-      content: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/subtitles/download`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        content: string;
-      };
-    }
-
-    public async extractMKVSubtitle(
-      params: endpoints.ExtractMKVSubtitleParams
-    ): Promise<endpoints.ExtractMKVSubtitleResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/subtitles/mkv-extract`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as endpoints.ExtractMKVSubtitleResponse;
-    }
-
-    public async extractOriginalSubtitleContent(
-      params: endpoints.ExtractOriginalSubtitleContentParams
-    ): Promise<endpoints.ExtractOriginalSubtitleContentResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/subtitles/extract-original-content`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as endpoints.ExtractOriginalSubtitleContentResponse;
-    }
-
-    public async extractOriginalSubtitles(
-      params: endpoints.ExtractOriginalSubtitlesParams
-    ): Promise<endpoints.ExtractOriginalSubtitlesResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/subtitles/extract-original`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as endpoints.ExtractOriginalSubtitlesResponse;
-    }
-
-    /**
-     * Get user's account (now just one)
-     */
-    public async getAccount(): Promise<{
-      account: endpoints.AccountRow | null;
-      hasEncryption?: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI('GET', `/account`);
-      return (await resp.json()) as {
-        account: endpoints.AccountRow | null;
-        hasEncryption?: boolean;
-      };
-    }
-
-    /**
-     * Get user's accounts (backward compatibility - returns single account in array)
-     */
-    public async getAccounts(): Promise<{
-      accounts: endpoints.AccountRow[];
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI('GET', `/accounts`);
-      return (await resp.json()) as {
-        accounts: endpoints.AccountRow[];
-      };
-    }
-
-    public async getAvailableLanguages(
-      movieId: string,
-      params: {
-        imdb_id?: number;
-        tmdb_id?: number;
-        parent_imdb_id?: number;
-        parent_tmdb_id?: number;
-        season_number?: number;
-        episode_number?: number;
-        query?: string;
-        moviehash?: string;
-        type?: 'movie' | 'episode' | 'all';
-        year?: number;
-        preferred_provider?: 'opensubs' | 'subdl' | 'all';
-      }
-    ): Promise<{
-      languages: subtitles.SubtitleLanguage[];
-    }> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        episode_number:
-          params['episode_number'] === undefined
-            ? undefined
-            : String(params['episode_number']),
-        imdb_id:
-          params['imdb_id'] === undefined
-            ? undefined
-            : String(params['imdb_id']),
-        moviehash: params.moviehash,
-        parent_imdb_id:
-          params['parent_imdb_id'] === undefined
-            ? undefined
-            : String(params['parent_imdb_id']),
-        parent_tmdb_id:
-          params['parent_tmdb_id'] === undefined
-            ? undefined
-            : String(params['parent_tmdb_id']),
-        preferred_provider:
-          params['preferred_provider'] === undefined
-            ? undefined
-            : String(params['preferred_provider']),
-        query: params.query,
-        season_number:
-          params['season_number'] === undefined
-            ? undefined
-            : String(params['season_number']),
-        tmdb_id:
-          params['tmdb_id'] === undefined
-            ? undefined
-            : String(params['tmdb_id']),
-        type: params.type === undefined ? undefined : String(params.type),
-        year: params.year === undefined ? undefined : String(params.year),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/${encodeURIComponent(movieId)}/languages`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as {
-        languages: subtitles.SubtitleLanguage[];
-      };
-    }
-
-    /**
-     * Get watch state for a specific content item
-     */
-    public async getContentWatchState(
-      profileId: string,
-      contentId: string
-    ): Promise<{
-      state: {
-        content_id: string;
-        content_type: string | null;
-        last_position_seconds: number | null;
-        total_duration_seconds: number | null;
-        is_favorite: boolean;
-        last_watched_at: string;
-      } | null;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/profiles/${encodeURIComponent(profileId)}/watch-state/${encodeURIComponent(contentId)}`
-      );
-      return (await resp.json()) as {
-        state: {
-          content_id: string;
-          content_type: string | null;
-          last_position_seconds: number | null;
-          total_duration_seconds: number | null;
-          is_favorite: boolean;
-          last_watched_at: string;
-        } | null;
-      };
-    }
-
-    /**
-     * Get current user endpoint
-     */
-    public async getCurrentUser(): Promise<User> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI('GET', `/user/me`);
-      return (await resp.json()) as User;
-    }
-
-    public async getDashboardTrends(params: {
-      feed: endpoints.TrendFeed;
-      content_type: endpoints.TrendsContentType;
-      limit?: number;
-      refresh?: boolean;
-    }): Promise<endpoints.TrendsResponse> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        content_type: String(params['content_type']),
-        feed: String(params.feed),
-        limit: params.limit === undefined ? undefined : String(params.limit),
-        refresh:
-          params.refresh === undefined ? undefined : String(params.refresh),
-      });
-
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/user/trends`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as endpoints.TrendsResponse;
-    }
-
-    /**
-     * TMDB-first endpoint: check DB by TMDB, fetch/store metadata if missing, return languages
-     */
-    public async getLanguagesByTmdb(
-      tmdbId: number,
-      params: {
-        provider?: 'opensubs' | 'subdl' | 'all';
-      }
-    ): Promise<{
-      languages: subtitles.SubtitleLanguage[];
-    }> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        provider:
-          params.provider === undefined ? undefined : String(params.provider),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/tmdb/${encodeURIComponent(tmdbId)}/languages`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as {
-        languages: subtitles.SubtitleLanguage[];
-      };
-    }
-
-    public async getMetadataForContent(params: {
-      tmdb_id: number;
-      content_type: endpoints.ContentType;
-      season_number?: number;
-      episode_number?: number;
-      force_refresh?: boolean;
-      append_to_response?: string;
-    }): Promise<metadata.ContentMetadata> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        append_to_response: params['append_to_response'],
-        content_type: String(params['content_type']),
-        episode_number:
-          params['episode_number'] === undefined
-            ? undefined
-            : String(params['episode_number']),
-        force_refresh:
-          params['force_refresh'] === undefined
-            ? undefined
-            : String(params['force_refresh']),
-        season_number:
-          params['season_number'] === undefined
-            ? undefined
-            : String(params['season_number']),
-        tmdb_id: String(params['tmdb_id']),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/user/metadata`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as metadata.ContentMetadata;
-    }
-
-    /**
-     * Get sources accessible to a profile
-     */
-    public async getProfileSources(profileId: string): Promise<{
-      sources: any[];
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/profiles/${encodeURIComponent(profileId)}/sources`
-      );
-      return (await resp.json()) as {
-        sources: any[];
-      };
-    }
-
-    /**
-     * Get all profiles for the user's account
-     */
-    public async getProfiles(): Promise<{
-      profiles: endpoints.ProfileWithSources[];
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI('GET', `/profiles`);
-      return (await resp.json()) as {
-        profiles: endpoints.ProfileWithSources[];
-      };
-    }
-
-    /**
-     * Get sources for account
-     */
-    public async getSources(): Promise<{
-      sources: endpoints.SourceRow[];
-      keyData?: {
-        master_key_wrapped: string;
-        salt: string;
-        iv: string;
-      };
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/account/sources`
-      );
-      return (await resp.json()) as {
-        sources: endpoints.SourceRow[];
-        keyData?: {
-          master_key_wrapped: string;
-          salt: string;
-          iv: string;
-        };
-      };
-    }
-
-    /**
-     * Get subtitle content by row id. If content is missing, attempt to download via its stored metadata.
-     */
-    public async getSubtitleById(id: string): Promise<{
-      subtitle: endpoints.Subtitle | null;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/by-id/${encodeURIComponent(id)}`
-      );
-      return (await resp.json()) as {
-        subtitle: endpoints.Subtitle | null;
-      };
-    }
-
-    /**
-     * New endpoint for getting subtitle content on demand
-     */
-    public async getSubtitleContent(
-      movieId: string,
-      languageCode: string,
-      params: {
-        imdb_id?: number;
-        tmdb_id?: number;
-        parent_imdb_id?: number;
-        parent_tmdb_id?: number;
-        season_number?: number;
-        episode_number?: number;
-        query?: string;
-        moviehash?: string;
-        type?: 'movie' | 'episode' | 'all';
-        year?: number;
-        preferred_provider?: 'opensubs' | 'subdl' | 'all';
-      }
-    ): Promise<{
-      subtitle: endpoints.Subtitle | null;
-    }> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        episode_number:
-          params['episode_number'] === undefined
-            ? undefined
-            : String(params['episode_number']),
-        imdb_id:
-          params['imdb_id'] === undefined
-            ? undefined
-            : String(params['imdb_id']),
-        moviehash: params.moviehash,
-        parent_imdb_id:
-          params['parent_imdb_id'] === undefined
-            ? undefined
-            : String(params['parent_imdb_id']),
-        parent_tmdb_id:
-          params['parent_tmdb_id'] === undefined
-            ? undefined
-            : String(params['parent_tmdb_id']),
-        preferred_provider:
-          params['preferred_provider'] === undefined
-            ? undefined
-            : String(params['preferred_provider']),
-        query: params.query,
-        season_number:
-          params['season_number'] === undefined
-            ? undefined
-            : String(params['season_number']),
-        tmdb_id:
-          params['tmdb_id'] === undefined
-            ? undefined
-            : String(params['tmdb_id']),
-        type: params.type === undefined ? undefined : String(params.type),
-        year: params.year === undefined ? undefined : String(params.year),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/${encodeURIComponent(movieId)}/content/${encodeURIComponent(languageCode)}`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as {
-        subtitle: endpoints.Subtitle | null;
-      };
-    }
-
-    /**
-     * Get subtitle content by specific variant ID
-     */
-    public async getSubtitleContentById(variantId: string): Promise<{
-      subtitle: endpoints.Subtitle | null;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/variant/${encodeURIComponent(variantId)}/content`
-      );
-      return (await resp.json()) as {
-        subtitle: endpoints.Subtitle | null;
-      };
-    }
-
-    /**
-     * TMDB-first endpoint: fetch/return content for selected language
-     */
-    public async getSubtitleContentByTmdb(
-      tmdbId: number,
-      languageCode: string,
-      params: {
-        provider?: 'opensubs' | 'subdl' | 'all';
-      }
-    ): Promise<{
-      subtitle: endpoints.Subtitle | null;
-    }> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        provider:
-          params.provider === undefined ? undefined : String(params.provider),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/tmdb/${encodeURIComponent(tmdbId)}/content/${encodeURIComponent(languageCode)}`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as {
-        subtitle: endpoints.Subtitle | null;
-      };
-    }
-
-    /**
-     * Get all subtitle variants for a specific language
-     */
-    public async getSubtitleVariants(
-      movieId: string,
-      languageCode: string,
-      params: {
-        tmdb_id?: number;
-      }
-    ): Promise<{
-      variants: endpoints.SubtitleRowItem[];
-    }> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        tmdb_id:
-          params['tmdb_id'] === undefined
-            ? undefined
-            : String(params['tmdb_id']),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/${encodeURIComponent(movieId)}/variants/${encodeURIComponent(languageCode)}`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as {
-        variants: endpoints.SubtitleRowItem[];
-      };
-    }
-
-    public async getSubtitles(
-      movieId: string,
-      params: {
-        imdb_id?: number;
-        tmdb_id?: number;
-        parent_imdb_id?: number;
-        parent_tmdb_id?: number;
-        season_number?: number;
-        episode_number?: number;
-        query?: string;
-        moviehash?: string;
-        languages?: string;
-        type?: 'movie' | 'episode' | 'all';
-        year?: number;
-        preferred_provider?: 'opensubs' | 'subdl' | 'all';
-      }
-    ): Promise<{
-      subtitles: endpoints.Subtitle[];
-    }> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        episode_number:
-          params['episode_number'] === undefined
-            ? undefined
-            : String(params['episode_number']),
-        imdb_id:
-          params['imdb_id'] === undefined
-            ? undefined
-            : String(params['imdb_id']),
-        languages: params.languages,
-        moviehash: params.moviehash,
-        parent_imdb_id:
-          params['parent_imdb_id'] === undefined
-            ? undefined
-            : String(params['parent_imdb_id']),
-        parent_tmdb_id:
-          params['parent_tmdb_id'] === undefined
-            ? undefined
-            : String(params['parent_tmdb_id']),
-        preferred_provider:
-          params['preferred_provider'] === undefined
-            ? undefined
-            : String(params['preferred_provider']),
-        query: params.query,
-        season_number:
-          params['season_number'] === undefined
-            ? undefined
-            : String(params['season_number']),
-        tmdb_id:
-          params['tmdb_id'] === undefined
-            ? undefined
-            : String(params['tmdb_id']),
-        type: params.type === undefined ? undefined : String(params.type),
-        year: params.year === undefined ? undefined : String(params.year),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/${encodeURIComponent(movieId)}`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as {
-        subtitles: endpoints.Subtitle[];
-      };
-    }
-
-    /**
-     * Get user by ID endpoint (for admin/internal use)
-     */
-    public async getUserById(id: string): Promise<endpoints.SimpleUser> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/user/${encodeURIComponent(id)}`
-      );
-      return (await resp.json()) as endpoints.SimpleUser;
-    }
-
-    /**
-     * Get watch state for a profile
-     */
-    public async getWatchState(
-      profileId: string
-    ): Promise<endpoints.GetWatchStateResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/profiles/${encodeURIComponent(profileId)}/watch-state`
-      );
-      return (await resp.json()) as endpoints.GetWatchStateResponse;
-    }
-
-    /**
-     * Initialize encryption for existing accounts (migration helper)
-     */
-    public async initializeAccountEncryption(
-      params: endpoints.InitializeEncryptionRequest
-    ): Promise<{
-      success: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/account/initialize-encryption`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        success: boolean;
-      };
-    }
-
-    /**
-     * Initialize new account with just encryption (no sources)
-     */
-    public async initializeNewAccount(
-      params: endpoints.InitializeNewAccountRequest
-    ): Promise<{
-      accountId: string;
-      profileId: string;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/account/initialize`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        accountId: string;
-        profileId: string;
-      };
-    }
-
-    /**
-     * Unified resolver for UI: list rows or fetch content for a selected row
-     */
-    public async resolveSubtitles(params: {
-      movieId?: string;
-      tmdb_id?: number;
-      parent_imdb_id?: number;
-      parent_tmdb_id?: number;
-      season_number?: number;
-      episode_number?: number;
-      query?: string;
-      type?: 'movie' | 'episode' | 'all';
-      year?: number;
-      preferred_provider?: 'opensubs' | 'subdl' | 'all';
-      row_id?: string;
-    }): Promise<endpoints.ResolveSubtitlesResponse> {
-      // Convert our params into the objects we need for the request
-      const query = makeRecord<string, string | string[]>({
-        episode_number:
-          params['episode_number'] === undefined
-            ? undefined
-            : String(params['episode_number']),
-        movieId: params.movieId,
-        parent_imdb_id:
-          params['parent_imdb_id'] === undefined
-            ? undefined
-            : String(params['parent_imdb_id']),
-        parent_tmdb_id:
-          params['parent_tmdb_id'] === undefined
-            ? undefined
-            : String(params['parent_tmdb_id']),
-        preferred_provider:
-          params['preferred_provider'] === undefined
-            ? undefined
-            : String(params['preferred_provider']),
-        query: params.query,
-        row_id: params['row_id'],
-        season_number:
-          params['season_number'] === undefined
-            ? undefined
-            : String(params['season_number']),
-        tmdb_id:
-          params['tmdb_id'] === undefined
-            ? undefined
-            : String(params['tmdb_id']),
-        type: params.type === undefined ? undefined : String(params.type),
-        year: params.year === undefined ? undefined : String(params.year),
-      });
-
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/resolve`,
-        undefined,
-        { query }
-      );
-      return (await resp.json()) as endpoints.ResolveSubtitlesResponse;
-    }
-
-    /**
-     * Legacy search endpoint - deprecated in favor of getAvailableLanguages + getSubtitleContent
-     */
-    public async searchSubtitles(): Promise<{
-      results: any;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/subtitles/search`
-      );
-      return (await resp.json()) as {
-        results: any;
-      };
-    }
-
-    /**
-     * Switch active profile (for tracking purposes)
-     */
-    public async switchProfile(profileId: string): Promise<{
-      success: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/profiles/${encodeURIComponent(profileId)}/switch`
-      );
-      return (await resp.json()) as {
-        success: boolean;
-      };
-    }
-
-    /**
-     * Update current user endpoint
-     */
-    public async updateCurrentUser(params: {
-      name?: string;
-      email?: string;
-    }): Promise<User> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'PATCH',
-        `/user/me`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as User;
-    }
-
-    /**
-     * Update account passphrase
-     */
-    public async updatePassphrase(
-      params: endpoints.UpdatePassphraseRequest
-    ): Promise<{
-      success: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'PUT',
-        `/account/passphrase`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        success: boolean;
-      };
-    }
-
-    /**
-     * Update a profile
-     */
-    public async updateProfile(
-      profileId: string,
-      params: {
-        name?: string;
-        hasSourceRestrictions?: boolean;
-        allowedSources?: string[];
-      }
-    ): Promise<{
-      success: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'PUT',
-        `/profiles/${encodeURIComponent(profileId)}`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        success: boolean;
-      };
-    }
-
-    /**
-     * Update subscription tier
-     */
-    public async updateSubscription(params: {
-      tier: 'basic' | 'standard' | 'premium';
-    }): Promise<{
-      success: boolean;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'PUT',
-        `/account/subscription`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        success: boolean;
-      };
-    }
-
-    /**
-     * Update watch state for a piece of content
-     */
-    public async updateWatchState(
-      params: endpoints.UpdateWatchStateRequest
-    ): Promise<{
-      ok: true;
-    }> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'POST',
-        `/watch-state`,
-        JSON.stringify(params)
-      );
-      return (await resp.json()) as {
-        ok: true;
-      };
-    }
-  }
 }
 
 export namespace webhooks {
-  export interface GetSubscriptionStatusResponse {
-    tier: SubscriptionTier;
-    status: string | null;
-    currentPeriodEnd: string | null;
-  }
-
-  export type SubscriptionTier = 'free' | 'basic' | 'pro' | 'enterprise';
-
-  export class ServiceClient {
-    private baseClient: BaseClient;
-
-    constructor(baseClient: BaseClient) {
-      this.baseClient = baseClient;
-      this.getSubscriptionStatus = this.getSubscriptionStatus.bind(this);
-      this.handleStripeWebhook = this.handleStripeWebhook.bind(this);
+    export interface GetSubscriptionStatusResponse {
+        tier: SubscriptionTier
+        status: string | null
+        currentPeriodEnd: string | null
     }
 
-    /**
-     * Get the current user's subscription status
-     */
-    public async getSubscriptionStatus(): Promise<GetSubscriptionStatusResponse> {
-      // Now make the actual call to the API
-      const resp = await this.baseClient.callTypedAPI(
-        'GET',
-        `/user/subscription-status`
-      );
-      return (await resp.json()) as GetSubscriptionStatusResponse;
-    }
+    export type SubscriptionTier = "free" | "basic" | "pro" | "enterprise"
 
-    /**
-     * Stripe webhook endpoint
-     */
-    public async handleStripeWebhook(
-      method: 'POST',
-      body?: RequestInit['body'],
-      options?: CallParameters
-    ): Promise<globalThis.Response> {
-      return this.baseClient.callAPI(method, `/webhooks/stripe`, body, options);
+    export class ServiceClient {
+        private baseClient: BaseClient
+
+        constructor(baseClient: BaseClient) {
+            this.baseClient = baseClient
+            this.getSubscriptionStatus = this.getSubscriptionStatus.bind(this)
+            this.handleStripeWebhook = this.handleStripeWebhook.bind(this)
+        }
+
+        /**
+         * Get the current user's subscription status
+         */
+        public async getSubscriptionStatus(): Promise<GetSubscriptionStatusResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/user/subscription-status`)
+            return await resp.json() as GetSubscriptionStatusResponse
+        }
+
+        /**
+         * Stripe webhook endpoint
+         */
+        public async handleStripeWebhook(method: "POST", body?: RequestInit["body"], options?: CallParameters): Promise<globalThis.Response> {
+            return this.baseClient.callAPI(method, `/webhooks/stripe`, body, options)
+        }
     }
-  }
 }
 
 export namespace endpoints {
-  export interface AccountRow {
-    id: string;
-    user_id: string;
-    name: string;
-    subscription_tier: string;
-    subscription_status: string;
-    created_at: string;
-  }
+    export interface AccountRow {
+        id: string
+        "user_id": string
+        name: string
+        "subscription_tier": string
+        "subscription_status": string
+        "created_at": string
+    }
 
-  export interface AddSourceRequest {
-    name: string;
-    providerType: string;
-    credentials: {
-      server: string;
-      username: string;
-      password: string;
-    };
-    passphrase: string;
-  }
+    export interface AddSourceRequest {
+        name: string
+        providerType: string
+        credentials: {
+            server: string
+            username: string
+            password: string
+        }
+        passphrase: string
+    }
 
-  export type ContentType = 'movie' | 'tv' | 'season' | 'episode';
+    export type ContentType = "movie" | "tv" | "season" | "episode"
 
-  export interface CreateAccountRequest {
-    accountName: string;
-    sourceName: string;
-    providerType: string;
-    credentials: {
-      server: string;
-      username: string;
-      password: string;
-    };
-    passphrase: string;
-  }
+    export interface CreateAccountRequest {
+        accountName: string
+        sourceName: string
+        providerType: string
+        credentials: {
+            server: string
+            username: string
+            password: string
+        }
+        passphrase: string
+    }
 
-  export interface CreateProfileRequest {
-    name: string;
-    hasSourceRestrictions?: boolean;
-    allowedSources?: string[];
-  }
+    export interface CreateProfileRequest {
+        name: string
+        allowedSources?: string[]
+    }
 
-  export interface DetectEmbeddedTracksParams {
-    streamUrl: string;
-    quickScan?: boolean;
-    contentName?: string;
-  }
+    export interface CreateProfileRequest {
+        name: string
+        allowedSources?: string[]
+    }
 
-  export interface DetectEmbeddedTracksResponse {
-    success: boolean;
-    streamInfo?: subtitles.VideoStreamInfo;
-    likelyHasEmbedded: boolean;
-    analysisTime: number;
-    error?: string;
-  }
+    export interface DetectEmbeddedTracksParams {
+        streamUrl: string
+        quickScan?: boolean
+        contentName?: string
+    }
 
-  export interface ExtractMKVSubtitleParams {
-    streamUrl: string;
-    language: string;
-    trackIndex: number;
-    codecId: string;
-  }
+    export interface DetectEmbeddedTracksResponse {
+        success: boolean
+        streamInfo?: subtitles.VideoStreamInfo
+        likelyHasEmbedded: boolean
+        analysisTime: number
+        error?: string
+    }
 
-  export interface ExtractMKVSubtitleResponse {
-    success: boolean;
-    content?: string;
-    format?: string;
-    language?: string;
-    error?: string;
-  }
+    export interface ExtractMKVSubtitleParams {
+        streamUrl: string
+        language: string
+        trackIndex: number
+        codecId: string
+    }
 
-  export interface ExtractOriginalSubtitleContentParams {
-    subtitleId: string;
-    streamUrl: string;
-    trackIndex: number;
-    language: string;
-  }
+    export interface ExtractMKVSubtitleResponse {
+        success: boolean
+        content?: string
+        format?: string
+        language?: string
+        error?: string
+    }
 
-  export interface ExtractOriginalSubtitleContentResponse {
-    success: boolean;
-    content?: string;
-    error?: string;
-  }
+    export interface ExtractOriginalSubtitleContentParams {
+        subtitleId: string
+        streamUrl: string
+        trackIndex: number
+        language: string
+    }
 
-  export interface ExtractOriginalSubtitlesParams {
-    streamUrl: string;
-    movieId: string;
-    tmdbId?: number;
-  }
+    export interface ExtractOriginalSubtitleContentResponse {
+        success: boolean
+        content?: string
+        error?: string
+    }
 
-  export interface ExtractOriginalSubtitlesResponse {
-    success: boolean;
-    tracks?: OriginalSubtitleTrack[];
-    error?: string;
-  }
+    export interface ExtractOriginalSubtitlesParams {
+        streamUrl: string
+        movieId: string
+        tmdbId?: number
+    }
 
-  export interface GetWatchStateResponse {
-    states: {
-      content_id: string;
-      content_type: string | null;
-      last_position_seconds: number | null;
-      total_duration_seconds: number | null;
-      is_favorite: boolean;
-      last_watched_at: string;
-    }[];
-  }
+    export interface ExtractOriginalSubtitlesResponse {
+        success: boolean
+        tracks?: OriginalSubtitleTrack[]
+        error?: string
+    }
 
-  export interface InitializeEncryptionRequest {
-    passphrase: string;
-  }
+    export interface GetWatchStateResponse {
+        states: {
+            "content_id": string
+            "content_type": string | null
+            "last_position_seconds": number | null
+            "total_duration_seconds": number | null
+            "is_favorite": boolean
+            "last_watched_at": string
+        }[]
+    }
 
-  export interface InitializeNewAccountRequest {
-    accountName: string;
-    passphrase: string;
-  }
+    export interface InitializeEncryptionRequest {
+        passphrase: string
+    }
 
-  export interface OriginalSubtitleTrack {
-    id: string;
-    language_code: string;
-    language_name: string;
-    source: 'original';
-    has_content: boolean;
-    trackIndex: number;
-    codecId: string;
-    format: string;
-  }
+    export interface InitializeNewAccountRequest {
+        accountName: string
+        passphrase: string
+    }
 
-  export interface ProfileWithSources {
-    allowedSources?: string[];
-    id: string;
-    account_id: string;
-    name: string;
-    has_source_restrictions: boolean;
-    created_at: string;
-    updated_at: string;
-  }
+    export interface OriginalSubtitleTrack {
+        id: string
+        "language_code": string
+        "language_name": string
+        source: "original"
+        "has_content": boolean
+        trackIndex: number
+        codecId: string
+        format: string
+    }
 
-  export interface ResolveSubtitlesResponse {
-    mode: 'list' | 'content';
-    rows?: SubtitleRowItem[];
-    subtitle?: Subtitle | null;
-  }
+    export interface ProfileSourceInfo {
+        "is_restricted": boolean
+        "added_at"?: string
+        notes?: string
+        id: string
+        name: string
+        "provider_type": string
+        "is_active": boolean
+        "created_at": string
+    }
 
-  export interface SimpleUser {
-    id: string;
-    email: string;
-    name: string;
-    emailVerified: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }
+    export interface ProfileWithSources {
+        allowedSources?: string[]
+        id: string
+        "account_id": string
+        name: string
+        "has_source_restrictions": boolean
+        "is_owner": boolean
+        "created_at": string
+        "updated_at": string
+    }
 
-  export interface SourceRow {
-    id: string;
-    name: string;
-    provider_type: string;
-    encrypted_config: string;
-    config_iv: string;
-    is_active: boolean;
-    created_at: string;
-  }
+    export interface ResolveSubtitlesResponse {
+        mode: "list" | "content"
+        rows?: SubtitleRowItem[]
+        subtitle?: Subtitle | null
+    }
 
-  export interface Subtitle {
-    id: string;
-    language_code: string;
-    language_name: string;
-    content: string;
-    source?: string;
-  }
+    export interface SimpleUser {
+        id: string
+        email: string
+        name: string
+        emailVerified: boolean
+        createdAt: string
+        updatedAt: string
+    }
 
-  export interface SubtitleRowItem {
-    id: string;
-    language_code: string;
-    language_name: string;
-    source: string;
-    has_content: boolean;
-    name?: string;
-    download_count?: number;
-    uploader?: string;
-  }
+    export interface SourceInfo {
+        id: string
+        name: string
+        "provider_type": string
+        "is_active": boolean
+        "created_at": string
+    }
 
-  export type TrendFeed =
-    | 'trending'
-    | 'popular'
-    | 'watched_weekly'
-    | 'played_weekly'
-    | 'collected_weekly'
-    | 'anticipated'
-    | 'releases'
-    | 'premieres';
+    export interface SourceRow {
+        id: string
+        name: string
+        "provider_type": string
+        "encrypted_config": string
+        "config_iv": string
+        "is_active": boolean
+        "created_at": string
+    }
 
-  export type TrendsContentType = 'movie' | 'tv';
+    export interface Subtitle {
+        id: string
+        "language_code": string
+        "language_name": string
+        content: string
+        source?: string
+    }
 
-  export interface UpdatePassphraseRequest {
-    currentPassphrase: string;
-    newPassphrase: string;
-  }
+    export interface SubtitleRowItem {
+        id: string
+        "language_code": string
+        "language_name": string
+        source: string
+        "has_content": boolean
+        name?: string
+        "download_count"?: number
+        uploader?: string
+    }
 
-  export interface UpdateWatchStateRequest {
-    profileId: string;
-    sourceId?: string;
-    contentId: string;
-    contentType?: string;
-    lastPositionSeconds?: number | null;
-    totalDurationSeconds?: number | null;
-    isFavorite?: boolean | null;
-  }
+    export type TrendFeed = "trending" | "popular" | "watched_weekly" | "played_weekly" | "collected_weekly" | "anticipated" | "releases" | "premieres"
+
+    export interface TrendItem {
+        rank: number
+        "content_type": TrendsContentType
+        "tmdb_id"?: number | null
+        "trakt_id": number
+        slug?: string | null
+        title: string
+        year?: number | null
+        metrics?: { [key: string]: number }
+        "event_date"?: string | null
+    }
+
+    export type TrendsContentType = "movie" | "tv"
+
+    export interface TrendsResponse {
+        key: string
+        "run_at": string
+        items: TrendItem[]
+        count: number
+    }
+
+    export interface UpdatePassphraseRequest {
+        currentPassphrase: string
+        newPassphrase: string
+    }
+
+    export interface UpdateWatchStateRequest {
+        profileId: string
+        sourceId?: string
+        contentId: string
+        contentType?: string
+        lastPositionSeconds?: number | null
+        totalDurationSeconds?: number | null
+        isFavorite?: boolean | null
+    }
 }
 
 export namespace subtitles {
-  export interface EmbeddedAudioTrack {
-    index: number;
-    language: string;
-    languageName: string;
-    codec: string;
-    codecLongName: string;
-    title?: string;
-    channels: number;
-    channelLayout: string;
-    sampleRate: number;
-    default: boolean;
-    disposition: {
-      default: number;
-      forced: number;
-    };
-  }
+    export interface EmbeddedAudioTrack {
+        index: number
+        language: string
+        languageName: string
+        codec: string
+        codecLongName: string
+        title?: string
+        channels: number
+        channelLayout: string
+        sampleRate: number
+        default: boolean
+        disposition: {
+            default: number
+            forced: number
+        }
+    }
 
-  export interface EmbeddedSubtitleTrack {
-    index: number;
-    language: string;
-    languageName: string;
-    codec: string;
-    codecLongName: string;
-    title?: string;
-    forced: boolean;
-    default: boolean;
-    format: string;
-    disposition: {
-      default: number;
-      forced: number;
-      hearing_impaired: number;
-      visual_impaired: number;
-    };
-  }
+    export interface EmbeddedSubtitleTrack {
+        index: number
+        language: string
+        languageName: string
+        codec: string
+        codecLongName: string
+        title?: string
+        forced: boolean
+        default: boolean
+        format: string
+        disposition: {
+            default: number
+            forced: number
+            "hearing_impaired": number
+            "visual_impaired": number
+        }
+    }
 
-  export interface SubtitleLanguage {
-    code: string;
-    name: string;
-    count?: number;
-  }
+    export interface SubtitleLanguage {
+        code: string
+        name: string
+        count?: number
+    }
 
-  export interface VideoStreamInfo {
-    hasEmbeddedSubtitles: boolean;
-    hasMultipleAudioTracks: boolean;
-    subtitleTracks: EmbeddedSubtitleTrack[];
-    audioTracks: EmbeddedAudioTrack[];
-    containerFormat: string;
-    duration: number;
-    fileSize?: number;
-  }
+    export interface VideoStreamInfo {
+        hasEmbeddedSubtitles: boolean
+        hasMultipleAudioTracks: boolean
+        subtitleTracks: EmbeddedSubtitleTrack[]
+        audioTracks: EmbeddedAudioTrack[]
+        containerFormat: string
+        duration: number
+        fileSize?: number
+    }
 }
 
+
+
 function encodeQuery(parts: Record<string, string | string[]>): string {
-  const pairs: string[] = [];
-  for (const key in parts) {
-    const val = (
-      Array.isArray(parts[key]) ? parts[key] : [parts[key]]
-    ) as string[];
-    for (const v of val) {
-      pairs.push(`${key}=${encodeURIComponent(v)}`);
+    const pairs: string[] = []
+    for (const key in parts) {
+        const val = (Array.isArray(parts[key]) ?  parts[key] : [parts[key]]) as string[]
+        for (const v of val) {
+            pairs.push(`${key}=${encodeURIComponent(v)}`)
+        }
     }
-  }
-  return pairs.join('&');
+    return pairs.join("&")
 }
 
 // makeRecord takes a record and strips any undefined values from it,
 // and returns the same record with a narrower type.
 // @ts-ignore - TS ignore because makeRecord is not always used
-function makeRecord<K extends string | number | symbol, V>(
-  record: Record<K, V | undefined>
-): Record<K, V> {
-  for (const key in record) {
-    if (record[key] === undefined) {
-      delete record[key];
+function makeRecord<K extends string | number | symbol, V>(record: Record<K, V | undefined>): Record<K, V> {
+    for (const key in record) {
+        if (record[key] === undefined) {
+            delete record[key]
+        }
     }
-  }
-  return record as Record<K, V>;
+    return record as Record<K, V>
 }
 
 function encodeWebSocketHeaders(headers: Record<string, string>) {
-  // url safe, no pad
-  const base64encoded = btoa(JSON.stringify(headers))
-    .replaceAll('=', '')
-    .replaceAll('+', '-')
-    .replaceAll('/', '_');
-  return 'encore.dev.headers.' + base64encoded;
+    // url safe, no pad
+    const base64encoded = btoa(JSON.stringify(headers))
+      .replaceAll("=", "")
+      .replaceAll("+", "-")
+      .replaceAll("/", "_");
+    return "encore.dev.headers." + base64encoded;
 }
 
 class WebSocketConnection {
-  public ws: WebSocket;
+    public ws: WebSocket;
 
-  private hasUpdateHandlers: (() => void)[] = [];
+    private hasUpdateHandlers: (() => void)[] = [];
 
-  constructor(url: string, headers?: Record<string, string>) {
-    let protocols = ['encore-ws'];
-    if (headers) {
-      protocols.push(encodeWebSocketHeaders(headers));
+    constructor(url: string, headers?: Record<string, string>) {
+        let protocols = ["encore-ws"];
+        if (headers) {
+            protocols.push(encodeWebSocketHeaders(headers))
+        }
+
+        this.ws = new WebSocket(url, protocols)
+
+        this.on("error", () => {
+            this.resolveHasUpdateHandlers();
+        });
+
+        this.on("close", () => {
+            this.resolveHasUpdateHandlers();
+        });
     }
 
-    this.ws = new WebSocket(url, protocols);
+    resolveHasUpdateHandlers() {
+        const handlers = this.hasUpdateHandlers;
+        this.hasUpdateHandlers = [];
 
-    this.on('error', () => {
-      this.resolveHasUpdateHandlers();
-    });
-
-    this.on('close', () => {
-      this.resolveHasUpdateHandlers();
-    });
-  }
-
-  resolveHasUpdateHandlers() {
-    const handlers = this.hasUpdateHandlers;
-    this.hasUpdateHandlers = [];
-
-    for (const handler of handlers) {
-      handler();
+        for (const handler of handlers) {
+            handler()
+        }
     }
-  }
 
-  async hasUpdate() {
-    // await until a new message have been received, or the socket is closed
-    await new Promise((resolve) => {
-      this.hasUpdateHandlers.push(() => resolve(null));
-    });
-  }
+    async hasUpdate() {
+        // await until a new message have been received, or the socket is closed
+        await new Promise((resolve) => {
+            this.hasUpdateHandlers.push(() => resolve(null))
+        });
+    }
 
-  on(
-    type: 'error' | 'close' | 'message' | 'open',
-    handler: (event: any) => void
-  ) {
-    this.ws.addEventListener(type, handler);
-  }
+    on(type: "error" | "close" | "message" | "open", handler: (event: any) => void) {
+        this.ws.addEventListener(type, handler);
+    }
 
-  off(
-    type: 'error' | 'close' | 'message' | 'open',
-    handler: (event: any) => void
-  ) {
-    this.ws.removeEventListener(type, handler);
-  }
+    off(type: "error" | "close" | "message" | "open", handler: (event: any) => void) {
+        this.ws.removeEventListener(type, handler);
+    }
 
-  close() {
-    this.ws.close();
-  }
+    close() {
+        this.ws.close();
+    }
 }
 
 export class StreamInOut<Request, Response> {
-  public socket: WebSocketConnection;
-  private buffer: Response[] = [];
+    public socket: WebSocketConnection;
+    private buffer: Response[] = [];
 
-  constructor(url: string, headers?: Record<string, string>) {
-    this.socket = new WebSocketConnection(url, headers);
-    this.socket.on('message', (event: any) => {
-      this.buffer.push(JSON.parse(event.data));
-      this.socket.resolveHasUpdateHandlers();
-    });
-  }
-
-  close() {
-    this.socket.close();
-  }
-
-  async send(msg: Request) {
-    if (this.socket.ws.readyState === WebSocket.CONNECTING) {
-      // await that the socket is opened
-      await new Promise((resolve) => {
-        this.socket.ws.addEventListener('open', resolve, { once: true });
-      });
+    constructor(url: string, headers?: Record<string, string>) {
+        this.socket = new WebSocketConnection(url, headers);
+        this.socket.on("message", (event: any) => {
+            this.buffer.push(JSON.parse(event.data));
+            this.socket.resolveHasUpdateHandlers();
+        });
     }
 
-    return this.socket.ws.send(JSON.stringify(msg));
-  }
-
-  async next(): Promise<Response | undefined> {
-    for await (const next of this) return next;
-    return undefined;
-  }
-
-  async *[Symbol.asyncIterator](): AsyncGenerator<Response, undefined, void> {
-    while (true) {
-      if (this.buffer.length > 0) {
-        yield this.buffer.shift() as Response;
-      } else {
-        if (this.socket.ws.readyState === WebSocket.CLOSED) return;
-        await this.socket.hasUpdate();
-      }
+    close() {
+        this.socket.close();
     }
-  }
+
+    async send(msg: Request) {
+        if (this.socket.ws.readyState === WebSocket.CONNECTING) {
+            // await that the socket is opened
+            await new Promise((resolve) => {
+                this.socket.ws.addEventListener("open", resolve, { once: true });
+            });
+        }
+
+        return this.socket.ws.send(JSON.stringify(msg));
+    }
+
+    async next(): Promise<Response | undefined> {
+        for await (const next of this) return next;
+        return undefined;
+    }
+
+    async *[Symbol.asyncIterator](): AsyncGenerator<Response, undefined, void> {
+        while (true) {
+            if (this.buffer.length > 0) {
+                yield this.buffer.shift() as Response;
+            } else {
+                if (this.socket.ws.readyState === WebSocket.CLOSED) return;
+                await this.socket.hasUpdate();
+            }
+        }
+    }
 }
 
 export class StreamIn<Response> {
-  public socket: WebSocketConnection;
-  private buffer: Response[] = [];
+    public socket: WebSocketConnection;
+    private buffer: Response[] = [];
 
-  constructor(url: string, headers?: Record<string, string>) {
-    this.socket = new WebSocketConnection(url, headers);
-    this.socket.on('message', (event: any) => {
-      this.buffer.push(JSON.parse(event.data));
-      this.socket.resolveHasUpdateHandlers();
-    });
-  }
-
-  close() {
-    this.socket.close();
-  }
-
-  async next(): Promise<Response | undefined> {
-    for await (const next of this) return next;
-    return undefined;
-  }
-
-  async *[Symbol.asyncIterator](): AsyncGenerator<Response, undefined, void> {
-    while (true) {
-      if (this.buffer.length > 0) {
-        yield this.buffer.shift() as Response;
-      } else {
-        if (this.socket.ws.readyState === WebSocket.CLOSED) return;
-        await this.socket.hasUpdate();
-      }
+    constructor(url: string, headers?: Record<string, string>) {
+        this.socket = new WebSocketConnection(url, headers);
+        this.socket.on("message", (event: any) => {
+            this.buffer.push(JSON.parse(event.data));
+            this.socket.resolveHasUpdateHandlers();
+        });
     }
-  }
+
+    close() {
+        this.socket.close();
+    }
+
+    async next(): Promise<Response | undefined> {
+        for await (const next of this) return next;
+        return undefined;
+    }
+
+    async *[Symbol.asyncIterator](): AsyncGenerator<Response, undefined, void> {
+        while (true) {
+            if (this.buffer.length > 0) {
+                yield this.buffer.shift() as Response;
+            } else {
+                if (this.socket.ws.readyState === WebSocket.CLOSED) return;
+                await this.socket.hasUpdate();
+            }
+        }
+    }
 }
 
 export class StreamOut<Request, Response> {
-  public socket: WebSocketConnection;
-  private responseValue: Promise<Response>;
+    public socket: WebSocketConnection;
+    private responseValue: Promise<Response>;
 
-  constructor(url: string, headers?: Record<string, string>) {
-    let responseResolver: (_: any) => void;
-    this.responseValue = new Promise((resolve) => (responseResolver = resolve));
+    constructor(url: string, headers?: Record<string, string>) {
+        let responseResolver: (_: any) => void;
+        this.responseValue = new Promise((resolve) => responseResolver = resolve);
 
-    this.socket = new WebSocketConnection(url, headers);
-    this.socket.on('message', (event: any) => {
-      responseResolver(JSON.parse(event.data));
-    });
-  }
-
-  async response(): Promise<Response> {
-    return this.responseValue;
-  }
-
-  close() {
-    this.socket.close();
-  }
-
-  async send(msg: Request) {
-    if (this.socket.ws.readyState === WebSocket.CONNECTING) {
-      // await that the socket is opened
-      await new Promise((resolve) => {
-        this.socket.ws.addEventListener('open', resolve, { once: true });
-      });
+        this.socket = new WebSocketConnection(url, headers);
+        this.socket.on("message", (event: any) => {
+            responseResolver(JSON.parse(event.data))
+        });
     }
 
-    return this.socket.ws.send(JSON.stringify(msg));
-  }
+    async response(): Promise<Response> {
+        return this.responseValue;
+    }
+
+    close() {
+        this.socket.close();
+    }
+
+    async send(msg: Request) {
+        if (this.socket.ws.readyState === WebSocket.CONNECTING) {
+            // await that the socket is opened
+            await new Promise((resolve) => {
+                this.socket.ws.addEventListener("open", resolve, { once: true });
+            });
+        }
+
+        return this.socket.ws.send(JSON.stringify(msg));
+    }
 }
 // CallParameters is the type of the parameters to a method call, but require headers to be a Record type
-type CallParameters = Omit<RequestInit, 'method' | 'body' | 'headers'> & {
-  /** Headers to be sent with the request */
-  headers?: Record<string, string>;
+type CallParameters = Omit<RequestInit, "method" | "body" | "headers"> & {
+    /** Headers to be sent with the request */
+    headers?: Record<string, string>
 
-  /** Query parameters to be sent with the request */
-  query?: Record<string, string | string[]>;
-};
+    /** Query parameters to be sent with the request */
+    query?: Record<string, string | string[]>
+}
 
 // AuthDataGenerator is a function that returns a new instance of the authentication data required by this API
 export type AuthDataGenerator = () =>
@@ -1915,500 +1745,469 @@ export type Fetcher = typeof fetch;
 const boundFetch = fetch.bind(this);
 
 class BaseClient {
-  readonly baseURL: string;
-  readonly fetcher: Fetcher;
-  readonly headers: Record<string, string>;
-  readonly requestInit: Omit<RequestInit, 'headers'> & {
-    headers?: Record<string, string>;
-  };
-  readonly authGenerator?: AuthDataGenerator;
+    readonly baseURL: string
+    readonly fetcher: Fetcher
+    readonly headers: Record<string, string>
+    readonly requestInit: Omit<RequestInit, "headers"> & { headers?: Record<string, string> }
+    readonly authGenerator?: AuthDataGenerator
 
-  constructor(baseURL: string, options: ClientOptions) {
-    this.baseURL = baseURL;
-    this.headers = {};
+    constructor(baseURL: string, options: ClientOptions) {
+        this.baseURL = baseURL
+        this.headers = {}
 
-    // Add User-Agent header if the script is running in the server
-    // because browsers do not allow setting User-Agent headers to requests
-    if (!BROWSER) {
-      this.headers['User-Agent'] =
-        'iptvtest-gibi-Generated-TS-Client (Encore/v1.48.8)';
-    }
-
-    this.requestInit = options.requestInit ?? {};
-
-    // Setup what fetch function we'll be using in the base client
-    if (options.fetcher !== undefined) {
-      this.fetcher = options.fetcher;
-    } else {
-      this.fetcher = boundFetch;
-    }
-
-    // Setup an authentication data generator using the auth data token option
-    if (options.auth !== undefined) {
-      const auth = options.auth;
-      if (typeof auth === 'function') {
-        this.authGenerator = auth;
-      } else {
-        this.authGenerator = () => auth;
-      }
-    }
-  }
-
-  async getAuthData(): Promise<CallParameters | undefined> {
-    let authData: auth.AuthParams | undefined;
-
-    // If authorization data generator is present, call it and add the returned data to the request
-    if (this.authGenerator) {
-      const mayBePromise = this.authGenerator();
-      if (mayBePromise instanceof Promise) {
-        authData = await mayBePromise;
-      } else {
-        authData = mayBePromise;
-      }
-    }
-
-    if (authData) {
-      const data: CallParameters = {};
-
-      data.headers = makeRecord<string, string>({
-        cookie: authData.cookie,
-      });
-
-      return data;
-    }
-
-    return undefined;
-  }
-
-  // createStreamInOut sets up a stream to a streaming API endpoint.
-  async createStreamInOut<Request, Response>(
-    path: string,
-    params?: CallParameters
-  ): Promise<StreamInOut<Request, Response>> {
-    let { query, headers } = params ?? {};
-
-    // Fetch auth data if there is any
-    const authData = await this.getAuthData();
-
-    // If we now have authentication data, add it to the request
-    if (authData) {
-      if (authData.query) {
-        query = { ...query, ...authData.query };
-      }
-      if (authData.headers) {
-        headers = { ...headers, ...authData.headers };
-      }
-    }
-
-    const queryString = query ? '?' + encodeQuery(query) : '';
-    return new StreamInOut(this.baseURL + path + queryString, headers);
-  }
-
-  // createStreamIn sets up a stream to a streaming API endpoint.
-  async createStreamIn<Response>(
-    path: string,
-    params?: CallParameters
-  ): Promise<StreamIn<Response>> {
-    let { query, headers } = params ?? {};
-
-    // Fetch auth data if there is any
-    const authData = await this.getAuthData();
-
-    // If we now have authentication data, add it to the request
-    if (authData) {
-      if (authData.query) {
-        query = { ...query, ...authData.query };
-      }
-      if (authData.headers) {
-        headers = { ...headers, ...authData.headers };
-      }
-    }
-
-    const queryString = query ? '?' + encodeQuery(query) : '';
-    return new StreamIn(this.baseURL + path + queryString, headers);
-  }
-
-  // createStreamOut sets up a stream to a streaming API endpoint.
-  async createStreamOut<Request, Response>(
-    path: string,
-    params?: CallParameters
-  ): Promise<StreamOut<Request, Response>> {
-    let { query, headers } = params ?? {};
-
-    // Fetch auth data if there is any
-    const authData = await this.getAuthData();
-
-    // If we now have authentication data, add it to the request
-    if (authData) {
-      if (authData.query) {
-        query = { ...query, ...authData.query };
-      }
-      if (authData.headers) {
-        headers = { ...headers, ...authData.headers };
-      }
-    }
-
-    const queryString = query ? '?' + encodeQuery(query) : '';
-    return new StreamOut(this.baseURL + path + queryString, headers);
-  }
-
-  // callTypedAPI makes an API call, defaulting content type to "application/json"
-  public async callTypedAPI(
-    method: string,
-    path: string,
-    body?: RequestInit['body'],
-    params?: CallParameters
-  ): Promise<Response> {
-    return this.callAPI(method, path, body, {
-      ...params,
-      headers: { 'Content-Type': 'application/json', ...params?.headers },
-    });
-  }
-
-  // callAPI is used by each generated API method to actually make the request
-  public async callAPI(
-    method: string,
-    path: string,
-    body?: RequestInit['body'],
-    params?: CallParameters
-  ): Promise<Response> {
-    let { query, headers, ...rest } = params ?? {};
-    const init = {
-      ...this.requestInit,
-      ...rest,
-      method,
-      body: body ?? null,
-    };
-
-    // Merge our headers with any predefined headers
-    init.headers = { ...this.headers, ...init.headers, ...headers };
-
-    // Fetch auth data if there is any
-    const authData = await this.getAuthData();
-
-    // If we now have authentication data, add it to the request
-    if (authData) {
-      if (authData.query) {
-        query = { ...query, ...authData.query };
-      }
-      if (authData.headers) {
-        init.headers = { ...init.headers, ...authData.headers };
-      }
-    }
-
-    // Make the actual request
-    const queryString = query ? '?' + encodeQuery(query) : '';
-    const response = await this.fetcher(
-      this.baseURL + path + queryString,
-      init
-    );
-
-    // handle any error responses
-    if (!response.ok) {
-      // try and get the error message from the response body
-      let body: APIErrorResponse = {
-        code: ErrCode.Unknown,
-        message: `request failed: status ${response.status}`,
-      };
-
-      // if we can get the structured error we should, otherwise give a best effort
-      try {
-        const text = await response.text();
-
-        try {
-          const jsonBody = JSON.parse(text);
-          if (isAPIErrorResponse(jsonBody)) {
-            body = jsonBody;
-          } else {
-            body.message += ': ' + JSON.stringify(jsonBody);
-          }
-        } catch {
-          body.message += ': ' + text;
+        // Add User-Agent header if the script is running in the server
+        // because browsers do not allow setting User-Agent headers to requests
+        if (!BROWSER) {
+            this.headers["User-Agent"] = "iptvtest-gibi-Generated-TS-Client (Encore/v1.48.8)";
         }
-      } catch (e) {
-        // otherwise we just append the text to the error message
-        body.message += ': ' + String(e);
-      }
 
-      throw new APIError(response.status, body);
+        this.requestInit = options.requestInit ?? {};
+
+        // Setup what fetch function we'll be using in the base client
+        if (options.fetcher !== undefined) {
+            this.fetcher = options.fetcher
+        } else {
+            this.fetcher = boundFetch
+        }
+
+        // Setup an authentication data generator using the auth data token option
+        if (options.auth !== undefined) {
+            const auth = options.auth
+            if (typeof auth === "function") {
+                this.authGenerator = auth
+            } else {
+                this.authGenerator = () => auth
+            }
+        }
     }
 
-    return response;
-  }
+    async getAuthData(): Promise<CallParameters | undefined> {
+        let authData: auth.AuthParams | undefined;
+
+        // If authorization data generator is present, call it and add the returned data to the request
+        if (this.authGenerator) {
+            const mayBePromise = this.authGenerator();
+            if (mayBePromise instanceof Promise) {
+                authData = await mayBePromise;
+            } else {
+                authData = mayBePromise;
+            }
+        }
+
+        if (authData) {
+            const data: CallParameters = {};
+
+            data.headers = makeRecord<string, string>({
+                cookie: authData.cookie,
+            });
+
+            return data;
+        }
+
+        return undefined;
+    }
+
+    // createStreamInOut sets up a stream to a streaming API endpoint.
+    async createStreamInOut<Request, Response>(path: string, params?: CallParameters): Promise<StreamInOut<Request, Response>> {
+        let { query, headers } = params ?? {};
+
+        // Fetch auth data if there is any
+        const authData = await this.getAuthData();
+
+        // If we now have authentication data, add it to the request
+        if (authData) {
+            if (authData.query) {
+                query = {...query, ...authData.query};
+            }
+            if (authData.headers) {
+                headers = {...headers, ...authData.headers};
+            }
+        }
+
+        const queryString = query ? '?' + encodeQuery(query) : ''
+        return new StreamInOut(this.baseURL + path + queryString, headers);
+    }
+
+    // createStreamIn sets up a stream to a streaming API endpoint.
+    async createStreamIn<Response>(path: string, params?: CallParameters): Promise<StreamIn<Response>> {
+        let { query, headers } = params ?? {};
+
+        // Fetch auth data if there is any
+        const authData = await this.getAuthData();
+
+        // If we now have authentication data, add it to the request
+        if (authData) {
+            if (authData.query) {
+                query = {...query, ...authData.query};
+            }
+            if (authData.headers) {
+                headers = {...headers, ...authData.headers};
+            }
+        }
+
+        const queryString = query ? '?' + encodeQuery(query) : ''
+        return new StreamIn(this.baseURL + path + queryString, headers);
+    }
+
+    // createStreamOut sets up a stream to a streaming API endpoint.
+    async createStreamOut<Request, Response>(path: string, params?: CallParameters): Promise<StreamOut<Request, Response>> {
+        let { query, headers } = params ?? {};
+
+        // Fetch auth data if there is any
+        const authData = await this.getAuthData();
+
+        // If we now have authentication data, add it to the request
+        if (authData) {
+            if (authData.query) {
+                query = {...query, ...authData.query};
+            }
+            if (authData.headers) {
+                headers = {...headers, ...authData.headers};
+            }
+        }
+
+        const queryString = query ? '?' + encodeQuery(query) : ''
+        return new StreamOut(this.baseURL + path + queryString, headers);
+    }
+
+    // callTypedAPI makes an API call, defaulting content type to "application/json"
+    public async callTypedAPI(method: string, path: string, body?: RequestInit["body"], params?: CallParameters): Promise<Response> {
+        return this.callAPI(method, path, body, {
+            ...params,
+            headers: { "Content-Type": "application/json", ...params?.headers }
+        });
+    }
+
+    // callAPI is used by each generated API method to actually make the request
+    public async callAPI(method: string, path: string, body?: RequestInit["body"], params?: CallParameters): Promise<Response> {
+        let { query, headers, ...rest } = params ?? {}
+        const init = {
+            ...this.requestInit,
+            ...rest,
+            method,
+            body: body ?? null,
+        }
+
+        // Merge our headers with any predefined headers
+        init.headers = {...this.headers, ...init.headers, ...headers}
+
+        // Fetch auth data if there is any
+        const authData = await this.getAuthData();
+
+        // If we now have authentication data, add it to the request
+        if (authData) {
+            if (authData.query) {
+                query = {...query, ...authData.query};
+            }
+            if (authData.headers) {
+                init.headers = {...init.headers, ...authData.headers};
+            }
+        }
+
+        // Make the actual request
+        const queryString = query ? '?' + encodeQuery(query) : ''
+        const response = await this.fetcher(this.baseURL+path+queryString, init)
+
+        // handle any error responses
+        if (!response.ok) {
+            // try and get the error message from the response body
+            let body: APIErrorResponse = { code: ErrCode.Unknown, message: `request failed: status ${response.status}` }
+
+            // if we can get the structured error we should, otherwise give a best effort
+            try {
+                const text = await response.text()
+
+                try {
+                    const jsonBody = JSON.parse(text)
+                    if (isAPIErrorResponse(jsonBody)) {
+                        body = jsonBody
+                    } else {
+                        body.message += ": " + JSON.stringify(jsonBody)
+                    }
+                } catch {
+                    body.message += ": " + text
+                }
+            } catch (e) {
+                // otherwise we just append the text to the error message
+                body.message += ": " + String(e)
+            }
+
+            throw new APIError(response.status, body)
+        }
+
+        return response
+    }
 }
 
 /**
  * APIErrorDetails represents the response from an Encore API in the case of an error
  */
 interface APIErrorResponse {
-  code: ErrCode;
-  message: string;
-  details?: any;
+    code: ErrCode
+    message: string
+    details?: any
 }
 
 function isAPIErrorResponse(err: any): err is APIErrorResponse {
-  return (
-    err !== undefined &&
-    err !== null &&
-    isErrCode(err.code) &&
-    typeof err.message === 'string' &&
-    (err.details === undefined ||
-      err.details === null ||
-      typeof err.details === 'object')
-  );
+    return (
+        err !== undefined && err !== null &&
+        isErrCode(err.code) &&
+        typeof(err.message) === "string" &&
+        (err.details === undefined || err.details === null || typeof(err.details) === "object")
+    )
 }
 
 function isErrCode(code: any): code is ErrCode {
-  return code !== undefined && Object.values(ErrCode).includes(code);
+    return code !== undefined && Object.values(ErrCode).includes(code)
 }
 
 /**
  * APIError represents a structured error as returned from an Encore application.
  */
 export class APIError extends Error {
-  /**
-   * The HTTP status code associated with the error.
-   */
-  public readonly status: number;
+    /**
+     * The HTTP status code associated with the error.
+     */
+    public readonly status: number
 
-  /**
-   * The Encore error code
-   */
-  public readonly code: ErrCode;
+    /**
+     * The Encore error code
+     */
+    public readonly code: ErrCode
 
-  /**
-   * The error details
-   */
-  public readonly details?: any;
+    /**
+     * The error details
+     */
+    public readonly details?: any
 
-  constructor(status: number, response: APIErrorResponse) {
-    // extending errors causes issues after you construct them, unless you apply the following fixes
-    super(response.message);
+    constructor(status: number, response: APIErrorResponse) {
+        // extending errors causes issues after you construct them, unless you apply the following fixes
+        super(response.message);
 
-    // set error name as constructor name, make it not enumerable to keep native Error behavior
-    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new.target#new.target_in_constructors
-    Object.defineProperty(this, 'name', {
-      value: 'APIError',
-      enumerable: false,
-      configurable: true,
-    });
+        // set error name as constructor name, make it not enumerable to keep native Error behavior
+        // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/new.target#new.target_in_constructors
+        Object.defineProperty(this, 'name', {
+            value:        'APIError',
+            enumerable:   false,
+            configurable: true,
+        })
 
-    // fix the prototype chain
-    if ((Object as any).setPrototypeOf == undefined) {
-      (this as any).__proto__ = APIError.prototype;
-    } else {
-      Object.setPrototypeOf(this, APIError.prototype);
+        // fix the prototype chain
+        if ((Object as any).setPrototypeOf == undefined) {
+            (this as any).__proto__ = APIError.prototype
+        } else {
+            Object.setPrototypeOf(this, APIError.prototype);
+        }
+
+        // capture a stack trace
+        if ((Error as any).captureStackTrace !== undefined) {
+            (Error as any).captureStackTrace(this, this.constructor);
+        }
+
+        this.status = status
+        this.code = response.code
+        this.details = response.details
     }
-
-    // capture a stack trace
-    if ((Error as any).captureStackTrace !== undefined) {
-      (Error as any).captureStackTrace(this, this.constructor);
-    }
-
-    this.status = status;
-    this.code = response.code;
-    this.details = response.details;
-  }
 }
 
 /**
  * Typeguard allowing use of an APIError's fields'
  */
 export function isAPIError(err: any): err is APIError {
-  return err instanceof APIError;
+    return err instanceof APIError;
 }
 
 export enum ErrCode {
-  /**
-   * OK indicates the operation was successful.
-   */
-  OK = 'ok',
+    /**
+     * OK indicates the operation was successful.
+     */
+    OK = "ok",
 
-  /**
-   * Canceled indicates the operation was canceled (typically by the caller).
-   *
-   * Encore will generate this error code when cancellation is requested.
-   */
-  Canceled = 'canceled',
+    /**
+     * Canceled indicates the operation was canceled (typically by the caller).
+     *
+     * Encore will generate this error code when cancellation is requested.
+     */
+    Canceled = "canceled",
 
-  /**
-   * Unknown error. An example of where this error may be returned is
-   * if a Status value received from another address space belongs to
-   * an error-space that is not known in this address space. Also
-   * errors raised by APIs that do not return enough error information
-   * may be converted to this error.
-   *
-   * Encore will generate this error code in the above two mentioned cases.
-   */
-  Unknown = 'unknown',
+    /**
+     * Unknown error. An example of where this error may be returned is
+     * if a Status value received from another address space belongs to
+     * an error-space that is not known in this address space. Also
+     * errors raised by APIs that do not return enough error information
+     * may be converted to this error.
+     *
+     * Encore will generate this error code in the above two mentioned cases.
+     */
+    Unknown = "unknown",
 
-  /**
-   * InvalidArgument indicates client specified an invalid argument.
-   * Note that this differs from FailedPrecondition. It indicates arguments
-   * that are problematic regardless of the state of the system
-   * (e.g., a malformed file name).
-   *
-   * This error code will not be generated by the gRPC framework.
-   */
-  InvalidArgument = 'invalid_argument',
+    /**
+     * InvalidArgument indicates client specified an invalid argument.
+     * Note that this differs from FailedPrecondition. It indicates arguments
+     * that are problematic regardless of the state of the system
+     * (e.g., a malformed file name).
+     *
+     * This error code will not be generated by the gRPC framework.
+     */
+    InvalidArgument = "invalid_argument",
 
-  /**
-   * DeadlineExceeded means operation expired before completion.
-   * For operations that change the state of the system, this error may be
-   * returned even if the operation has completed successfully. For
-   * example, a successful response from a server could have been delayed
-   * long enough for the deadline to expire.
-   *
-   * The gRPC framework will generate this error code when the deadline is
-   * exceeded.
-   */
-  DeadlineExceeded = 'deadline_exceeded',
+    /**
+     * DeadlineExceeded means operation expired before completion.
+     * For operations that change the state of the system, this error may be
+     * returned even if the operation has completed successfully. For
+     * example, a successful response from a server could have been delayed
+     * long enough for the deadline to expire.
+     *
+     * The gRPC framework will generate this error code when the deadline is
+     * exceeded.
+     */
+    DeadlineExceeded = "deadline_exceeded",
 
-  /**
-   * NotFound means some requested entity (e.g., file or directory) was
-   * not found.
-   *
-   * This error code will not be generated by the gRPC framework.
-   */
-  NotFound = 'not_found',
+    /**
+     * NotFound means some requested entity (e.g., file or directory) was
+     * not found.
+     *
+     * This error code will not be generated by the gRPC framework.
+     */
+    NotFound = "not_found",
 
-  /**
-   * AlreadyExists means an attempt to create an entity failed because one
-   * already exists.
-   *
-   * This error code will not be generated by the gRPC framework.
-   */
-  AlreadyExists = 'already_exists',
+    /**
+     * AlreadyExists means an attempt to create an entity failed because one
+     * already exists.
+     *
+     * This error code will not be generated by the gRPC framework.
+     */
+    AlreadyExists = "already_exists",
 
-  /**
-   * PermissionDenied indicates the caller does not have permission to
-   * execute the specified operation. It must not be used for rejections
-   * caused by exhausting some resource (use ResourceExhausted
-   * instead for those errors). It must not be
-   * used if the caller cannot be identified (use Unauthenticated
-   * instead for those errors).
-   *
-   * This error code will not be generated by the gRPC core framework,
-   * but expect authentication middleware to use it.
-   */
-  PermissionDenied = 'permission_denied',
+    /**
+     * PermissionDenied indicates the caller does not have permission to
+     * execute the specified operation. It must not be used for rejections
+     * caused by exhausting some resource (use ResourceExhausted
+     * instead for those errors). It must not be
+     * used if the caller cannot be identified (use Unauthenticated
+     * instead for those errors).
+     *
+     * This error code will not be generated by the gRPC core framework,
+     * but expect authentication middleware to use it.
+     */
+    PermissionDenied = "permission_denied",
 
-  /**
-   * ResourceExhausted indicates some resource has been exhausted, perhaps
-   * a per-user quota, or perhaps the entire file system is out of space.
-   *
-   * This error code will be generated by the gRPC framework in
-   * out-of-memory and server overload situations, or when a message is
-   * larger than the configured maximum size.
-   */
-  ResourceExhausted = 'resource_exhausted',
+    /**
+     * ResourceExhausted indicates some resource has been exhausted, perhaps
+     * a per-user quota, or perhaps the entire file system is out of space.
+     *
+     * This error code will be generated by the gRPC framework in
+     * out-of-memory and server overload situations, or when a message is
+     * larger than the configured maximum size.
+     */
+    ResourceExhausted = "resource_exhausted",
 
-  /**
-   * FailedPrecondition indicates operation was rejected because the
-   * system is not in a state required for the operation's execution.
-   * For example, directory to be deleted may be non-empty, an rmdir
-   * operation is applied to a non-directory, etc.
-   *
-   * A litmus test that may help a service implementor in deciding
-   * between FailedPrecondition, Aborted, and Unavailable:
-   *  (a) Use Unavailable if the client can retry just the failing call.
-   *  (b) Use Aborted if the client should retry at a higher-level
-   *      (e.g., restarting a read-modify-write sequence).
-   *  (c) Use FailedPrecondition if the client should not retry until
-   *      the system state has been explicitly fixed. E.g., if an "rmdir"
-   *      fails because the directory is non-empty, FailedPrecondition
-   *      should be returned since the client should not retry unless
-   *      they have first fixed up the directory by deleting files from it.
-   *  (d) Use FailedPrecondition if the client performs conditional
-   *      REST Get/Update/Delete on a resource and the resource on the
-   *      server does not match the condition. E.g., conflicting
-   *      read-modify-write on the same resource.
-   *
-   * This error code will not be generated by the gRPC framework.
-   */
-  FailedPrecondition = 'failed_precondition',
+    /**
+     * FailedPrecondition indicates operation was rejected because the
+     * system is not in a state required for the operation's execution.
+     * For example, directory to be deleted may be non-empty, an rmdir
+     * operation is applied to a non-directory, etc.
+     *
+     * A litmus test that may help a service implementor in deciding
+     * between FailedPrecondition, Aborted, and Unavailable:
+     *  (a) Use Unavailable if the client can retry just the failing call.
+     *  (b) Use Aborted if the client should retry at a higher-level
+     *      (e.g., restarting a read-modify-write sequence).
+     *  (c) Use FailedPrecondition if the client should not retry until
+     *      the system state has been explicitly fixed. E.g., if an "rmdir"
+     *      fails because the directory is non-empty, FailedPrecondition
+     *      should be returned since the client should not retry unless
+     *      they have first fixed up the directory by deleting files from it.
+     *  (d) Use FailedPrecondition if the client performs conditional
+     *      REST Get/Update/Delete on a resource and the resource on the
+     *      server does not match the condition. E.g., conflicting
+     *      read-modify-write on the same resource.
+     *
+     * This error code will not be generated by the gRPC framework.
+     */
+    FailedPrecondition = "failed_precondition",
 
-  /**
-   * Aborted indicates the operation was aborted, typically due to a
-   * concurrency issue like sequencer check failures, transaction aborts,
-   * etc.
-   *
-   * See litmus test above for deciding between FailedPrecondition,
-   * Aborted, and Unavailable.
-   */
-  Aborted = 'aborted',
+    /**
+     * Aborted indicates the operation was aborted, typically due to a
+     * concurrency issue like sequencer check failures, transaction aborts,
+     * etc.
+     *
+     * See litmus test above for deciding between FailedPrecondition,
+     * Aborted, and Unavailable.
+     */
+    Aborted = "aborted",
 
-  /**
-   * OutOfRange means operation was attempted past the valid range.
-   * E.g., seeking or reading past end of file.
-   *
-   * Unlike InvalidArgument, this error indicates a problem that may
-   * be fixed if the system state changes. For example, a 32-bit file
-   * system will generate InvalidArgument if asked to read at an
-   * offset that is not in the range [0,2^32-1], but it will generate
-   * OutOfRange if asked to read from an offset past the current
-   * file size.
-   *
-   * There is a fair bit of overlap between FailedPrecondition and
-   * OutOfRange. We recommend using OutOfRange (the more specific
-   * error) when it applies so that callers who are iterating through
-   * a space can easily look for an OutOfRange error to detect when
-   * they are done.
-   *
-   * This error code will not be generated by the gRPC framework.
-   */
-  OutOfRange = 'out_of_range',
+    /**
+     * OutOfRange means operation was attempted past the valid range.
+     * E.g., seeking or reading past end of file.
+     *
+     * Unlike InvalidArgument, this error indicates a problem that may
+     * be fixed if the system state changes. For example, a 32-bit file
+     * system will generate InvalidArgument if asked to read at an
+     * offset that is not in the range [0,2^32-1], but it will generate
+     * OutOfRange if asked to read from an offset past the current
+     * file size.
+     *
+     * There is a fair bit of overlap between FailedPrecondition and
+     * OutOfRange. We recommend using OutOfRange (the more specific
+     * error) when it applies so that callers who are iterating through
+     * a space can easily look for an OutOfRange error to detect when
+     * they are done.
+     *
+     * This error code will not be generated by the gRPC framework.
+     */
+    OutOfRange = "out_of_range",
 
-  /**
-   * Unimplemented indicates operation is not implemented or not
-   * supported/enabled in this service.
-   *
-   * This error code will be generated by the gRPC framework. Most
-   * commonly, you will see this error code when a method implementation
-   * is missing on the server. It can also be generated for unknown
-   * compression algorithms or a disagreement as to whether an RPC should
-   * be streaming.
-   */
-  Unimplemented = 'unimplemented',
+    /**
+     * Unimplemented indicates operation is not implemented or not
+     * supported/enabled in this service.
+     *
+     * This error code will be generated by the gRPC framework. Most
+     * commonly, you will see this error code when a method implementation
+     * is missing on the server. It can also be generated for unknown
+     * compression algorithms or a disagreement as to whether an RPC should
+     * be streaming.
+     */
+    Unimplemented = "unimplemented",
 
-  /**
-   * Internal errors. Means some invariants expected by underlying
-   * system has been broken. If you see one of these errors,
-   * something is very broken.
-   *
-   * This error code will be generated by the gRPC framework in several
-   * internal error conditions.
-   */
-  Internal = 'internal',
+    /**
+     * Internal errors. Means some invariants expected by underlying
+     * system has been broken. If you see one of these errors,
+     * something is very broken.
+     *
+     * This error code will be generated by the gRPC framework in several
+     * internal error conditions.
+     */
+    Internal = "internal",
 
-  /**
-   * Unavailable indicates the service is currently unavailable.
-   * This is a most likely a transient condition and may be corrected
-   * by retrying with a backoff. Note that it is not always safe to retry
-   * non-idempotent operations.
-   *
-   * See litmus test above for deciding between FailedPrecondition,
-   * Aborted, and Unavailable.
-   *
-   * This error code will be generated by the gRPC framework during
-   * abrupt shutdown of a server process or network connection.
-   */
-  Unavailable = 'unavailable',
+    /**
+     * Unavailable indicates the service is currently unavailable.
+     * This is a most likely a transient condition and may be corrected
+     * by retrying with a backoff. Note that it is not always safe to retry
+     * non-idempotent operations.
+     *
+     * See litmus test above for deciding between FailedPrecondition,
+     * Aborted, and Unavailable.
+     *
+     * This error code will be generated by the gRPC framework during
+     * abrupt shutdown of a server process or network connection.
+     */
+    Unavailable = "unavailable",
 
-  /**
-   * DataLoss indicates unrecoverable data loss or corruption.
-   *
-   * This error code will not be generated by the gRPC framework.
-   */
-  DataLoss = 'data_loss',
+    /**
+     * DataLoss indicates unrecoverable data loss or corruption.
+     *
+     * This error code will not be generated by the gRPC framework.
+     */
+    DataLoss = "data_loss",
 
-  /**
-   * Unauthenticated indicates the request does not have valid
-   * authentication credentials for the operation.
-   *
-   * The gRPC framework will generate this error code when the
-   * authentication metadata is invalid or a Credentials callback fails,
-   * but also expect authentication middleware to generate it.
-   */
-  Unauthenticated = 'unauthenticated',
+    /**
+     * Unauthenticated indicates the request does not have valid
+     * authentication credentials for the operation.
+     *
+     * The gRPC framework will generate this error code when the
+     * authentication metadata is invalid or a Credentials callback fails,
+     * but also expect authentication middleware to generate it.
+     */
+    Unauthenticated = "unauthenticated",
 }

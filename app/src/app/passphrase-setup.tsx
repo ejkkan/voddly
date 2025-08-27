@@ -1,4 +1,4 @@
-import { useRouter, Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 
@@ -10,10 +10,10 @@ import {
   Text,
   View,
 } from '@/components/ui';
-import { Input } from '@/components/ui/input';
-import { useSession } from '@/lib/auth/hooks';
-import { apiClient } from '@/lib/api-client';
 import { Shield } from '@/components/ui/icons/shield';
+import { Input } from '@/components/ui/input';
+import { apiClient } from '@/lib/api-client';
+import { useSession } from '@/lib/auth/hooks';
 
 export default function PassphraseSetup() {
   const router = useRouter();
@@ -137,11 +137,11 @@ export default function PassphraseSetup() {
           >
             <View className="mx-auto w-full max-w-md">
               {/* Icon and Title */}
-              <View className="items-center mb-8">
-                <View className="w-20 h-20 rounded-full bg-neutral-100 dark:bg-neutral-800 items-center justify-center mb-4">
-                  <Shield className="w-10 h-10 text-neutral-600 dark:text-neutral-400" />
+              <View className="mb-8 items-center">
+                <View className="mb-4 size-20 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
+                  <Shield className="size-10 text-neutral-600 dark:text-neutral-400" />
                 </View>
-                <Text className="text-3xl font-bold text-center mb-2 text-neutral-900 dark:text-neutral-100">
+                <Text className="mb-2 text-center text-3xl font-bold text-neutral-900 dark:text-neutral-100">
                   Secure Your Content
                 </Text>
                 <Text className="text-center text-neutral-600 dark:text-neutral-400">
@@ -154,7 +154,7 @@ export default function PassphraseSetup() {
               <View className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
                 <View className="gap-4">
                   <View>
-                    <Text className="text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                    <Text className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
                       Create Passphrase
                     </Text>
                     <Input
@@ -164,14 +164,14 @@ export default function PassphraseSetup() {
                       secureTextEntry
                       autoCapitalize="none"
                     />
-                    <Text className="text-xs mt-1 text-neutral-500 dark:text-neutral-400">
+                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
                       Minimum 6 characters. You'll need this to access your
                       sources.
                     </Text>
                   </View>
 
                   <View>
-                    <Text className="text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                    <Text className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
                       Confirm Passphrase
                     </Text>
                     <Input
@@ -184,18 +184,18 @@ export default function PassphraseSetup() {
                   </View>
 
                   {error ? (
-                    <View className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
-                      <Text className="text-red-600 dark:text-red-400 text-sm">
+                    <View className="rounded-lg bg-red-50 p-3 dark:bg-red-900/20">
+                      <Text className="text-sm text-red-600 dark:text-red-400">
                         {error}
                       </Text>
                     </View>
                   ) : null}
 
-                  <View className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
-                    <Text className="text-amber-800 dark:text-amber-300 font-medium text-sm mb-1">
+                  <View className="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
+                    <Text className="mb-1 text-sm font-medium text-amber-800 dark:text-amber-300">
                       Important
                     </Text>
-                    <Text className="text-amber-700 dark:text-amber-400 text-xs">
+                    <Text className="text-xs text-amber-700 dark:text-amber-400">
                       Remember this passphrase! It cannot be recovered if lost.
                       You'll need it to decrypt your streaming sources.
                     </Text>

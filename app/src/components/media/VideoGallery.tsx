@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
+  Dimensions,
   FlatList,
+  Linking,
   Modal,
+  Platform,
   Pressable,
   View,
-  Dimensions,
-  Platform,
-  Linking,
 } from 'react-native';
+
 import { Image, Text } from '@/components/ui';
 
 interface VideoItem {
@@ -119,16 +120,16 @@ function VideoThumbnail({
       <Image
         source={{ uri: thumbnailUrl }}
         contentFit="cover"
-        className="h-full w-full"
+        className="size-full"
       />
       {/* Play button overlay */}
       <View className="absolute inset-0 items-center justify-center bg-black/30">
-        <View className="h-12 w-12 items-center justify-center rounded-full bg-white/90">
+        <View className="size-12 items-center justify-center rounded-full bg-white/90">
           <Text className="ml-1 text-2xl text-black">▶</Text>
         </View>
       </View>
       {/* Video info */}
-      <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+      <View className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
         <Text className="text-sm font-medium text-white" numberOfLines={1}>
           {video.name}
         </Text>
