@@ -1,7 +1,7 @@
 import { metadataDB } from '../db';
 import log from 'encore.dev/log';
-import { OpenSubtitlesProvider } from '../../common/subtitles/providers/opensubtitles';
-import { SubDLProvider } from '../../common/subtitles/providers/subdl';
+import { OpenSubtitlesProvider } from './providers/opensubtitles';
+import { SubDLProvider } from './providers/subdl';
 import {
   type SubtitleProvider,
   type SubtitleSearchParams,
@@ -9,7 +9,7 @@ import {
   type SubtitleContent,
   type SubtitleLanguage,
   type StoredSubtitle,
-} from '../../common/subtitles/types';
+} from './types';
 
 export class SubtitleService {
   private providers: SubtitleProvider[] = [];
