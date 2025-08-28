@@ -18,19 +18,19 @@ async function verifyProfile(profileId: string, userId: string): Promise<boolean
 
 export const listPlaylists = api(
   { expose: true, auth: true, method: 'GET', path: '/profiles/:profileId/playlists' },
-  async ({ profileId }: { profileId: string }): Promise<{ playlists: { id: string; name: string; is_default: boolean; visibility: string; created_at: string }[] }> => {
+  async ({ profileId }: { profileId: string }): Promise<{ playlists: { id: string; name: string; created_at: string }[] }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
     if (!(await verifyProfile(profileId, auth.userID))) throw APIError.permissionDenied('Profile not found or access denied');
 
-    const rows = userDB.query<{ id: string; name: string; is_default: boolean; visibility: string; created_at: Date }>`
-      SELECT id, name, is_default, visibility, created_at
+    const rows = userDB.query<{ id: string; name: string; created_at: Date }>`
+      SELECT id, name, created_at
       FROM profile_playlists
       WHERE profile_id = ${profileId}
-      ORDER BY is_default DESC, created_at DESC
+      ORDER BY created_at DESC
     `;
-    const playlists: { id: string; name: string; is_default: boolean; visibility: string; created_at: string }[] = [];
-    for await (const r of rows) playlists.push({ ...r, created_at: r.created_at.toISOString() });
+    const playlists: { id: string; name: string; created_at: string }[] = [];
+    for await (const r of rows) playlists.push({ id: r.id, name: r.name, created_at: r.created_at.toISOString() });
     return { playlists };
   }
 );
@@ -45,8 +45,8 @@ export const createPlaylist = api(
 
     const id = uuid();
     await userDB.exec`
-      INSERT INTO profile_playlists (id, profile_id, name, is_default)
-      VALUES (${id}, ${profileId}, ${name.trim()}, false)
+      INSERT INTO profile_playlists (id, profile_id, name)
+      VALUES (${id}, ${profileId}, ${name.trim()})
     `;
     return { id };
   }
@@ -61,7 +61,7 @@ export const deletePlaylist = api(
 
     await userDB.exec`
       DELETE FROM profile_playlists
-      WHERE id = ${playlistId} AND profile_id = ${profileId} AND is_default = false
+      WHERE id = ${playlistId} AND profile_id = ${profileId}
     `;
     return { ok: true };
   }

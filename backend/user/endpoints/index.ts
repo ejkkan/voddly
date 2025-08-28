@@ -16,9 +16,8 @@ export * from './watchState';
 // Subtitles (to be moved to metadata service; proxies may live here)
 // export * from './subtitles';
 
-// Favorites & Watchlist
+// Favorites
 export * from './favorites';
-export * from './watchlist';
 
 // Player bundle
 export * from './player';
