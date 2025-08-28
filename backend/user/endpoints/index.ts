@@ -13,8 +13,15 @@ export * from './profiles';
 // Watch state management
 export * from './watchState';
 
-// Subtitles
-export * from './subtitles';
+// Subtitles (to be moved to metadata service; proxies may live here)
+// export * from './subtitles';
+
+// Favorites & Watchlist
+export * from './favorites';
+export * from './watchlist';
+
+// Player bundle
+export * from './player';
 
 // Trends proxy
 export * from './trends';
