@@ -15,6 +15,8 @@ export * from './watchState';
 
 // Subtitles
 export * from './subtitles';
+// Register additional subtitle endpoints (one file per endpoint)
+import './subtitles/get-subtitles-by-tmdb';
 
 // Trends proxy
 export * from './trends';

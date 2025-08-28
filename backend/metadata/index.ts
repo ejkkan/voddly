@@ -28,3 +28,6 @@ export type {
 
 // Ensure cron jobs are registered by importing their modules for side effects
 import './cron/trends';
+
+// Import endpoints for side-effects (route registration)
+import './endpoints/subtitles/get-subtitles-by-tmdb';
