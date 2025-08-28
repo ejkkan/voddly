@@ -1,5 +1,5 @@
 /**
- * Embedded subtitle detection using ffprobe (moved from common to user service)
+ * Embedded subtitle detection using ffprobe (lives under metadata service)
  */
 import { exec } from 'child_process';
 import { promisify } from 'util';
