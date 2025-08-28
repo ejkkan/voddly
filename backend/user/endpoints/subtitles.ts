@@ -13,7 +13,7 @@ import {
   detectEmbeddedTracks,
   likelyHasEmbeddedSubtitles,
   type VideoStreamInfo,
-} from '../../common/subtitles/embedded-detector';
+} from './subtitles/embedded-detector';
 
 /**
  * Extract subtitle content from video stream using FFmpeg
