@@ -251,26 +251,31 @@ async function resolveSourceInfo(targetId: string): Promise<SourceInfo> {
 async function deriveLightweightKey(
   passphrase: string,
   salt: Uint8Array,
-  _keyData: { iterations?: number }
+  keyData: { iterations?: number }
 ): Promise<Uint8Array> {
   if (salt.length !== 16) throw new Error('invalid salt length');
 
   try {
-    // Use PBKDF2 from @noble/hashes - much faster than Argon2
+    // Use PBKDF2 from @noble/hashes - optimized for mobile
     const { pbkdf2 } = await import('@noble/hashes/pbkdf2');
     const { sha256 } = await import('@noble/hashes/sha256');
 
     debugLog('deriveLightweightKey:start', { saltLen: salt.length });
 
-    // PBKDF2 with SHA256 - much faster and lighter than Argon2
+    // Use lower iterations for better mobile performance
+    // Backend should use matching value (1000 iterations)
+    const iterations = keyData.iterations || 1000;
+    
+    // PBKDF2 with SHA256 - balanced for mobile performance
     const result = pbkdf2(sha256, passphrase, salt, {
-      c: 10000, // iterations - much lower than Argon2
+      c: iterations,
       dkLen: 32, // output length (32 bytes for AES-256)
     });
 
     debugLog('deriveLightweightKey:done', {
       resultLength: result.length,
       expectedLength: 32,
+      iterations,
     });
 
     return result;
@@ -364,7 +369,8 @@ async function getOrDeriveMasterKey(args: {
     }
   } catch {}
   type CacheEntry = { key: Uint8Array; expiresAt: number };
-  const MASTER_KEY_CACHE_TTL_MS = 5 * 60 * 1000;
+  // Extended cache time - 30 minutes instead of 5
+  const MASTER_KEY_CACHE_TTL_MS = 30 * 60 * 1000;
   const g = globalThis as any;
   g.__masterKeyCache = g.__masterKeyCache || new Map<string, CacheEntry>();
   const cacheKey = `acct:${accountId}`;
