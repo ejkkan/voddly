@@ -57,11 +57,12 @@ export default function SeriesDetails() {
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteSeries();
   const sourceBase = useSourceBaseUrl(item?.source_id);
 
-  // Use the new metadata hook
+  // Use the new metadata hook - pass both tmdbId and title
   const { data: metadata, isLoading: metadataLoading } = useTVMetadata(
     tmdbId || undefined,
+    item?.title, // Pass the item title for enrichment when TMDB ID is not available
     {
-      enabled: !!tmdbId,
+      enabled: !!(tmdbId || item?.title), // Enable if we have either TMDB ID or title
       appendToResponse: 'videos,images,credits,external_ids',
     }
   );

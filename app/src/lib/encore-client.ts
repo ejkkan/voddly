@@ -817,7 +817,8 @@ export namespace user {
         }
 
         public async getMetadataForContent(params: {
-    "tmdb_id": number
+    "tmdb_id"?: number
+    title?: string
     "content_type": endpoints.ContentType
     "season_number"?: number
     "episode_number"?: number
@@ -831,7 +832,8 @@ export namespace user {
                 "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
                 "force_refresh":      params["force_refresh"] === undefined ? undefined : String(params["force_refresh"]),
                 "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
-                "tmdb_id":            String(params["tmdb_id"]),
+                title:                params.title,
+                "tmdb_id":            params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
             })
 
             // Now make the actual call to the API

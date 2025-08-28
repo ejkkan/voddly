@@ -3,7 +3,7 @@
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 
-import { getApiRoot } from '@/lib/auth/auth-client';
+import { apiClient } from '@/lib/api-client';
 
 // Type definitions for content metadata
 export type ContentType = 'movie' | 'tv' | 'season' | 'episode';
@@ -142,6 +142,7 @@ export type EnrichedMetadata = ContentMetadata & {
 // Parameters for fetching metadata
 export interface UseContentMetadataParams {
   tmdbId?: string | number;
+  title?: string; // 🆕 Add title parameter
   contentType: ContentType;
   seasonNumber?: number;
   episodeNumber?: number;
@@ -150,53 +151,46 @@ export interface UseContentMetadataParams {
   enabled?: boolean;
 }
 
-// Fetch metadata from the backend
+// Fetch metadata from the backend via our API client wrapper
 async function fetchContentMetadata(
   params: UseContentMetadataParams
 ): Promise<ContentMetadata> {
   const {
     tmdbId,
+    title, // 🆕 Extract title
     contentType,
     seasonNumber,
     episodeNumber,
     forceRefresh = false,
     appendToResponse = 'videos,images,credits,external_ids',
   } = params;
-
-  if (!tmdbId) {
-    throw new Error('TMDB ID is required');
+  console.log('params', JSON.stringify(params, null, 2));
+  // 🆕 Allow either TMDB ID or title
+  if (!tmdbId && !title) {
+    throw new Error('Either TMDB ID or title is required');
   }
 
-  const baseApi = getApiRoot();
-  const queryParams = new URLSearchParams({
-    tmdb_id: String(tmdbId),
-    content_type: contentType,
-    ...(forceRefresh && { force_refresh: 'true' }),
-    ...(appendToResponse && { append_to_response: appendToResponse }),
-    ...(seasonNumber !== undefined && { season_number: String(seasonNumber) }),
-    ...(episodeNumber !== undefined && {
-      episode_number: String(episodeNumber),
-    }),
+  // Normalize title if an object was passed accidentally
+  const normalizedTitle: string | undefined =
+    typeof title === 'string'
+      ? title
+      : title && typeof title === 'object'
+        ? ((title as any).title ??
+          (title as any).name ??
+          (title as any).original_title)
+        : undefined;
+
+  const data = await apiClient.getUserMetadata<ContentMetadata>({
+    tmdbId:
+      tmdbId !== undefined && tmdbId !== null ? Number(tmdbId) : undefined,
+    title: normalizedTitle,
+    contentType,
+    seasonNumber,
+    episodeNumber,
+    forceRefresh,
+    appendToResponse,
   });
-
-  const url = `${baseApi}/user/metadata?${queryParams.toString()}`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch metadata: ${response.status} ${response.statusText}`
-    );
-  }
-
-  const data = await response.json();
-  return data;
+  return data as ContentMetadata;
 }
 
 // Main hook for fetching content metadata
@@ -206,22 +200,24 @@ export function useContentMetadata<T extends ContentMetadata = ContentMetadata>(
 ) {
   const {
     tmdbId,
+    title, // 🆕 Extract title
     contentType,
     seasonNumber,
     episodeNumber,
     enabled = true,
   } = params;
-
+  console.log('useContentMetadata', JSON.stringify(params, null, 2));
   return useQuery<T, Error>({
     queryKey: [
       'metadata',
       contentType,
       tmdbId ? String(tmdbId) : null,
+      title || null, // 🆕 Include title in query key
       seasonNumber,
       episodeNumber,
     ],
     queryFn: () => fetchContentMetadata(params) as Promise<T>,
-    enabled: enabled && !!tmdbId,
+    enabled: enabled && (!!tmdbId || !!title), // 🆕 Enable if either exists
     staleTime: 24 * 60 * 60 * 1000, // 24 hours
     gcTime: 7 * 24 * 60 * 60 * 1000, // 7 days (formerly cacheTime)
     refetchOnWindowFocus: false,
@@ -235,18 +231,39 @@ export function useContentMetadata<T extends ContentMetadata = ContentMetadata>(
 // Convenience hooks for specific content types
 export function useMovieMetadata(
   tmdbId?: string | number,
-  options?: {
+  titleOrOptions?:
+    | string
+    | ({
+        enabled?: boolean;
+        forceRefresh?: boolean;
+        appendToResponse?: string;
+      } & Partial<UseQueryOptions<MovieMetadata, Error>>),
+  maybeOptions?: {
     enabled?: boolean;
     forceRefresh?: boolean;
     appendToResponse?: string;
   } & Partial<UseQueryOptions<MovieMetadata, Error>>
 ) {
+  const hasTitle =
+    typeof titleOrOptions === 'string' || titleOrOptions === undefined;
+  const title: string | undefined = hasTitle
+    ? (titleOrOptions as string | undefined)
+    : undefined;
+  const options = hasTitle
+    ? maybeOptions
+    : (titleOrOptions as {
+        enabled?: boolean;
+        forceRefresh?: boolean;
+        appendToResponse?: string;
+      } & Partial<UseQueryOptions<MovieMetadata, Error>>);
+
   const { enabled, forceRefresh, appendToResponse, ...queryOptions } =
     options || {};
 
   return useContentMetadata<MovieMetadata>(
     {
       tmdbId,
+      title,
       contentType: 'movie',
       forceRefresh,
       appendToResponse,
@@ -258,18 +275,39 @@ export function useMovieMetadata(
 
 export function useTVMetadata(
   tmdbId?: string | number,
-  options?: {
+  titleOrOptions?:
+    | string
+    | ({
+        enabled?: boolean;
+        forceRefresh?: boolean;
+        appendToResponse?: string;
+      } & Partial<UseQueryOptions<TVMetadata, Error>>),
+  maybeOptions?: {
     enabled?: boolean;
     forceRefresh?: boolean;
     appendToResponse?: string;
   } & Partial<UseQueryOptions<TVMetadata, Error>>
 ) {
+  const hasTitle =
+    typeof titleOrOptions === 'string' || titleOrOptions === undefined;
+  const title: string | undefined = hasTitle
+    ? (titleOrOptions as string | undefined)
+    : undefined;
+  const options = hasTitle
+    ? maybeOptions
+    : (titleOrOptions as {
+        enabled?: boolean;
+        forceRefresh?: boolean;
+        appendToResponse?: string;
+      } & Partial<UseQueryOptions<TVMetadata, Error>>);
+
   const { enabled, forceRefresh, appendToResponse, ...queryOptions } =
     options || {};
 
   return useContentMetadata<TVMetadata>(
     {
       tmdbId,
+      title,
       contentType: 'tv',
       forceRefresh,
       appendToResponse,
@@ -280,20 +318,25 @@ export function useTVMetadata(
 }
 
 export function useSeasonMetadata(
-  tmdbId?: string | number,
-  seasonNumber?: number,
+  params: {
+    tmdbId?: string | number;
+    seasonNumber?: number;
+    title?: string; // Add title support
+  },
   options?: {
     enabled?: boolean;
     forceRefresh?: boolean;
     appendToResponse?: string;
   } & Partial<UseQueryOptions<SeasonMetadata, Error>>
 ) {
+  const { tmdbId, seasonNumber, title } = params;
   const { enabled, forceRefresh, appendToResponse, ...queryOptions } =
     options || {};
 
   return useContentMetadata<SeasonMetadata>(
     {
       tmdbId,
+      title,
       contentType: 'season',
       seasonNumber,
       forceRefresh,
@@ -309,6 +352,7 @@ export function useEpisodeMetadata(
     tmdbId?: string | number;
     seasonNumber?: number;
     episodeNumber?: number;
+    title?: string; // Add title support
   },
   options?: {
     enabled?: boolean;
@@ -316,13 +360,14 @@ export function useEpisodeMetadata(
     appendToResponse?: string;
   } & Partial<UseQueryOptions<EpisodeMetadata, Error>>
 ) {
-  const { tmdbId, seasonNumber, episodeNumber } = params;
+  const { tmdbId, seasonNumber, episodeNumber, title } = params;
   const { enabled, forceRefresh, appendToResponse, ...queryOptions } =
     options || {};
 
   return useContentMetadata<EpisodeMetadata>(
     {
       tmdbId,
+      title,
       contentType: 'episode',
       seasonNumber,
       episodeNumber,

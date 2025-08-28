@@ -26,6 +26,8 @@ export interface BasePlayerProps {
   // Layout & Theme
   layout?: 'netflix' | 'minimal';
   theme?: 'default' | 'compact';
+  // Auto-reload behavior
+  disableAutoReload?: boolean;
 }
 
 export interface PlayerState {
