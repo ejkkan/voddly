@@ -2,7 +2,7 @@ import { api } from 'encore.dev/api';
 import log from 'encore.dev/log';
 import { secret } from 'encore.dev/config';
 
-import { createSubtitleService, type SubtitleSearchParams } from '../../../common/subtitles';
+import { createSubtitleService, type SubtitleSearchParams } from '../../subtitles/service';
 
 const openSubtitlesApiKey = secret('OpenSubtitles');
 const subDLApiKey = secret('SubDlApiKey');
