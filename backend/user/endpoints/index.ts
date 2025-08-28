@@ -23,5 +23,8 @@ export * from './watchlist';
 // Player bundle
 export * from './player';
 
+// Playlists
+export * from './playlists';
+
 // Trends proxy
 export * from './trends';
