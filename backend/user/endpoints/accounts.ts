@@ -112,9 +112,10 @@ export const createAccount = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive key from passphrase using PBKDF2-SHA256 for better mobile performance
+    // Derive key from passphrase using PBKDF2-SHA256 optimized for mobile performance
+    // Using only 1000 iterations for much better mobile performance
     const salt = crypto.randomBytes(16);
-    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 10000, 32, 'sha256');
+    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 1000, 32, 'sha256');
 
     // Wrap (encrypt) the master key with derived key
     const iv = crypto.randomBytes(12);
@@ -234,9 +235,10 @@ export const initializeNewAccount = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive key from passphrase using PBKDF2-SHA256 for better mobile performance
+    // Derive key from passphrase using PBKDF2-SHA256 optimized for mobile performance
+    // Using only 1000 iterations for much better mobile performance
     const salt = crypto.randomBytes(16);
-    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 10000, 32, 'sha256');
+    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 1000, 32, 'sha256');
 
     // Wrap (encrypt) the master key with derived key
     const iv = crypto.randomBytes(12);
@@ -403,7 +405,7 @@ export const updatePassphrase = api(
     const currentDerivedKey = crypto.pbkdf2Sync(
       currentPassphrase,
       Buffer.from(encData.salt, 'base64'),
-      10000,
+      1000,
       32,
       'sha256'
     );
@@ -434,7 +436,7 @@ export const updatePassphrase = api(
     const newDerivedKey = crypto.pbkdf2Sync(
       newPassphrase,
       newSalt,
-      10000,
+      1000,
       32,
       'sha256'
     );
@@ -509,9 +511,10 @@ export const initializeAccountEncryption = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive key from passphrase using PBKDF2-SHA256 for better mobile performance
+    // Derive key from passphrase using PBKDF2-SHA256 optimized for mobile performance
+    // Using only 1000 iterations for much better mobile performance
     const salt = crypto.randomBytes(16);
-    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 10000, 32, 'sha256');
+    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 1000, 32, 'sha256');
 
     // Wrap (encrypt) the master key with derived key
     const iv = crypto.randomBytes(12);
@@ -662,7 +665,7 @@ export const addSource = api(
     const derivedKey = crypto.pbkdf2Sync(
       passphrase,
       Buffer.from(encData.salt, 'base64'),
-      10000,
+      1000,
       32,
       'sha256'
     );
@@ -812,7 +815,7 @@ export const decryptSource = api(
     const derivedKey = crypto.pbkdf2Sync(
       passphrase,
       Buffer.from(data.salt, 'base64'),
-      10000,
+      1000,
       32,
       'sha256'
     );
