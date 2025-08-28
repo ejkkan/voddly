@@ -5,6 +5,7 @@ import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
 import { SafeAreaView, ScrollView, Text, View } from '@/components/ui';
 import { Input } from '@/components/ui/input';
+import { useFavoriteManager } from '@/hooks/ui';
 import { searchCatalog } from '@/lib/db/dao';
 
 type BasicItem = {
@@ -18,6 +19,7 @@ type BasicItem = {
 
 export default function Search() {
   const router = useRouter();
+  const { isFavorite, toggleFavorite } = useFavoriteManager();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{
     movies: BasicItem[];
@@ -134,7 +136,6 @@ export default function Search() {
                   id={row.id}
                   title={row.title}
                   posterUrl={row.imageUrl}
-                  sourceId={(row as any).sourceId}
                   onPress={() =>
                     handlePress(
                       results.movies.find(
@@ -142,6 +143,8 @@ export default function Search() {
                       )!
                     )
                   }
+                  isFavorite={isFavorite(row.id)}
+                  onToggleFavorite={() => toggleFavorite(row.id)}
                 />
               )}
             />
@@ -166,7 +169,6 @@ export default function Search() {
                   id={row.id}
                   title={row.title}
                   posterUrl={row.imageUrl}
-                  sourceId={(row as any).sourceId}
                   onPress={() =>
                     handlePress(
                       results.series.find(
@@ -174,6 +176,8 @@ export default function Search() {
                       )!
                     )
                   }
+                  isFavorite={isFavorite(row.id)}
+                  onToggleFavorite={() => toggleFavorite(row.id)}
                 />
               )}
             />
@@ -198,12 +202,13 @@ export default function Search() {
                   id={row.id}
                   title={row.title}
                   posterUrl={row.imageUrl}
-                  sourceId={(row as any).sourceId}
                   onPress={() =>
                     handlePress(
                       results.live.find((m) => String(m.id) === String(row.id))!
                     )
                   }
+                  isFavorite={isFavorite(row.id)}
+                  onToggleFavorite={() => toggleFavorite(row.id)}
                 />
               )}
             />
@@ -228,7 +233,6 @@ export default function Search() {
                   id={row.id}
                   title={row.title}
                   posterUrl={row.imageUrl}
-                  sourceId={(row as any).sourceId}
                   onPress={() =>
                     handlePress(
                       results.replays.find(
@@ -236,6 +240,8 @@ export default function Search() {
                       )!
                     )
                   }
+                  isFavorite={isFavorite(row.id)}
+                  onToggleFavorite={() => toggleFavorite(row.id)}
                 />
               )}
             />

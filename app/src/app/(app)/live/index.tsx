@@ -5,7 +5,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
 import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
-import { useUiPreview, useUiSections } from '@/hooks/ui';
+import { useUiPreview, useUiSections, useFavoriteManager } from '@/hooks/ui';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 
 type Section = {
@@ -22,6 +22,7 @@ type Section = {
 
 export default function Live() {
   const router = useRouter();
+  const { isFavorite, toggleFavorite } = useFavoriteManager();
   const [sections, setSections] = useState<Section[]>([]);
   const [catOffset, setCatOffset] = useState(0);
   const [loadingCats, setLoadingCats] = useState(false);
@@ -168,6 +169,8 @@ export default function Live() {
                 onPress={(id) =>
                   router.push(`/(app)/live/${encodeURIComponent(String(id))}`)
                 }
+                isFavorite={isFavorite(row.id)}
+                onToggleFavorite={() => toggleFavorite(row.id)}
               />
             )}
           />

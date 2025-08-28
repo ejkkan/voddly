@@ -9,7 +9,7 @@ export function useFavorites(profileId: string | undefined) {
     queryKey: ['favorites', profileId],
     queryFn: async () => {
       if (!profileId) throw new Error('Missing profileId');
-      return apiClient.user.listFavorites({ profileId });
+      return apiClient.user.listFavorites(profileId);
     },
     enabled: !!profileId,
     staleTime: 60_000,
@@ -21,7 +21,7 @@ export function useAddFavorite(profileId: string | undefined) {
   return useMutation({
     mutationFn: async (contentUid: string) => {
       if (!profileId) throw new Error('Missing profileId');
-      return apiClient.user.addFavorite({ profileId, contentUid });
+      return apiClient.user.addFavorite(profileId, { contentUid });
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['favorites', profileId] });
@@ -34,11 +34,10 @@ export function useRemoveFavorite(profileId: string | undefined) {
   return useMutation({
     mutationFn: async (contentUid: string) => {
       if (!profileId) throw new Error('Missing profileId');
-      return apiClient.user.removeFavorite({ profileId, contentUid });
+      return apiClient.user.removeFavorite(profileId, contentUid);
     },
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ['favorites', profileId] });
     },
   });
 }
-
