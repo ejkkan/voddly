@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { useTheme } from '../themes/ThemeProvider';
 
 interface PlayButtonProps {
@@ -7,15 +8,19 @@ interface PlayButtonProps {
   size?: 'small' | 'medium' | 'large';
 }
 
-export function PlayButton({ isPlaying, onPress, size = 'medium' }: PlayButtonProps) {
+export function PlayButton({
+  isPlaying,
+  onPress,
+  size = 'medium',
+}: PlayButtonProps) {
   const theme = useTheme();
-  
+
   const sizeMap = {
     small: theme.dimensions.controlButton * 0.8,
     medium: theme.dimensions.controlButton,
     large: theme.dimensions.controlButton * 1.5,
   };
-  
+
   const iconSizeMap = {
     small: theme.dimensions.iconSize * 0.8,
     medium: theme.dimensions.iconSize,
@@ -41,16 +46,28 @@ export function PlayButton({ isPlaying, onPress, size = 'medium' }: PlayButtonPr
         opacity: theme.styles.buttonOpacity,
         transition: 'opacity 0.2s',
       }}
-      onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-      onMouseLeave={(e) => e.currentTarget.style.opacity = String(theme.styles.buttonOpacity)}
+      onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+      onMouseLeave={(e) =>
+        (e.currentTarget.style.opacity = String(theme.styles.buttonOpacity))
+      }
     >
       {isPlaying ? (
-        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill={theme.colors.text}>
+        <svg
+          width={iconSize}
+          height={iconSize}
+          viewBox="0 0 24 24"
+          fill={theme.colors.text}
+        >
           <rect x="6" y="5" width="4" height="14" />
           <rect x="14" y="5" width="4" height="14" />
         </svg>
       ) : (
-        <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill={theme.colors.text}>
+        <svg
+          width={iconSize}
+          height={iconSize}
+          viewBox="0 0 24 24"
+          fill={theme.colors.text}
+        >
           <path d="M8 5v14l11-7z" />
         </svg>
       )}

@@ -9,6 +9,8 @@ import {
   getDefaultPlayerId,
 } from '@/components/video/players';
 import { VlcPlayerView } from '@/components/video/VlcPlayerView';
+import { RNVideoPlayer } from '@/components/video/rn-video-player/RNVideoPlayer';
+import { themes } from '@/components/video/shared/themes';
 import { getContainerInfoForContent } from '@/lib/container-extension';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
@@ -142,6 +144,14 @@ export default function Player() {
                   url={state.url}
                   showBack
                   onBack={() => router.back()}
+                />
+              ) : selectedPlayer === 'rn-video' ? (
+                <RNVideoPlayer
+                  url={state.url}
+                  showBack
+                  onBack={() => router.back()}
+                  layout="netflix"
+                  theme={themes.default}
                 />
               ) : (
                 <ExpoVideoPlayerView

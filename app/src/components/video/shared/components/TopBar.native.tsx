@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
 import { useTheme } from '../themes/ThemeProvider';
 
 interface TopBarProps {
@@ -22,30 +23,32 @@ export function TopBar({ title, showBack, onBack }: TopBarProps) {
             {
               backgroundColor: theme.colors.surface,
               borderRadius: theme.styles.buttonRadius,
-            }
+            },
           ]}
         >
           <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
-          <Text style={[
-            styles.backText,
-            {
-              color: theme.colors.text,
-              fontSize: theme.dimensions.fontSize.medium,
-            }
-          ]}>
+          <Text
+            style={[
+              styles.backText,
+              {
+                color: theme.colors.text,
+                fontSize: theme.dimensions.fontSize.medium,
+              },
+            ]}
+          >
             Back
           </Text>
         </Pressable>
       )}
       {title && (
-        <Text 
+        <Text
           numberOfLines={1}
           style={[
             styles.title,
             {
               color: theme.colors.text,
               fontSize: theme.dimensions.fontSize.large,
-            }
+            },
           ]}
         >
           {title}

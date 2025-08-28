@@ -1,11 +1,12 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import LinearGradient from 'react-native-linear-gradient';
-import { PlayerLayoutProps } from '../types/player.types';
-import { useTheme } from '../themes/ThemeProvider';
+import { Pressable, StyleSheet, View } from 'react-native';
+
 import { ControlsBar } from '../components/ControlsBar';
-import { TopBar } from '../components/TopBar';
 import { LoadingOverlay } from '../components/LoadingOverlay';
+import { TopBar } from '../components/TopBar';
+import { useTheme } from '../themes/ThemeProvider';
+import { type PlayerLayoutProps } from '../types/player.types';
 
 export function NetflixLayout({
   videoElement,
@@ -22,7 +23,7 @@ export function NetflixLayout({
   return (
     <View style={styles.container}>
       {/* Video Element */}
-      <Pressable 
+      <Pressable
         style={styles.videoContainer}
         onPress={() => setShowControls(!showControls)}
       >
@@ -35,11 +36,7 @@ export function NetflixLayout({
           colors={['rgba(0,0,0,0.7)', 'transparent']}
           style={[styles.topGradient, { padding: theme.dimensions.padding }]}
         >
-          <TopBar
-            title={title}
-            showBack={showBack}
-            onBack={onBack}
-          />
+          <TopBar title={title} showBack={showBack} onBack={onBack} />
         </LinearGradient>
       )}
 
@@ -49,10 +46,7 @@ export function NetflixLayout({
           colors={['transparent', 'rgba(0,0,0,0.7)']}
           style={[styles.bottomGradient, { padding: theme.dimensions.padding }]}
         >
-          <ControlsBar
-            playerState={playerState}
-            controls={controls}
-          />
+          <ControlsBar playerState={playerState} controls={controls} />
         </LinearGradient>
       )}
 

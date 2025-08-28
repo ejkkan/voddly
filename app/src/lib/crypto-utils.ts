@@ -16,7 +16,7 @@ export function encodeBase64(bytes: Uint8Array): string {
   return fromByteArray(bytes);
 }
 
-// Removed PBKDF2 path; Argon2id is required
+// PBKDF2-SHA256 is now used for key derivation
 
 export function aesGcmDecrypt(
   keyBytes: Uint8Array,

@@ -1,19 +1,23 @@
-import React, { useRef, useCallback, useEffect } from 'react';
-import { BasePlayerProps, PlayerControls } from '../shared/types/player.types';
-import { VisualTheme } from '../shared/types/theme.types';
-import { ThemeProvider } from '../shared/themes/ThemeProvider';
-import { NetflixLayout, MinimalLayout } from '../shared/layouts';
-import { usePlaybackState } from '../shared/hooks/usePlaybackState';
-import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
-import { useShakaPlayer } from './hooks/useShakaPlayer';
+import React, { useEffect, useRef } from 'react';
+
 import { useCast } from '../shared/hooks/useCast';
+import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
+import { usePlaybackState } from '../shared/hooks/usePlaybackState';
+import { MinimalLayout, NetflixLayout } from '../shared/layouts';
+import { ThemeProvider } from '../shared/themes/ThemeProvider';
+import {
+  type BasePlayerProps,
+  type PlayerControls,
+} from '../shared/types/player.types';
+import { type VisualTheme } from '../shared/types/theme.types';
+import { useShakaPlayer } from './hooks/useShakaPlayer';
 
 interface WebPlayerProps extends BasePlayerProps {
   theme: VisualTheme;
 }
 
-export function WebPlayer({ 
-  url, 
+export function WebPlayer({
+  url,
   title,
   showBack,
   onBack,
@@ -23,17 +27,27 @@ export function WebPlayer({
   startTime = 0,
 }: WebPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const { playerState, updatePlayerState, setPlaying, setLoading, setError, setProgress, setVolume, toggleMute } = usePlaybackState();
-  const { showControls, setShowControls, handleUserActivity } = useControlsVisibility();
-  
+  const {
+    playerState,
+    updatePlayerState,
+    setPlaying,
+    setLoading,
+    setError,
+    setProgress,
+    setVolume,
+    toggleMute,
+  } = usePlaybackState();
+  const { showControls, setShowControls, handleUserActivity } =
+    useControlsVisibility();
+
   // Initialize casting
-  const { 
-    castState, 
-    isCasting, 
+  const {
+    castState,
+    isCasting,
     currentDevice,
-    startCast, 
-    stopCast, 
-    castControls 
+    startCast,
+    stopCast,
+    castControls,
   } = useCast({
     url,
     title,
@@ -43,7 +57,7 @@ export function WebPlayer({
       updatePlayerState({ castState: state, isCasting: state === 'CONNECTED' });
     },
   });
-  
+
   // Initialize Shaka player
   const { initializePlayer, destroyPlayer } = useShakaPlayer({
     videoRef,
@@ -139,7 +153,13 @@ export function WebPlayer({
     },
     seekRelative: (delta: number) => {
       if (videoRef.current) {
-        const newTime = Math.max(0, Math.min(videoRef.current.duration, videoRef.current.currentTime + delta));
+        const newTime = Math.max(
+          0,
+          Math.min(
+            videoRef.current.duration,
+            videoRef.current.currentTime + delta
+          )
+        );
         videoRef.current.currentTime = newTime;
       }
       handleUserActivity();
@@ -173,13 +193,13 @@ export function WebPlayer({
       if (!video) return;
 
       if (!document.fullscreenElement) {
-        video.requestFullscreen?.() || 
-        (video as any).webkitRequestFullscreen?.() ||
-        (video as any).msRequestFullscreen?.();
+        video.requestFullscreen?.() ||
+          (video as any).webkitRequestFullscreen?.() ||
+          (video as any).msRequestFullscreen?.();
       } else {
         document.exitFullscreen?.() ||
-        (document as any).webkitExitFullscreen?.() ||
-        (document as any).msExitFullscreen?.();
+          (document as any).webkitExitFullscreen?.() ||
+          (document as any).msExitFullscreen?.();
       }
       handleUserActivity();
     },
@@ -201,23 +221,25 @@ export function WebPlayer({
       handleUserActivity();
     },
   };
-  
+
   // Override controls when casting
-  const effectiveControls = isCasting ? {
-    ...controls,
-    play: castControls.play,
-    pause: castControls.pause,
-    togglePlay: () => {
-      if (playerState.isPlaying) {
-        castControls.pause();
-      } else {
-        castControls.play();
+  const effectiveControls = isCasting
+    ? {
+        ...controls,
+        play: castControls.play,
+        pause: castControls.pause,
+        togglePlay: () => {
+          if (playerState.isPlaying) {
+            castControls.pause();
+          } else {
+            castControls.play();
+          }
+        },
+        seek: castControls.seek,
+        setVolume: castControls.setVolume,
+        toggleMute: castControls.toggleMute,
       }
-    },
-    seek: castControls.seek,
-    setVolume: castControls.setVolume,
-    toggleMute: castControls.toggleMute,
-  } : controls;
+    : controls;
 
   // Select layout component
   const Layout = layout === 'minimal' ? MinimalLayout : NetflixLayout;

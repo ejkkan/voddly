@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { CastState, CastDevice } from '../types/player.types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { type CastDevice, type CastState } from '../types/player.types';
 
 declare global {
   interface Window {
@@ -16,7 +17,13 @@ interface UseCastProps {
   onCastStateChange?: (state: CastState) => void;
 }
 
-export function useCast({ url, title, currentTime = 0, duration = 0, onCastStateChange }: UseCastProps) {
+export function useCast({
+  url,
+  title,
+  currentTime = 0,
+  duration = 0,
+  onCastStateChange,
+}: UseCastProps) {
   const [castState, setCastState] = useState<CastState>('NO_DEVICES_AVAILABLE');
   const [devices, setDevices] = useState<CastDevice[]>([]);
   const [currentDevice, setCurrentDevice] = useState<CastDevice | null>(null);
@@ -39,7 +46,8 @@ export function useCast({ url, title, currentTime = 0, duration = 0, onCastState
 
       // Configure Cast options
       castContext.setOptions({
-        receiverApplicationId: cast.framework.CastContext.DEFAULT_RECEIVER_APP_ID,
+        receiverApplicationId:
+          cast.framework.CastContext.DEFAULT_RECEIVER_APP_ID,
         autoJoinPolicy: cast.framework.AutoJoinPolicy.ORIGIN_SCOPED,
         language: 'en-US',
         resumeSavedSession: true,
@@ -47,7 +55,9 @@ export function useCast({ url, title, currentTime = 0, duration = 0, onCastState
 
       // Set up remote player
       const remotePlayer = new cast.framework.RemotePlayer();
-      const remotePlayerController = new cast.framework.RemotePlayerController(remotePlayer);
+      const remotePlayerController = new cast.framework.RemotePlayerController(
+        remotePlayer
+      );
       remotePlayerRef.current = remotePlayer;
       remotePlayerControllerRef.current = remotePlayerController;
 
@@ -108,7 +118,8 @@ export function useCast({ url, title, currentTime = 0, duration = 0, onCastState
     if (!document.getElementById('cast-api-script')) {
       const script = document.createElement('script');
       script.id = 'cast-api-script';
-      script.src = 'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
+      script.src =
+        'https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1';
       document.head.appendChild(script);
     }
   }, []);
@@ -148,7 +159,10 @@ export function useCast({ url, title, currentTime = 0, duration = 0, onCastState
       castSessionRef.current = session;
 
       // Load media
-      const mediaInfo = new window.chrome.cast.media.MediaInfo(url, 'video/mp4');
+      const mediaInfo = new window.chrome.cast.media.MediaInfo(
+        url,
+        'video/mp4'
+      );
       mediaInfo.metadata = new window.chrome.cast.media.GenericMediaMetadata();
       mediaInfo.metadata.title = title || 'Video';
       mediaInfo.metadata.images = [];

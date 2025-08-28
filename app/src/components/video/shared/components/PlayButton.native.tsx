@@ -1,6 +1,7 @@
+import { Fontisto } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable } from 'react-native';
-import { Fontisto } from '@expo/vector-icons';
+
 import { useTheme } from '../themes/ThemeProvider';
 
 interface PlayButtonProps {
@@ -9,15 +10,19 @@ interface PlayButtonProps {
   size?: 'small' | 'medium' | 'large';
 }
 
-export function PlayButton({ isPlaying, onPress, size = 'medium' }: PlayButtonProps) {
+export function PlayButton({
+  isPlaying,
+  onPress,
+  size = 'medium',
+}: PlayButtonProps) {
   const theme = useTheme();
-  
+
   const sizeMap = {
     small: theme.dimensions.controlButton * 0.8,
     medium: theme.dimensions.controlButton,
     large: theme.dimensions.controlButton * 1.5,
   };
-  
+
   const iconSizeMap = {
     small: theme.dimensions.iconSize * 0.8,
     medium: theme.dimensions.iconSize,

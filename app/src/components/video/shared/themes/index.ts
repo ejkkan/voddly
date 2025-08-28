@@ -1,11 +1,11 @@
-export { defaultTheme } from './default.theme';
-export { compactTheme } from './compact.theme';
-export { ThemeProvider, useTheme } from './ThemeProvider';
-export type { ThemeProviderProps } from './ThemeProvider';
-
-import { defaultTheme } from './default.theme';
+import { type VisualTheme } from '../types/theme.types';
 import { compactTheme } from './compact.theme';
-import { VisualTheme } from '../types/theme.types';
+import { defaultTheme } from './default.theme';
+
+export { compactTheme } from './compact.theme';
+export { defaultTheme } from './default.theme';
+export type { ThemeProviderProps } from './ThemeProvider';
+export { ThemeProvider, useTheme } from './ThemeProvider';
 
 export const themes: Record<string, VisualTheme> = {
   default: defaultTheme,

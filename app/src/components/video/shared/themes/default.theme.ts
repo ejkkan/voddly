@@ -1,8 +1,8 @@
-import { VisualTheme } from '../types/theme.types';
+import { type VisualTheme } from '../types/theme.types';
 
 export const defaultTheme: VisualTheme = {
   name: 'default',
-  
+
   dimensions: {
     controlButton: 44,
     iconSize: 20,
@@ -15,7 +15,7 @@ export const defaultTheme: VisualTheme = {
     padding: 16,
     progressBarHeight: 4,
   },
-  
+
   colors: {
     primary: '#ffffff',
     background: 'rgba(0, 0, 0, 0.7)',
@@ -25,13 +25,13 @@ export const defaultTheme: VisualTheme = {
     progress: '#22c55e',
     buffered: 'rgba(255, 255, 255, 0.3)',
   },
-  
+
   styles: {
     buttonRadius: 6,
     buttonOpacity: 1,
     controlsOpacity: 1,
   },
-  
+
   animations: {
     fadeInDuration: 200,
     fadeOutDuration: 300,

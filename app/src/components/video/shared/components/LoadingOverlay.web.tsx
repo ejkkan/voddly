@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { useTheme } from '../themes/ThemeProvider';
 
 export function LoadingOverlay() {

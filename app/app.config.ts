@@ -65,10 +65,24 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     [
+      'expo-screen-orientation',
+      {
+        initialOrientation: 'DEFAULT',
+      },
+    ],
+    ['react-native-google-cast'],
+    [
       'expo-video',
       {
         supportsBackgroundPlayback: true,
         supportsPictureInPicture: true,
+      },
+    ],
+    [
+      'react-native-video',
+      {
+        // Enable video caching if needed
+        enableVideoCaching: true,
       },
     ],
     [

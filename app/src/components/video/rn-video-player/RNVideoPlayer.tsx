@@ -1,21 +1,28 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import Video, { OnLoadData, OnProgressData } from 'react-native-video';
-import { BasePlayerProps, PlayerControls } from '../shared/types/player.types';
-import { VisualTheme } from '../shared/types/theme.types';
-import { ThemeProvider } from '../shared/themes/ThemeProvider';
-import { NetflixLayout, MinimalLayout } from '../shared/layouts';
-import { usePlaybackState } from '../shared/hooks/usePlaybackState';
+import Video, {
+  type OnLoadData,
+  type OnProgressData,
+} from 'react-native-video';
+
+import { useCast } from '../shared/hooks/useCast';
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { useOrientation } from '../shared/hooks/useOrientation';
-import { useCast } from '../shared/hooks/useCast';
+import { usePlaybackState } from '../shared/hooks/usePlaybackState';
+import { MinimalLayout, NetflixLayout } from '../shared/layouts';
+import { ThemeProvider } from '../shared/themes/ThemeProvider';
+import {
+  type BasePlayerProps,
+  type PlayerControls,
+} from '../shared/types/player.types';
+import { type VisualTheme } from '../shared/types/theme.types';
 
 interface RNVideoPlayerProps extends BasePlayerProps {
   theme: VisualTheme;
 }
 
-export function RNVideoPlayer({ 
-  url, 
+export function RNVideoPlayer({
+  url,
   title,
   showBack,
   onBack,
@@ -25,18 +32,28 @@ export function RNVideoPlayer({
   startTime = 0,
 }: RNVideoPlayerProps) {
   const videoRef = useRef<Video>(null);
-  const { playerState, updatePlayerState, setPlaying, setLoading, setError, setProgress, setVolume, toggleMute } = usePlaybackState();
-  const { showControls, setShowControls, handleUserActivity } = useControlsVisibility();
+  const {
+    playerState,
+    updatePlayerState,
+    setPlaying,
+    setLoading,
+    setError,
+    setProgress,
+    setVolume,
+    toggleMute,
+  } = usePlaybackState();
+  const { showControls, setShowControls, handleUserActivity } =
+    useControlsVisibility();
   const { lockLandscape, unlockOrientation } = useOrientation();
-  
+
   // Initialize casting
-  const { 
-    castState, 
-    isCasting, 
+  const {
+    castState,
+    isCasting,
     currentDevice,
-    startCast, 
-    stopCast, 
-    castControls 
+    startCast,
+    stopCast,
+    castControls,
   } = useCast({
     url,
     title,
@@ -47,50 +64,66 @@ export function RNVideoPlayer({
     },
   });
 
-  // Lock to landscape on mount
+  // Only unlock orientation when unmounting
   useEffect(() => {
-    lockLandscape();
     return () => {
       unlockOrientation();
     };
-  }, []);
+  }, [unlockOrientation]);
 
   // Handle video load
-  const handleLoad = useCallback((data: OnLoadData) => {
-    setLoading(false);
-    updatePlayerState({
-      duration: data.duration,
-      audioTracks: data.audioTracks?.map(track => ({
-        id: track.index?.toString() || '',
-        language: track.language || '',
-        label: track.title || track.language || '',
-      })) || [],
-      subtitleTracks: data.textTracks?.map(track => ({
-        id: track.index?.toString() || '',
-        language: track.language || '',
-        label: track.title || track.language || '',
-      })) || [],
-    });
+  const handleLoad = useCallback(
+    (data: OnLoadData) => {
+      setLoading(false);
+      updatePlayerState({
+        duration: data.duration,
+        audioTracks:
+          data.audioTracks?.map((track) => ({
+            id: track.index?.toString() || '',
+            language: track.language || '',
+            label: track.title || track.language || '',
+          })) || [],
+        subtitleTracks:
+          data.textTracks?.map((track) => ({
+            id: track.index?.toString() || '',
+            language: track.language || '',
+            label: track.title || track.language || '',
+          })) || [],
+      });
 
-    // Seek to start time if specified
-    if (startTime > 0) {
-      videoRef.current?.seek(startTime);
-    }
-  }, [setLoading, updatePlayerState, startTime]);
+      // Seek to start time if specified
+      if (startTime > 0) {
+        videoRef.current?.seek(startTime);
+      }
+    },
+    [setLoading, updatePlayerState, startTime]
+  );
 
   // Handle progress updates
-  const handleProgress = useCallback((data: OnProgressData) => {
-    setProgress(data.currentTime, data.playableDuration);
-    updatePlayerState({
-      buffering: data.currentTime === playerState.currentTime && playerState.isPlaying,
-    });
-  }, [setProgress, updatePlayerState, playerState.currentTime, playerState.isPlaying]);
+  const handleProgress = useCallback(
+    (data: OnProgressData) => {
+      setProgress(data.currentTime, data.playableDuration);
+      updatePlayerState({
+        buffering:
+          data.currentTime === playerState.currentTime && playerState.isPlaying,
+      });
+    },
+    [
+      setProgress,
+      updatePlayerState,
+      playerState.currentTime,
+      playerState.isPlaying,
+    ]
+  );
 
   // Handle errors
-  const handleError = useCallback((error: any) => {
-    console.error('Video playback error:', error);
-    setError('Playback error occurred');
-  }, [setError]);
+  const handleError = useCallback(
+    (error: any) => {
+      console.error('Video playback error:', error);
+      setError('Playback error occurred');
+    },
+    [setError]
+  );
 
   // Create player controls
   const controls: PlayerControls = {
@@ -112,7 +145,10 @@ export function RNVideoPlayer({
       handleUserActivity();
     },
     seekRelative: (delta: number) => {
-      const newTime = Math.max(0, Math.min(playerState.duration, playerState.currentTime + delta));
+      const newTime = Math.max(
+        0,
+        Math.min(playerState.duration, playerState.currentTime + delta)
+      );
       videoRef.current?.seek(newTime);
       setProgress(newTime);
       handleUserActivity();
@@ -148,7 +184,8 @@ export function RNVideoPlayer({
       handleUserActivity();
     },
     toggleFullscreen: () => {
-      // On mobile, we're already fullscreen in landscape
+      // Lock to landscape when fullscreen is requested
+      lockLandscape();
       handleUserActivity();
     },
     retry: () => {
@@ -167,23 +204,25 @@ export function RNVideoPlayer({
       handleUserActivity();
     },
   };
-  
+
   // Override controls when casting
-  const effectiveControls = isCasting ? {
-    ...controls,
-    play: castControls.play,
-    pause: castControls.pause,
-    togglePlay: async () => {
-      if (playerState.isPlaying) {
-        await castControls.pause();
-      } else {
-        await castControls.play();
+  const effectiveControls = isCasting
+    ? {
+        ...controls,
+        play: castControls.play,
+        pause: castControls.pause,
+        togglePlay: async () => {
+          if (playerState.isPlaying) {
+            await castControls.pause();
+          } else {
+            await castControls.play();
+          }
+        },
+        seek: castControls.seek,
+        setVolume: castControls.setVolume,
+        toggleMute: castControls.toggleMute,
       }
-    },
-    seek: castControls.seek,
-    setVolume: castControls.setVolume,
-    toggleMute: castControls.toggleMute,
-  } : controls;
+    : controls;
 
   // Select layout component
   const Layout = layout === 'minimal' ? MinimalLayout : NetflixLayout;
@@ -202,7 +241,9 @@ export function RNVideoPlayer({
             onProgress={handleProgress}
             onError={handleError}
             onEnd={() => setPlaying(false)}
-            onBuffer={({ isBuffering }) => updatePlayerState({ buffering: isBuffering })}
+            onBuffer={({ isBuffering }) =>
+              updatePlayerState({ buffering: isBuffering })
+            }
             resizeMode="contain"
             playInBackground={false}
             playWhenInactive={false}

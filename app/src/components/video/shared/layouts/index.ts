@@ -1,2 +1,2 @@
-export { NetflixLayout } from './NetflixLayout';
 export { MinimalLayout } from './MinimalLayout';
+export { NetflixLayout } from './NetflixLayout';

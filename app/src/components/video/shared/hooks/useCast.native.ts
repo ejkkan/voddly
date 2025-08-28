@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import GoogleCast, { CastButton as GCastButton } from 'react-native-google-cast';
-import { CastState, CastDevice } from '../types/player.types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import GoogleCast from 'react-native-google-cast';
+
+import { type CastDevice, type CastState } from '../types/player.types';
 
 interface UseCastProps {
   url: string;
@@ -10,7 +11,13 @@ interface UseCastProps {
   onCastStateChange?: (state: CastState) => void;
 }
 
-export function useCast({ url, title, currentTime = 0, duration = 0, onCastStateChange }: UseCastProps) {
+export function useCast({
+  url,
+  title,
+  currentTime = 0,
+  duration = 0,
+  onCastStateChange,
+}: UseCastProps) {
   const [castState, setCastState] = useState<CastState>('NO_DEVICES_AVAILABLE');
   const [devices, setDevices] = useState<CastDevice[]>([]);
   const [currentDevice, setCurrentDevice] = useState<CastDevice | null>(null);
@@ -23,7 +30,7 @@ export function useCast({ url, title, currentTime = 0, duration = 0, onCastState
       try {
         // Initialize Cast SDK
         await GoogleCast.initChannel('urn:x-cast:com.example.custom');
-        
+
         sessionManagerRef.current = GoogleCast.getSessionManager();
         castChannelRef.current = GoogleCast.getChannel();
 
@@ -41,15 +48,17 @@ export function useCast({ url, title, currentTime = 0, duration = 0, onCastState
           GoogleCast.DEVICES_UPDATED,
           (devices: any[]) => {
             console.log('Devices updated:', devices);
-            setDevices(devices.map(device => ({
-              id: device.deviceId,
-              name: device.friendlyName,
-              model: device.modelName,
-              isConnected: device.isConnected || false,
-            })));
-            
+            setDevices(
+              devices.map((device) => ({
+                id: device.deviceId,
+                name: device.friendlyName,
+                model: device.modelName,
+                isConnected: device.isConnected || false,
+              }))
+            );
+
             if (devices.length > 0) {
-              setCastState(prev => 
+              setCastState((prev) =>
                 prev === 'NO_DEVICES_AVAILABLE' ? 'NOT_CONNECTED' : prev
               );
             } else {
@@ -140,7 +149,7 @@ export function useCast({ url, title, currentTime = 0, duration = 0, onCastState
         });
       }
       setCastState('CONNECTED');
-      
+
       // Load media automatically
       await loadMedia();
     } catch (error) {

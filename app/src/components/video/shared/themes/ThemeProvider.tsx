@@ -1,5 +1,6 @@
 import React, { createContext, useContext } from 'react';
-import { VisualTheme } from '../types/theme.types';
+
+import { type VisualTheme } from '../types/theme.types';
 import { defaultTheme } from './default.theme';
 
 const ThemeContext = createContext<VisualTheme>(defaultTheme);
@@ -9,11 +10,12 @@ export interface ThemeProviderProps {
   children: React.ReactNode;
 }
 
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({ theme, children }) => {
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({
+  theme,
+  children,
+}) => {
   return (
-    <ThemeContext.Provider value={theme}>
-      {children}
-    </ThemeContext.Provider>
+    <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
   );
 };
 

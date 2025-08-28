@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import { PlayerLayoutProps } from '../types/player.types';
-import { useTheme } from '../themes/ThemeProvider';
-import { ProgressBar } from '../components/ProgressBar';
-import { PlayButton } from '../components/PlayButton';
+import { Pressable, StyleSheet, View } from 'react-native';
+
 import { LoadingOverlay } from '../components/LoadingOverlay';
+import { PlayButton } from '../components/PlayButton';
+import { ProgressBar } from '../components/ProgressBar';
+import { useTheme } from '../themes/ThemeProvider';
+import { type PlayerLayoutProps } from '../types/player.types';
 
 export function MinimalLayout({
   videoElement,
@@ -18,7 +19,7 @@ export function MinimalLayout({
   return (
     <View style={styles.container}>
       {/* Video Element */}
-      <Pressable 
+      <Pressable
         style={styles.videoContainer}
         onPress={() => setShowControls(!showControls)}
       >
@@ -36,13 +37,15 @@ export function MinimalLayout({
 
       {/* Center play/pause button when controls shown */}
       {showControls && (
-        <View style={[
-          styles.centerButton,
-          { 
-            padding: theme.dimensions.padding,
-            borderRadius: 50,
-          }
-        ]}>
+        <View
+          style={[
+            styles.centerButton,
+            {
+              padding: theme.dimensions.padding,
+              borderRadius: 50,
+            },
+          ]}
+        >
           <PlayButton
             isPlaying={playerState.isPlaying}
             onPress={controls.togglePlay}

@@ -1,1 +1,2 @@
-module.exports = require('react-native-keyboard-controller/jest');
+import mock from 'react-native-keyboard-controller/jest';
+export default mock;

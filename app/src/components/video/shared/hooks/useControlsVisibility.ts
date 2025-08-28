@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import { useTheme } from '../themes/ThemeProvider';
 
 export function useControlsVisibility(initialVisible = true) {

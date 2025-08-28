@@ -1,9 +1,10 @@
 import React from 'react';
-import { PlayerLayoutProps } from '../types/player.types';
-import { useTheme } from '../themes/ThemeProvider';
-import { ProgressBar } from '../components/ProgressBar';
-import { PlayButton } from '../components/PlayButton';
+
 import { LoadingOverlay } from '../components/LoadingOverlay';
+import { PlayButton } from '../components/PlayButton';
+import { ProgressBar } from '../components/ProgressBar';
+import { useTheme } from '../themes/ThemeProvider';
+import { type PlayerLayoutProps } from '../types/player.types';
 
 export function MinimalLayout({
   videoElement,
@@ -15,9 +16,16 @@ export function MinimalLayout({
   const theme = useTheme();
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#000' }}>
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#000',
+      }}
+    >
       {/* Video Element */}
-      <div 
+      <div
         style={{ width: '100%', height: '100%', cursor: 'pointer' }}
         onClick={() => setShowControls(!showControls)}
       >

@@ -1,17 +1,6 @@
-import { useEffect } from 'react';
 import * as ScreenOrientation from 'expo-screen-orientation';
 
 export function useOrientation() {
-  useEffect(() => {
-    // Lock to landscape when component mounts
-    lockLandscape();
-
-    // Unlock when component unmounts
-    return () => {
-      unlockOrientation();
-    };
-  }, []);
-
   const lockLandscape = async () => {
     try {
       await ScreenOrientation.lockAsync(

@@ -1,9 +1,10 @@
 import React from 'react';
-import { PlayerLayoutProps } from '../types/player.types';
-import { useTheme } from '../themes/ThemeProvider';
+
 import { ControlsBar } from '../components/ControlsBar';
-import { TopBar } from '../components/TopBar';
 import { LoadingOverlay } from '../components/LoadingOverlay';
+import { TopBar } from '../components/TopBar';
+import { useTheme } from '../themes/ThemeProvider';
+import { type PlayerLayoutProps } from '../types/player.types';
 
 export function NetflixLayout({
   videoElement,
@@ -18,9 +19,16 @@ export function NetflixLayout({
   const theme = useTheme();
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#000' }}>
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#000',
+      }}
+    >
       {/* Video Element */}
-      <div 
+      <div
         style={{ width: '100%', height: '100%', cursor: 'pointer' }}
         onClick={() => setShowControls(!showControls)}
       >
@@ -35,16 +43,13 @@ export function NetflixLayout({
             top: 0,
             left: 0,
             right: 0,
-            background: 'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
+            background:
+              'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
             padding: theme.dimensions.padding,
             animation: `fadeIn ${theme.animations.fadeInDuration}ms ease-in`,
           }}
         >
-          <TopBar
-            title={title}
-            showBack={showBack}
-            onBack={onBack}
-          />
+          <TopBar title={title} showBack={showBack} onBack={onBack} />
         </div>
       )}
 
@@ -56,15 +61,13 @@ export function NetflixLayout({
             bottom: 0,
             left: 0,
             right: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)',
+            background:
+              'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)',
             padding: theme.dimensions.padding,
             animation: `fadeIn ${theme.animations.fadeInDuration}ms ease-in`,
           }}
         >
-          <ControlsBar
-            playerState={playerState}
-            controls={controls}
-          />
+          <ControlsBar playerState={playerState} controls={controls} />
         </div>
       )}
 

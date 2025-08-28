@@ -6,6 +6,9 @@ const { withNativeWind } = require('nativewind/metro');
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname);
 
+// Add platform-specific resolver configuration
+config.resolver.platforms = ['native', 'web', 'ios', 'android'];
+
 // Add wasm asset support for expo-sqlite (web)
 if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Pressable } from 'react-native';
+import { Pressable, View } from 'react-native';
+
 import { useTheme } from '../themes/ThemeProvider';
 
 interface ProgressBarProps {
@@ -9,7 +10,12 @@ interface ProgressBarProps {
   minimal?: boolean;
 }
 
-export function ProgressBar({ progress, buffered = 0, onSeek, minimal = false }: ProgressBarProps) {
+export function ProgressBar({
+  progress,
+  buffered = 0,
+  onSeek,
+  minimal = false,
+}: ProgressBarProps) {
   const theme = useTheme();
   const [barWidth, setBarWidth] = useState(0);
 
@@ -55,7 +61,7 @@ export function ProgressBar({ progress, buffered = 0, onSeek, minimal = false }:
             }}
           />
         )}
-        
+
         {/* Playback progress */}
         <View
           style={{

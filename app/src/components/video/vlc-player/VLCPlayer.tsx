@@ -1,21 +1,27 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import { VLCPlayer as VLC, VlcPlayerViewRef } from 'react-native-vlc-media-player';
-import { BasePlayerProps, PlayerControls } from '../shared/types/player.types';
-import { VisualTheme } from '../shared/types/theme.types';
-import { ThemeProvider } from '../shared/themes/ThemeProvider';
-import { NetflixLayout, MinimalLayout } from '../shared/layouts';
-import { usePlaybackState } from '../shared/hooks/usePlaybackState';
+import {
+  VLCPlayer as VLC,
+  type VlcPlayerViewRef,
+} from 'react-native-vlc-media-player';
+
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { useOrientation } from '../shared/hooks/useOrientation';
-import { useCast } from '../shared/hooks/useCast';
+import { usePlaybackState } from '../shared/hooks/usePlaybackState';
+import { MinimalLayout, NetflixLayout } from '../shared/layouts';
+import { ThemeProvider } from '../shared/themes/ThemeProvider';
+import {
+  type BasePlayerProps,
+  type PlayerControls,
+} from '../shared/types/player.types';
+import { type VisualTheme } from '../shared/types/theme.types';
 
 interface VLCPlayerProps extends BasePlayerProps {
   theme: VisualTheme;
 }
 
-export function VLCPlayer({ 
-  url, 
+export function VLCPlayer({
+  url,
   title,
   showBack,
   onBack,
@@ -25,17 +31,26 @@ export function VLCPlayer({
   startTime = 0,
 }: VLCPlayerProps) {
   const vlcRef = useRef<VlcPlayerViewRef>(null);
-  const { playerState, updatePlayerState, setPlaying, setLoading, setError, setProgress, setVolume, toggleMute } = usePlaybackState();
-  const { showControls, setShowControls, handleUserActivity } = useControlsVisibility();
+  const {
+    playerState,
+    updatePlayerState,
+    setPlaying,
+    setLoading,
+    setError,
+    setProgress,
+    setVolume,
+    toggleMute,
+  } = usePlaybackState();
+  const { showControls, setShowControls, handleUserActivity } =
+    useControlsVisibility();
   const { lockLandscape, unlockOrientation } = useOrientation();
 
-  // Lock to landscape on mount
+  // Only unlock orientation when unmounting
   useEffect(() => {
-    lockLandscape();
     return () => {
       unlockOrientation();
     };
-  }, []);
+  }, [unlockOrientation]);
 
   // Handle VLC player events
   const handlePlaying = useCallback(() => {
@@ -47,54 +62,66 @@ export function VLCPlayer({
     setPlaying(false);
   }, [setPlaying]);
 
-  const handleBuffering = useCallback((event: any) => {
-    updatePlayerState({ buffering: event.isBuffering });
-  }, [updatePlayerState]);
+  const handleBuffering = useCallback(
+    (event: any) => {
+      updatePlayerState({ buffering: event.isBuffering });
+    },
+    [updatePlayerState]
+  );
 
-  const handleProgress = useCallback((event: any) => {
-    if (event.currentTime !== undefined && event.duration !== undefined) {
-      setProgress(event.currentTime / 1000, event.duration / 1000);
-    }
-  }, [setProgress]);
+  const handleProgress = useCallback(
+    (event: any) => {
+      if (event.currentTime !== undefined && event.duration !== undefined) {
+        setProgress(event.currentTime / 1000, event.duration / 1000);
+      }
+    },
+    [setProgress]
+  );
 
-  const handleError = useCallback((event: any) => {
-    console.error('VLC playback error:', event);
-    setError('Playback error occurred');
-  }, [setError]);
+  const handleError = useCallback(
+    (event: any) => {
+      console.error('VLC playback error:', event);
+      setError('Playback error occurred');
+    },
+    [setError]
+  );
 
-  const handleLoad = useCallback((event: any) => {
-    setLoading(false);
-    if (event.duration) {
-      updatePlayerState({ duration: event.duration / 1000 });
-    }
+  const handleLoad = useCallback(
+    (event: any) => {
+      setLoading(false);
+      if (event.duration) {
+        updatePlayerState({ duration: event.duration / 1000 });
+      }
 
-    // Seek to start time if specified
-    if (startTime > 0 && vlcRef.current) {
-      vlcRef.current.seek(startTime);
-    }
+      // Seek to start time if specified
+      if (startTime > 0 && vlcRef.current) {
+        vlcRef.current.seek(startTime);
+      }
 
-    // Extract audio tracks if available
-    if (event.audioTracks) {
-      updatePlayerState({
-        audioTracks: event.audioTracks.map((track: any, index: number) => ({
-          id: index.toString(),
-          language: track.language || '',
-          label: track.name || track.language || `Track ${index + 1}`,
-        })),
-      });
-    }
+      // Extract audio tracks if available
+      if (event.audioTracks) {
+        updatePlayerState({
+          audioTracks: event.audioTracks.map((track: any, index: number) => ({
+            id: index.toString(),
+            language: track.language || '',
+            label: track.name || track.language || `Track ${index + 1}`,
+          })),
+        });
+      }
 
-    // Extract subtitle tracks if available
-    if (event.textTracks) {
-      updatePlayerState({
-        subtitleTracks: event.textTracks.map((track: any, index: number) => ({
-          id: index.toString(),
-          language: track.language || '',
-          label: track.name || track.language || `Subtitle ${index + 1}`,
-        })),
-      });
-    }
-  }, [setLoading, updatePlayerState, startTime]);
+      // Extract subtitle tracks if available
+      if (event.textTracks) {
+        updatePlayerState({
+          subtitleTracks: event.textTracks.map((track: any, index: number) => ({
+            id: index.toString(),
+            language: track.language || '',
+            label: track.name || track.language || `Subtitle ${index + 1}`,
+          })),
+        });
+      }
+    },
+    [setLoading, updatePlayerState, startTime]
+  );
 
   // Create player controls
   const controls: PlayerControls = {
@@ -124,7 +151,10 @@ export function VLCPlayer({
       handleUserActivity();
     },
     seekRelative: (delta: number) => {
-      const newTime = Math.max(0, Math.min(playerState.duration, playerState.currentTime + delta));
+      const newTime = Math.max(
+        0,
+        Math.min(playerState.duration, playerState.currentTime + delta)
+      );
       vlcRef.current?.seek(newTime);
       setProgress(newTime);
       handleUserActivity();
@@ -137,7 +167,9 @@ export function VLCPlayer({
     },
     toggleMute: () => {
       toggleMute();
-      const vlcVolume = playerState.isMuted ? 0 : Math.round(playerState.volume * 200);
+      const vlcVolume = playerState.isMuted
+        ? 0
+        : Math.round(playerState.volume * 200);
       vlcRef.current?.setVolume(vlcVolume);
       handleUserActivity();
     },
@@ -161,7 +193,8 @@ export function VLCPlayer({
       handleUserActivity();
     },
     toggleFullscreen: () => {
-      // On mobile, we're already fullscreen in landscape
+      // Lock to landscape when fullscreen is requested
+      lockLandscape();
       handleUserActivity();
     },
     retry: () => {
@@ -193,7 +226,9 @@ export function VLCPlayer({
             onLoad={handleLoad}
             onEnd={() => setPlaying(false)}
             resizeMode="contain"
-            volume={playerState.isMuted ? 0 : Math.round(playerState.volume * 200)}
+            volume={
+              playerState.isMuted ? 0 : Math.round(playerState.volume * 200)
+            }
             seek={startTime > 0 ? startTime : undefined}
           />
         }

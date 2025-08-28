@@ -1,8 +1,9 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+
 import { useTheme } from '../themes/ThemeProvider';
-import { CastState } from '../types/player.types';
+import { type CastState } from '../types/player.types';
 
 interface CastButtonProps {
   castState: CastState;
@@ -57,7 +58,7 @@ export function CastButton({ castState, onPress }: CastButtonProps) {
         size={theme.dimensions.iconSize}
         color={getIconColor()}
       />
-      
+
       {/* Connected indicator dot */}
       {castState === 'CONNECTED' && (
         <View

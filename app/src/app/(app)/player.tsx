@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+
 import { SafeAreaView, Text, View } from '@/components/ui';
 import { VideoPlayer } from '@/components/video';
 import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlaybackSource';
@@ -11,12 +12,12 @@ export default function Player() {
   // You can also get theme/layout preferences from params or user settings
   const params = useLocalSearchParams();
   const layout = (params.layout as 'netflix' | 'minimal') || 'netflix';
-  const theme = (params.theme as 'default' | 'compact') || 'default';
+  const theme = (params.theme as 'default' | 'compact') || 'compact';
 
   if (loading) {
     return (
       <SafeAreaView className="flex-1">
-        <View className="flex-1 bg-black items-center justify-center">
+        <View className="flex-1 items-center justify-center bg-black">
           <Text className="text-white">Loading player…</Text>
         </View>
       </SafeAreaView>
@@ -26,7 +27,7 @@ export default function Player() {
   if (error) {
     return (
       <SafeAreaView className="flex-1">
-        <View className="flex-1 bg-black items-center justify-center">
+        <View className="flex-1 items-center justify-center bg-black">
           <Text className="text-red-400">{error}</Text>
         </View>
       </SafeAreaView>
@@ -36,7 +37,7 @@ export default function Player() {
   if (!url) {
     return (
       <SafeAreaView className="flex-1">
-        <View className="flex-1 bg-black items-center justify-center">
+        <View className="flex-1 items-center justify-center bg-black">
           <Text className="text-white">No video URL provided</Text>
         </View>
       </SafeAreaView>
@@ -54,7 +55,7 @@ export default function Player() {
           onBack={() => router.back()}
           layout={layout}
           theme={theme}
-          preferredPlayer="auto" // Will auto-select based on platform and file type
+          preferredPlayer="rn-video" // Force RN Video player to see compact theme
         />
       </View>
     </SafeAreaView>

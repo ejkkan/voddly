@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
+import { hideMessage, showMessage } from 'react-native-flash-message';
 
 import { apiClient } from '@/lib/api-client';
 import { MobileCatalogStorage } from '@/lib/catalog-storage';
@@ -7,8 +8,7 @@ import { getIptvClient } from '@/lib/iptv/get-client';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
 import { SourceCredentialsManager } from '@/lib/source-credentials';
-import { toast, notify } from '@/lib/toast';
-import { showMessage, hideMessage } from 'react-native-flash-message';
+import { notify, toast } from '@/lib/toast';
 
 export type SourceSummary = { id: string; name: string; provider_type: string };
 
@@ -168,23 +168,26 @@ export function useSources() {
     onMutate: (vars) => {
       if (__DEV__) console.log('[reload] start', vars);
       setReloadingId(vars.sourceId);
-      
+
       // Find the source name for a better toast message
-      const source = sourcesQuery.data?.sources?.find(s => s.id === vars.sourceId);
+      const source = sourcesQuery.data?.sources?.find(
+        (s) => s.id === vars.sourceId
+      );
       const sourceName = source?.name || 'playlist';
-      
+
       // Create a persistent loading toast with a unique ID
       const toastId = `reload-${vars.sourceId}`;
       loadingToastIdRef.current = toastId;
-      
-      if (__DEV__) console.log('[reload] showing loading toast', toastId, sourceName);
-      
+
+      if (__DEV__)
+        console.log('[reload] showing loading toast', toastId, sourceName);
+
       // Try both toast systems
       toast.loading(`Reloading ${sourceName}...`, {
         id: toastId,
         duration: 999999, // Very long duration (instead of Infinity)
       });
-      
+
       // Also show with FlashMessage as fallback
       flashMessageRef.current = showMessage({
         message: `Reloading ${sourceName}...`,
@@ -210,25 +213,36 @@ export function useSources() {
           [data.sourceId]: { channels: data.channels },
         })
       );
-      
+
       // Dismiss the loading toast
       if (loadingToastIdRef.current) {
-        if (__DEV__) console.log('[reload] dismissing loading toast', loadingToastIdRef.current);
+        if (__DEV__)
+          console.log(
+            '[reload] dismissing loading toast',
+            loadingToastIdRef.current
+          );
         toast.dismiss(loadingToastIdRef.current);
       }
-      
+
       // Show success notification
-      const source = sourcesQuery.data?.sources?.find(s => s.id === data.sourceId);
+      const source = sourcesQuery.data?.sources?.find(
+        (s) => s.id === data.sourceId
+      );
       const sourceName = source?.name || 'Playlist';
-      
-      if (__DEV__) console.log('[reload] showing success toast', sourceName, data.channels);
-      
+
+      if (__DEV__)
+        console.log(
+          '[reload] showing success toast',
+          sourceName,
+          data.channels
+        );
+
       // Try new toast
       notify.success(`${sourceName} updated successfully!`, {
         description: `Loaded ${data.channels} channels`,
         duration: 4000,
       });
-      
+
       // Hide loading message and show success with FlashMessage
       hideMessage();
       setTimeout(() => {
@@ -244,22 +258,27 @@ export function useSources() {
     },
     onError: (err: any) => {
       if (__DEV__) console.log('[reload] error', err);
-      
+
       // Dismiss the loading toast
       if (loadingToastIdRef.current) {
-        if (__DEV__) console.log('[reload] dismissing loading toast on error', loadingToastIdRef.current);
+        if (__DEV__)
+          console.log(
+            '[reload] dismissing loading toast on error',
+            loadingToastIdRef.current
+          );
         toast.dismiss(loadingToastIdRef.current);
       }
-      
+
       // Show error notification
-      if (__DEV__) console.log('[reload] showing error toast', err?.message || err);
-      
+      if (__DEV__)
+        console.log('[reload] showing error toast', err?.message || err);
+
       // Try new toast
       notify.error('Reload failed', {
         description: String(err?.message || err),
         duration: 5000,
       });
-      
+
       // Hide loading message and show error with FlashMessage
       hideMessage();
       setTimeout(() => {

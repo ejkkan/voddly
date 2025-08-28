@@ -1,6 +1,10 @@
 // Core player types shared across all implementations
 
-export type CastState = 'NO_DEVICES_AVAILABLE' | 'NOT_CONNECTED' | 'CONNECTING' | 'CONNECTED';
+export type CastState =
+  | 'NO_DEVICES_AVAILABLE'
+  | 'NOT_CONNECTED'
+  | 'CONNECTING'
+  | 'CONNECTED';
 
 export interface CastDevice {
   id: string;
@@ -78,12 +82,12 @@ export interface PlayerLayoutProps {
   videoElement: React.ReactNode;
   playerState: PlayerState;
   controls: PlayerControls;
-  
+
   // Metadata
   title?: string;
   showBack?: boolean;
   onBack?: () => void;
-  
+
   // UI state
   showControls: boolean;
   setShowControls: (show: boolean) => void;

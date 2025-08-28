@@ -21,12 +21,14 @@ export function shouldUseMKVPlayer(url: string): boolean {
   return isMobile() && url.toLowerCase().endsWith('.mkv');
 }
 
-export function getDefaultPlayer(url: string): 'web' | 'rn-video' | 'vlc' | 'expo-video' {
+export function getDefaultPlayer(
+  url: string
+): 'web' | 'rn-video' | 'vlc' | 'expo-video' {
   if (isWeb()) return 'web';
-  
+
   // Check file extension for mobile
   if (shouldUseMKVPlayer(url)) return 'vlc';
-  
-  // Default to react-native-video for mobile
+
+  // Default to react-native-video for mobile (better performance and features)
   return 'rn-video';
 }

@@ -1,13 +1,14 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { MaterialIcons, Fontisto } from '@expo/vector-icons';
-import { PlayerState, PlayerControls } from '../types/player.types';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+
 import { useTheme } from '../themes/ThemeProvider';
-import { PlayButton } from './PlayButton';
-import { VolumeControl } from './VolumeControl';
-import { ProgressBar } from './ProgressBar';
-import { CastButton } from './CastButton';
+import { type PlayerControls, type PlayerState } from '../types/player.types';
 import { formatTime } from '../utils/formatTime';
+import { CastButton } from './CastButton';
+import { PlayButton } from './PlayButton';
+import { ProgressBar } from './ProgressBar';
+import { VolumeControl } from './VolumeControl';
 
 interface ControlsBarProps {
   playerState: PlayerState;
@@ -17,9 +18,10 @@ interface ControlsBarProps {
 export function ControlsBar({ playerState, controls }: ControlsBarProps) {
   const theme = useTheme();
 
-  const progressPercent = playerState.duration > 0 
-    ? (playerState.currentTime / playerState.duration) * 100 
-    : 0;
+  const progressPercent =
+    playerState.duration > 0
+      ? (playerState.currentTime / playerState.duration) * 100
+      : 0;
 
   return (
     <View style={styles.container}>
@@ -45,14 +47,17 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
             onVolumeChange={controls.setVolume}
             onToggleMute={controls.toggleMute}
           />
-          <Text style={[
-            styles.timeText,
-            { 
-              color: theme.colors.text, 
-              fontSize: theme.dimensions.fontSize.small 
-            }
-          ]}>
-            {formatTime(playerState.currentTime)} / {formatTime(playerState.duration)}
+          <Text
+            style={[
+              styles.timeText,
+              {
+                color: theme.colors.text,
+                fontSize: theme.dimensions.fontSize.small,
+              },
+            ]}
+          >
+            {formatTime(playerState.currentTime)} /{' '}
+            {formatTime(playerState.duration)}
           </Text>
         </View>
 
@@ -68,16 +73,24 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
                   borderRadius: theme.styles.buttonRadius,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
-                }
+                },
               ]}
               onPress={() => {
                 const tracks = playerState.subtitleTracks;
-                const currentIndex = tracks.findIndex(t => t.id === playerState.selectedSubtitleTrack);
+                const currentIndex = tracks.findIndex(
+                  (t) => t.id === playerState.selectedSubtitleTrack
+                );
                 const nextIndex = (currentIndex + 1) % (tracks.length + 1);
-                controls.selectSubtitleTrack(nextIndex < tracks.length ? tracks[nextIndex].id : '');
+                controls.selectSubtitleTrack(
+                  nextIndex < tracks.length ? tracks[nextIndex].id : ''
+                );
               }}
             >
-              <MaterialIcons name="closed-caption" size={theme.dimensions.iconSize} color={theme.colors.text} />
+              <MaterialIcons
+                name="closed-caption"
+                size={theme.dimensions.iconSize}
+                color={theme.colors.text}
+              />
             </Pressable>
           )}
 
@@ -104,11 +117,15 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
                 borderRadius: theme.styles.buttonRadius,
                 width: theme.dimensions.controlButton,
                 height: theme.dimensions.controlButton,
-              }
+              },
             ]}
             onPress={controls.toggleFullscreen}
           >
-            <MaterialIcons name="fullscreen" size={theme.dimensions.iconSize} color={theme.colors.text} />
+            <MaterialIcons
+              name="fullscreen"
+              size={theme.dimensions.iconSize}
+              color={theme.colors.text}
+            />
           </Pressable>
         </View>
       </View>
