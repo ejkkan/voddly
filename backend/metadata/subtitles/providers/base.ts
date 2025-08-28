@@ -1,8 +1,8 @@
 import {
-  SubtitleProvider,
-  SubtitleSearchParams,
-  SubtitleMetadata,
-  SubtitleLanguage,
+  type SubtitleProvider,
+  type SubtitleSearchParams,
+  type SubtitleMetadata,
+  type SubtitleLanguage,
 } from '../types';
 
 export abstract class BaseSubtitleProvider implements SubtitleProvider {
@@ -61,3 +61,4 @@ export abstract class BaseSubtitleProvider implements SubtitleProvider {
     return languageNames[code] || code.toUpperCase();
   }
 }
+

@@ -1,13 +1,10 @@
 import { api } from 'encore.dev/api';
 import { secret } from 'encore.dev/config';
 import log from 'encore.dev/log';
-import {
-  createSubtitleService,
-  SubtitleSearchParams,
-  SubtitleLanguage,
-} from '../../common/subtitles';
+import { createSubtitleService, type SubtitleSearchParams, type SubtitleLanguage } from '../../metadata/subtitles/service';
 import { metadataDB } from '../../metadata/db';
-import { OpenSubtitlesProvider, SubDLProvider } from '../../common/subtitles';
+import { OpenSubtitlesProvider } from '../../metadata/subtitles/providers/opensubtitles';
+import { SubDLProvider } from '../../metadata/subtitles/providers/subdl';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -16,7 +13,7 @@ import {
   detectEmbeddedTracks,
   likelyHasEmbeddedSubtitles,
   type VideoStreamInfo,
-} from '../../common/subtitles/embedded-detector';
+} from '../../metadata/subtitles/embedded-detector';
 
 /**
  * Extract subtitle content from video stream using FFmpeg
@@ -773,6 +770,9 @@ export const getSubtitleContentByTmdb = api(
     }
   }
 );
+
+// Get all subtitles (with content) for a TMDB id
+// (moved) get all subtitles by TMDB implemented as separate endpoint file
 
 // Get all subtitle variants for a specific language
 export const getSubtitleVariants = api(

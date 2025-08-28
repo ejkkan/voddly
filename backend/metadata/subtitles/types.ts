@@ -1,4 +1,4 @@
-// Shared interfaces for subtitle providers
+// Shared interfaces for subtitle providers (scoped to metadata service)
 
 export interface SubtitleLanguage {
   code: string;
@@ -34,10 +34,10 @@ export interface SubtitleSearchParams {
   episode_number?: number;
   query?: string;
   moviehash?: string;
-  languages?: string;
   type?: 'movie' | 'episode' | 'tv' | 'all';
   year?: number;
   preferred_provider?: 'opensubs' | 'subdl' | 'all';
+  languages?: string;
 }
 
 export interface SubtitleProvider {
@@ -52,12 +52,6 @@ export interface SubtitleProvider {
   ): Promise<SubtitleLanguage[]>;
 }
 
-export interface SubtitleServiceResult {
-  languages: SubtitleLanguage[];
-  subtitles: SubtitleContent[];
-}
-
-// Database interfaces
 export interface StoredSubtitle {
   id: string;
   movie_id: string;
@@ -71,3 +65,4 @@ export interface StoredSubtitle {
   created_at: Date;
   updated_at: Date;
 }
+
