@@ -774,6 +774,76 @@ export const getSubtitleContentByTmdb = api(
   }
 );
 
+// Get all subtitles (with content) for a TMDB id
+export const getAllSubtitlesByTmdb = api(
+  {
+    expose: true,
+    auth: false,
+    method: 'GET',
+    path: '/subtitles/tmdb/:tmdbId',
+  },
+  async ({
+    tmdbId,
+    provider,
+  }: {
+    tmdbId: number;
+    provider?: 'opensubs' | 'subdl' | 'all';
+  }): Promise<{ subtitles: Subtitle[] }> => {
+    log.info(`🌐 TMDB-first all subtitles tmdb_id=${tmdbId}`, {
+      provider,
+    });
+
+    const searchParams: SubtitleSearchParams = {
+      tmdb_id: tmdbId,
+      preferred_provider: provider || 'all',
+    };
+
+    try {
+      const subtitleService = createSubtitleService(
+        await openSubtitlesApiKey(),
+        await subDLApiKey()
+      );
+
+      // 1) Get available languages for this TMDB id
+      const languages = await subtitleService.getAvailableLanguages(
+        String(tmdbId),
+        searchParams
+      );
+
+      // 2) Fetch content for each available language
+      const subtitles: Subtitle[] = [];
+      for (const lang of languages) {
+        try {
+          const result = await subtitleService.getSubtitleContent(
+            String(tmdbId),
+            lang.code.toLowerCase(),
+            searchParams
+          );
+          if (result) {
+            subtitles.push({
+              id: result.id,
+              language_code: result.language_code,
+              language_name: result.language_name,
+              content: result.content,
+              source: result.source,
+            });
+          }
+        } catch (e) {
+          log.error(e, `Failed to fetch subtitle content for ${lang.code}`);
+        }
+      }
+
+      log.info(`✅ TMDB-first all subtitles count=${subtitles.length}`, {
+        tmdbId,
+      });
+      return { subtitles };
+    } catch (error) {
+      log.error(error, 'Error in TMDB-first all subtitles');
+      return { subtitles: [] };
+    }
+  }
+);
+
 // Get all subtitle variants for a specific language
 export const getSubtitleVariants = api(
   {
