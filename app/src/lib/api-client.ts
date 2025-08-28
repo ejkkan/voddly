@@ -53,8 +53,74 @@ class EncoreAPI {
     return this.client.user;
   }
 
-  get url() {
-    return this.client.url;
+  // NOTE: no url getter; use Env.API_URL if needed
+
+  // Unified metadata fetcher for the app. Uses Encore client when TMDB ID is provided,
+  // and falls back to a direct call for title-only lookups until the client is regenerated.
+  async getUserMetadata<T = any>(params: {
+    tmdbId?: number | string;
+    title?: string;
+    contentType: 'movie' | 'tv' | 'season' | 'episode';
+    seasonNumber?: number;
+    episodeNumber?: number;
+    forceRefresh?: boolean;
+    appendToResponse?: string;
+  }): Promise<T> {
+    const {
+      tmdbId,
+      title,
+      contentType,
+      seasonNumber,
+      episodeNumber,
+      forceRefresh,
+      appendToResponse,
+    } = params;
+
+    // Prefer generated Encore client when TMDB id is known
+    if (tmdbId !== undefined && tmdbId !== null && tmdbId !== '') {
+      const resp = await this.client.user.getMetadataForContent({
+        tmdb_id: Number(tmdbId),
+        content_type: contentType,
+        season_number: seasonNumber,
+        episode_number: episodeNumber,
+        force_refresh: forceRefresh,
+        append_to_response: appendToResponse,
+      } as any);
+      return resp as T;
+    }
+
+    // Temporary fallback: title-based requests until encore-client includes the parameter
+    // Normalize title if an object slipped through
+    const normalizedTitle: string | undefined =
+      typeof title === 'string'
+        ? title
+        : title && typeof title === 'object'
+          ? ((title as any).title ??
+            (title as any).name ??
+            (title as any).original_title)
+          : undefined;
+
+    const url = new URL(`${this.baseUrl}/user/metadata`);
+    if (normalizedTitle) url.searchParams.set('title', normalizedTitle);
+    url.searchParams.set('content_type', contentType);
+    if (seasonNumber !== undefined)
+      url.searchParams.set('season_number', String(seasonNumber));
+    if (episodeNumber !== undefined)
+      url.searchParams.set('episode_number', String(episodeNumber));
+    if (forceRefresh !== undefined)
+      url.searchParams.set('force_refresh', String(forceRefresh));
+    if (appendToResponse)
+      url.searchParams.set('append_to_response', appendToResponse);
+
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!res.ok) throw new Error(`getUserMetadata failed: ${res.status}`);
+    return (await res.json()) as T;
   }
 
   // Custom subtitle endpoints used by the web player

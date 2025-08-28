@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Image, Pressable, Text, View } from '@/components/ui';
+import { Heart } from '@/components/ui/icons';
 
 type PosterCardProps = {
   id: string | number;
@@ -9,6 +10,10 @@ type PosterCardProps = {
   onPress?: (id: string | number) => void;
   onLongPress?: (id: string | number) => void;
   aspect?: 'poster' | 'backdrop';
+  isFavorite?: boolean;
+  onToggleFavorite?: (id: string | number) => void;
+  showFavoriteButton?: boolean;
+  hasProfile?: boolean;
 };
 
 export const PosterCard = ({
@@ -18,8 +23,19 @@ export const PosterCard = ({
   onPress,
   onLongPress,
   aspect = 'poster',
+  isFavorite = false,
+  onToggleFavorite,
+  showFavoriteButton = true,
+  hasProfile = true,
 }: PosterCardProps) => {
   const isPoster = aspect === 'poster';
+
+  const handleFavoritePress = (e: any) => {
+    e.stopPropagation();
+    if (hasProfile && onToggleFavorite) {
+      onToggleFavorite(id);
+    }
+  };
 
   return (
     <Pressable
@@ -27,7 +43,7 @@ export const PosterCard = ({
       onLongPress={() => onLongPress?.(id)}
       className="mr-3"
     >
-      <View className="overflow-hidden rounded-xl">
+      <View className="overflow-hidden rounded-xl relative">
         {posterUrl ? (
           <Image
             source={{ uri: posterUrl }}
@@ -50,6 +66,24 @@ export const PosterCard = ({
               No image
             </Text>
           </View>
+        )}
+
+        {/* Favorite Heart Icon */}
+        {showFavoriteButton && onToggleFavorite && (
+          <Pressable
+            onPress={handleFavoritePress}
+            className={`absolute top-2 right-2 p-1 rounded-full ${
+              hasProfile
+                ? 'bg-black/50 backdrop-blur-sm'
+                : 'bg-black/30 backdrop-blur-sm opacity-50'
+            }`}
+            disabled={!hasProfile}
+          >
+            <Heart
+              filled={isFavorite}
+              color={isFavorite ? '#ef4444' : '#ffffff'}
+            />
+          </Pressable>
         )}
       </View>
       <Text

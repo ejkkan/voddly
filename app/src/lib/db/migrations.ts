@@ -52,7 +52,7 @@ export async function clearAccountData(db: DatabaseHandle, accountId: string) {
         DELETE FROM movies_ext WHERE item_id IN (
           SELECT id FROM content_items WHERE account_id = $account_id
         );
-        DELETE FROM series_ext WHERE series_item_id IN (
+        DELETE FROM series_ext WHERE item_id IN (
           SELECT id FROM content_items WHERE account_id = $account_id
         );
         DELETE FROM episodes_ext WHERE series_item_id IN (

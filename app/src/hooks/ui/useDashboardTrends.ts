@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';
 import { openDb } from '@/lib/db';
+import { createQueryOptions, queryKeys } from '@/lib/query-utils';
 
 // Helper function to query local SQLite database for movie/series details
 async function getContentItemData(
@@ -276,7 +277,7 @@ export function useDashboardTrends(): UseDashboardTrendsResult {
   // Movie feeds
   const movieQueries = useQueries({
     queries: DASHBOARD_TREND_FEEDS.map((feed) => ({
-      queryKey: ['trends', 'movie', feed],
+      queryKey: queryKeys.dashboard.trends.movie(feed),
       queryFn: async () => {
         const response = await apiClient.user.getDashboardTrends({
           feed,
@@ -285,14 +286,14 @@ export function useDashboardTrends(): UseDashboardTrendsResult {
         });
         return enhanceTrendsResponse(response, 'movie');
       },
-      refetchOnWindowFocus: false,
+      ...createQueryOptions('MEDIUM_LIVED'),
     })),
   });
 
   // Series feeds
   const seriesQueries = useQueries({
     queries: DASHBOARD_TREND_FEEDS.map((feed) => ({
-      queryKey: ['trends', 'tv', feed],
+      queryKey: queryKeys.dashboard.trends.series(feed),
       queryFn: async () => {
         const response = await apiClient.user.getDashboardTrends({
           feed,
@@ -301,7 +302,7 @@ export function useDashboardTrends(): UseDashboardTrendsResult {
         });
         return enhanceTrendsResponse(response, 'tv');
       },
-      refetchOnWindowFocus: false,
+      ...createQueryOptions('MEDIUM_LIVED'),
     })),
   });
 

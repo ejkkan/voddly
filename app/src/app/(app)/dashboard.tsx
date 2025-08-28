@@ -3,14 +3,16 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 
 import { SafeAreaView, ScrollView, View } from '@/components/ui';
-import { useDashboardPreviews, useDashboardTrends } from '@/hooks/ui';
+import { useFavoriteManager } from '@/hooks/ui';
 import {
   type DashboardItem,
   type DashboardPreviewsResult,
+  useDashboardPreviews,
 } from '@/hooks/ui/useDashboard';
 import {
   DASHBOARD_TREND_FEEDS,
   getLocalItemData,
+  useDashboardTrends,
 } from '@/hooks/ui/useDashboardTrends';
 
 import { CarouselRow } from '../../components/media/carousel-row';
@@ -19,6 +21,7 @@ import { PosterCard } from '../../components/media/poster-card';
 
 export default function Dashboard() {
   const router = useRouter();
+  const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
   const [movies, setMovies] = useState<
     { id: string; title: string; imageUrl?: string | null; sourceId?: string }[]
   >([]);
@@ -178,6 +181,9 @@ export default function Dashboard() {
                           )
                         }
                         onLongPress={handleMovieLongPress}
+                        isFavorite={isFavorite(item.id)}
+                        onToggleFavorite={() => toggleFavorite(item.id)}
+                        hasProfile={hasProfile}
                       />
                     )}
                   />
@@ -203,6 +209,9 @@ export default function Dashboard() {
                           )
                         }
                         onLongPress={handleSeriesLongPress}
+                        isFavorite={isFavorite(item.id)}
+                        onToggleFavorite={() => toggleFavorite(item.id)}
+                        hasProfile={hasProfile}
                       />
                     )}
                   />
@@ -223,6 +232,9 @@ export default function Dashboard() {
                   router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
                 }
                 onLongPress={handleMovieLongPress}
+                isFavorite={isFavorite(item.id)}
+                onToggleFavorite={() => toggleFavorite(item.id)}
+                hasProfile={hasProfile}
               />
             )}
           />
@@ -238,6 +250,9 @@ export default function Dashboard() {
                   router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
                 }
                 onLongPress={handleSeriesLongPress}
+                isFavorite={isFavorite(item.id)}
+                onToggleFavorite={() => toggleFavorite(item.id)}
+                hasProfile={hasProfile}
               />
             )}
           />
@@ -253,6 +268,9 @@ export default function Dashboard() {
                   router.push(`/(app)/live/${encodeURIComponent(String(id))}`)
                 }
                 onLongPress={handleLiveLongPress}
+                isFavorite={isFavorite(item.id)}
+                onToggleFavorite={() => toggleFavorite(item.id)}
+                hasProfile={hasProfile}
               />
             )}
           />

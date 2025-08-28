@@ -269,3 +269,179 @@ export const clearWatchHistory = api(
     return { ok: true };
   }
 );
+
+// Get watch state by canonical content UID
+export const getWatchStateByUid = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'GET',
+    path: '/profiles/:profileId/watch-state/by-uid/:contentUid',
+  },
+  async ({
+    profileId,
+    contentUid,
+  }: {
+    profileId: string;
+    contentUid: string;
+  }): Promise<{
+    state: {
+      content_uid: string;
+      last_position_seconds: number;
+      total_duration_seconds: number | null;
+      completed: boolean;
+      completed_at: string | null;
+      last_watched_at: string | null;
+    } | null;
+  }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
+
+    const row = await userDB.queryRow<{
+      content_uid: string;
+      last_position_seconds: number;
+      total_duration_seconds: number | null;
+      completed: boolean;
+      completed_at: Date | null;
+      last_watched_at: Date | null;
+    }>`
+      SELECT content_uid, last_position_seconds, total_duration_seconds, completed, completed_at, last_watched_at
+      FROM profile_watch_state
+      WHERE profile_id = ${profileId} AND content_uid = ${contentUid}
+    `;
+
+    if (!row) return { state: null };
+
+    return {
+      state: {
+        content_uid: row.content_uid,
+        last_position_seconds: row.last_position_seconds,
+        total_duration_seconds: row.total_duration_seconds,
+        completed: !!row.completed,
+        completed_at: row.completed_at ? row.completed_at.toISOString() : null,
+        last_watched_at: row.last_watched_at ? row.last_watched_at.toISOString() : null,
+      },
+    };
+  }
+);
+
+// Convenience: get watch state by TMDB movie id
+export const getMovieWatchStateByTmdb = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'GET',
+    path: '/profiles/:profileId/watch-state/movie/:tmdbId',
+  },
+  async ({
+    profileId,
+    tmdbId,
+  }: {
+    profileId: string;
+    tmdbId: string;
+  }): Promise<{ state: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; completed_at: string | null; last_watched_at: string | null } | null }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
+
+    const uid = `tmdb:movie:${tmdbId}`;
+    const res = await getWatchStateByUid({ profileId, contentUid: uid });
+    return res;
+  }
+);
+
+// Convenience: get watch state by TMDB episode identifiers
+export const getEpisodeWatchStateByTmdb = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'GET',
+    path: '/profiles/:profileId/watch-state/episode/:parentTmdbId/:seasonNumber/:episodeNumber',
+  },
+  async ({
+    profileId,
+    parentTmdbId,
+    seasonNumber,
+    episodeNumber,
+  }: {
+    profileId: string;
+    parentTmdbId: string;
+    seasonNumber: string;
+    episodeNumber: string;
+  }): Promise<{ state: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; completed_at: string | null; last_watched_at: string | null } | null }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
+
+    const pad2 = (n: number) => String(n).padStart(2, '0');
+    const uid = `tmdb:tv:${parentTmdbId}:s${pad2(Number(seasonNumber))}:e${pad2(Number(episodeNumber))}`;
+    const res = await getWatchStateByUid({ profileId, contentUid: uid });
+    return res;
+  }
+);
+
+// Season aggregate: returns all episode rows for a season by TMDB parent id
+export const getSeasonWatchStatesByTmdb = api(
+  {
+    expose: true,
+    auth: true,
+    method: 'GET',
+    path: '/profiles/:profileId/watch-state/season/:parentTmdbId/:seasonNumber',
+  },
+  async ({
+    profileId,
+    parentTmdbId,
+    seasonNumber,
+  }: {
+    profileId: string;
+    parentTmdbId: string;
+    seasonNumber: string;
+  }): Promise<{ items: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] }> => {
+    const auth = getAuthData();
+    if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
+
+    const hasAccess = await verifyProfileAccess(profileId, auth.userID);
+    if (!hasAccess) {
+      throw APIError.permissionDenied('Profile not found or access denied');
+    }
+
+    const prefix = `tmdb:tv:${parentTmdbId}:s${String(Number(seasonNumber)).padStart(2, '0')}:`;
+    const rows = userDB.query<{
+      content_uid: string;
+      last_position_seconds: number;
+      total_duration_seconds: number | null;
+      completed: boolean;
+      last_watched_at: Date | null;
+    }>`
+      SELECT content_uid, last_position_seconds, total_duration_seconds, completed, last_watched_at
+      FROM profile_watch_state
+      WHERE profile_id = ${profileId} AND content_uid LIKE ${prefix + '%'}
+      ORDER BY last_watched_at DESC NULLS LAST
+    `;
+
+    const items: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] = [];
+    for await (const r of rows) {
+      items.push({
+        content_uid: r.content_uid,
+        last_position_seconds: r.last_position_seconds,
+        total_duration_seconds: r.total_duration_seconds,
+        completed: !!r.completed,
+        last_watched_at: r.last_watched_at ? r.last_watched_at.toISOString() : null,
+      });
+    }
+    return { items };
+  }
+);

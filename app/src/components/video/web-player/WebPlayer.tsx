@@ -20,10 +20,20 @@ export type WebPlayerProps = {
   movieId?: string;
   tmdbId?: number;
   type?: 'movie' | 'series' | 'live';
+  disableAutoReload?: boolean;
 };
 
 export function WebPlayer(props: WebPlayerProps) {
-  const { url, title, showBack, onBack, movieId, tmdbId, type } = props;
+  const {
+    url,
+    title,
+    showBack,
+    onBack,
+    movieId,
+    tmdbId,
+    type,
+    disableAutoReload = false,
+  } = props;
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const playerRef = React.useRef<any>(null);
   const progressiveFallbackTriedRef = React.useRef<boolean>(false);
@@ -180,6 +190,10 @@ export function WebPlayer(props: WebPlayerProps) {
     const onWaiting = () => {
       setIsLoading(true);
       logVideoState('onWaiting');
+
+      // Skip auto-reload logic if disabled
+      if (disableAutoReload) return;
+
       try {
         if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
       } catch {}
@@ -192,6 +206,8 @@ export function WebPlayer(props: WebPlayerProps) {
           try {
             const v = videoRef.current;
             if (v) {
+              // Store current playback position before reload
+              const currentTime = v.currentTime || 0;
               try {
                 v.pause();
               } catch {}
@@ -205,6 +221,8 @@ export function WebPlayer(props: WebPlayerProps) {
               } catch {}
               try {
                 (v as any).muted = true;
+                // Restore playback position after reload
+                v.currentTime = currentTime;
                 void v.play();
               } catch {}
               lastProgressMsRef.current = Date.now();
@@ -224,6 +242,10 @@ export function WebPlayer(props: WebPlayerProps) {
     const onStalled = () => {
       setIsLoading(true);
       logVideoState('onStalled');
+
+      // Skip auto-reload logic if disabled
+      if (disableAutoReload) return;
+
       try {
         if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
       } catch {}
@@ -236,6 +258,8 @@ export function WebPlayer(props: WebPlayerProps) {
           try {
             const v = videoRef.current;
             if (v) {
+              // Store current playback position before reload
+              const currentTime = v.currentTime || 0;
               try {
                 v.pause();
               } catch {}
@@ -249,6 +273,8 @@ export function WebPlayer(props: WebPlayerProps) {
               } catch {}
               try {
                 (v as any).muted = true;
+                // Restore playback position after reload
+                v.currentTime = currentTime;
                 void v.play();
               } catch {}
               lastProgressMsRef.current = Date.now();
@@ -426,6 +452,10 @@ export function WebPlayer(props: WebPlayerProps) {
           } catch {}
           startupTimerRef.current = setTimeout(() => {
             if (!isActiveRef.current) return;
+
+            // Skip auto-reload logic if disabled
+            if (disableAutoReload) return;
+
             const since = Date.now() - (lastProgressMsRef.current || 0);
             if (since >= STARTUP_PLAY_TIMEOUT_MS) {
               if (softReloadAttemptsRef.current < MAX_SOFT_RELOAD_ATTEMPTS) {
@@ -433,6 +463,8 @@ export function WebPlayer(props: WebPlayerProps) {
                 try {
                   const v = videoRef.current;
                   if (v) {
+                    // Store current playback position before reload
+                    const currentTime = v.currentTime || 0;
                     try {
                       v.pause();
                     } catch {}
@@ -446,6 +478,8 @@ export function WebPlayer(props: WebPlayerProps) {
                     } catch {}
                     try {
                       (v as any).muted = true;
+                      // Restore playback position after reload
+                      v.currentTime = currentTime;
                       void v.play();
                     } catch {}
                     lastProgressMsRef.current = Date.now();

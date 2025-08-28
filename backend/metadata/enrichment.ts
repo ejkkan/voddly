@@ -1,12 +1,30 @@
 import log from 'encore.dev/log';
+import { secret } from 'encore.dev/config';
 import { metadataDB } from './db';
 import { OMDBClient } from './providers/omdb-client';
 import { TraktClient } from './providers/trakt-client';
 import { FanArtClient } from './providers/fanart-client';
 import { YouTubeClient } from './providers/youtube-client';
+import { TMDBClient } from './providers/tmdb-client';
+
+// TMDB API configuration from secrets
+const tmdbAccessToken = secret('TMDBAccessToken');
+
+// Initialize TMDB client
+let tmdbClient: TMDBClient;
+
+async function getTMDBClient(): Promise<TMDBClient> {
+  if (!tmdbClient) {
+    const accessToken = await tmdbAccessToken();
+    tmdbClient = new TMDBClient({
+      accessToken,
+    });
+  }
+  return tmdbClient;
+}
 
 export interface EnrichmentParams {
-  tmdb_id: number;
+  tmdb_id?: number; // 🆕 Make optional to support title-only requests
   content_type: 'movie' | 'tv';
   imdb_id?: string;
   title?: string;
@@ -98,19 +116,108 @@ function coerceFiniteNumber(input: unknown): number | undefined {
 export async function enrichWithExternalAPIs(
   params: EnrichmentParams
 ): Promise<EnrichmentData> {
-  const { tmdb_id, content_type, imdb_id, title, year } = params;
+  let { tmdb_id, content_type, imdb_id, title, year } = params; // 🆕 Make tmdb_id mutable
 
-  log.info('Starting content enrichment', {
+  // 🆕 Enhanced logging for title-based requests
+  log.info('🎬 ENRICHMENT CALLED FROM FRONTEND', {
     tmdb_id,
     content_type,
     imdb_id,
     title,
+    year,
+    timestamp: new Date().toISOString(),
+    hasTitle: !!title,
+    titleLength: title?.length || 0,
+    requestType: tmdb_id ? 'TMDB_ID' : 'TITLE_ONLY',
   });
 
+  // 🆕 If no TMDB ID but we have title, try to find TMDB ID first
+  if (!tmdb_id && title) {
+    log.info('🔍 No TMDB ID provided, attempting title search first', {
+      title,
+      content_type,
+      year,
+    });
+
+    try {
+      const client = await getTMDBClient();
+      const cleanTitle = title.replace(/\[[^\]]*\]/g, '').trim();
+
+      log.info('🧹 Title cleaning completed', {
+        originalTitle: title,
+        cleanTitle,
+        content_type,
+        year,
+        regexRemoved: title.length - cleanTitle.length,
+      });
+
+      let searchResults;
+      if (content_type === 'movie') {
+        log.info('🎬 Searching TMDB for movie by title', { cleanTitle, year });
+        searchResults = await client.searchMovies(
+          cleanTitle,
+          year ? parseInt(String(year)) : undefined,
+          1,
+          'en-US'
+        );
+      } else {
+        log.info('📺 Searching TMDB for TV show by title', {
+          cleanTitle,
+          year,
+        });
+        searchResults = await client.searchTV(
+          cleanTitle,
+          year ? parseInt(String(year)) : undefined,
+          1,
+          'en-US'
+        );
+      }
+
+      if (searchResults?.results && searchResults.results.length > 0) {
+        const bestMatch = searchResults.results[0];
+        log.info('🎯 Found TMDB ID via title search', {
+          originalTitle: title,
+          cleanTitle,
+          foundTmdbId: bestMatch.id,
+          foundTitle: bestMatch.title || bestMatch.name,
+          confidence: 'high',
+        });
+
+        // 🆕 Update tmdb_id for the rest of enrichment
+        params.tmdb_id = bestMatch.id;
+        tmdb_id = bestMatch.id;
+      } else {
+        log.warn('❌ No TMDB ID found via title search', {
+          title: cleanTitle,
+          content_type,
+          year,
+        });
+      }
+    } catch (error: any) {
+      // 🆕 Properly type the error
+      log.error('💥 TMDB title search failed', {
+        error: error.message,
+        title,
+        content_type,
+      });
+    }
+  }
+
+  // 🆕 Continue with existing enrichment logic (now with potentially found TMDB ID)
   const enrichment: EnrichmentData = {
-    tmdb_id,
+    tmdb_id: tmdb_id || 0, // Use found TMDB ID or 0
     content_type,
   };
+
+  // 🆕 Ensure tmdb_id is always a number for function calls
+  const finalTmdbId = tmdb_id || 0;
+
+  log.info('Starting content enrichment', {
+    tmdb_id: finalTmdbId,
+    content_type,
+    imdb_id,
+    title,
+  });
 
   // Initialize clients
   const omdbClient = new OMDBClient();
@@ -222,7 +329,7 @@ export async function enrichWithExternalAPIs(
           tmdb_id,
           content_type,
         });
-        const item = await traktClient.getByTMDBId(tmdb_id, content_type);
+        const item = await traktClient.getByTMDBId(finalTmdbId, content_type);
         const durationMs = Date.now() - start;
         log.debug('Enrichment: Trakt getByTMDBId done', {
           tmdb_id,
@@ -258,7 +365,7 @@ export async function enrichWithExternalAPIs(
         tmdb_id,
         content_type,
       });
-      const artwork = await fanartClient.getArtwork(tmdb_id, content_type);
+      const artwork = await fanartClient.getArtwork(finalTmdbId, content_type);
       const durationMs = Date.now() - start;
       log.debug('Enrichment: FanArt getArtwork done', {
         tmdb_id,

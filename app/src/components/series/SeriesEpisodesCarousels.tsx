@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
 import { View } from '@/components/ui';
+import { useFavoriteManager } from '@/hooks/ui';
 import { openDb } from '@/lib/db';
 import { useSourceCredentials } from '@/lib/source-credentials';
 
@@ -47,6 +48,7 @@ export function SeriesEpisodesCarousels(props: {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const { prepareContentPlayback } = useSourceCredentials();
+  const { isFavorite, toggleFavorite } = useFavoriteManager();
 
   useEffect(() => {
     let mounted = true;
@@ -108,7 +110,6 @@ export function SeriesEpisodesCarousels(props: {
               id={item.id}
               title={item.title}
               posterUrl={item.imageUrl}
-              sourceId={(item as any).sourceId}
               onPress={async (id) => {
                 try {
                   const streamId = String(id);
@@ -129,6 +130,8 @@ export function SeriesEpisodesCarousels(props: {
                   console.error('Failed to play episode:', error);
                 }
               }}
+              isFavorite={isFavorite(item.id)}
+              onToggleFavorite={() => toggleFavorite(item.id)}
             />
           )}
         />
