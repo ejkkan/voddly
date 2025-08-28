@@ -1,7 +1,9 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Button } from './button';
+import { StyleSheet, View } from 'react-native';
+
 import { notify, toast, ToastPosition } from '@/lib/toast';
+
+import { Button } from './button';
 
 export function ToastDemo() {
   const showBasicToasts = () => {
@@ -46,7 +48,7 @@ export function ToastDemo() {
 
   const showLoadingToast = () => {
     const id = toast.loading('Processing your request...');
-    
+
     setTimeout(() => {
       toast.dismiss(id);
       notify.success('Request completed!');
@@ -55,7 +57,10 @@ export function ToastDemo() {
 
   const showPositionedToasts = () => {
     notify.success('Top position', { position: ToastPosition.TOP });
-    setTimeout(() => notify.error('Bottom position', { position: ToastPosition.BOTTOM }), 1000);
+    setTimeout(
+      () => notify.error('Bottom position', { position: ToastPosition.BOTTOM }),
+      1000
+    );
   };
 
   const showCustomDuration = () => {

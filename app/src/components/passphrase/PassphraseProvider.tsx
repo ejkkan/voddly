@@ -131,7 +131,13 @@ export function PassphraseProvider({
         value.length
       );
     const pass = value.trim();
-    if (pass.length < 6) return;
+
+    // Enforce 6 digits only
+    if (pass.length !== 6 || !/^\d{6}$/.test(pass)) {
+      // Show error or just return without action
+      return;
+    }
+
     const accountId = state.accountId!;
     setSubmitting(true);
     Keyboard.dismiss();
@@ -175,8 +181,23 @@ export function PassphraseProvider({
               value={value}
               onChangeText={setValue}
               secureTextEntry
-              placeholder="Passphrase"
+              placeholder="Enter 6-digit passphrase"
+              keyboardType="numeric"
+              maxLength={6}
             />
+            {value.length > 0 && (
+              <Text
+                className={`mt-1 text-sm ${
+                  value.length === 6 && /^\d{6}$/.test(value)
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}
+              >
+                {value.length === 6 && /^\d{6}$/.test(value)
+                  ? '✓ Valid passphrase'
+                  : 'Passphrase must be exactly 6 digits'}
+              </Text>
+            )}
             <View className="mt-3 flex-row justify-end gap-3">
               <TouchableOpacity
                 activeOpacity={0.7}
@@ -191,10 +212,16 @@ export function PassphraseProvider({
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.7}
-                className="rounded-xl bg-neutral-900 px-4 py-2"
+                className={`rounded-xl px-4 py-2 ${
+                  value.length === 6 && /^\d{6}$/.test(value)
+                    ? 'bg-neutral-900'
+                    : 'bg-neutral-400'
+                }`}
                 onPress={onSubmit}
                 testID="passphrase-confirm"
-                disabled={submitting}
+                disabled={
+                  submitting || value.length !== 6 || !/^\d{6}$/.test(value)
+                }
               >
                 <Text className="text-white">
                   {submitting ? 'Confirming…' : 'Confirm'}

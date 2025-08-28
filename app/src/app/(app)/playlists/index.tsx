@@ -15,8 +15,8 @@ import { useSession } from '@/lib/auth/hooks';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
 import { SourceCredentialsManager } from '@/lib/source-credentials';
+import { notify, toast } from '@/lib/toast';
 import { XtreamClient } from '@/lib/xtream-client';
-import { toast, notify } from '@/lib/toast';
 
 export default function Playlists() {
   const router = useRouter();
@@ -139,7 +139,9 @@ export default function Playlists() {
                 className="rounded-xl border border-neutral-300 px-3 py-2 dark:border-neutral-700"
                 onPress={() => {
                   console.log('[test] showing simple toast');
-                  notify.success('Test toast!', { description: 'This is a test' });
+                  notify.success('Test toast!', {
+                    description: 'This is a test',
+                  });
                 }}
               >
                 <Text className="text-neutral-900 dark:text-neutral-50">
@@ -150,7 +152,9 @@ export default function Playlists() {
                 className="rounded-xl border border-neutral-300 px-3 py-2 dark:border-neutral-700"
                 onPress={() => {
                   console.log('[test] showing loading toast');
-                  const id = toast.loading('Loading test...', { duration: 999999 });
+                  const id = toast.loading('Loading test...', {
+                    duration: 999999,
+                  });
                   setTimeout(() => {
                     console.log('[test] dismissing loading toast');
                     toast.dismiss(id);

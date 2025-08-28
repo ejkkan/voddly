@@ -2,7 +2,6 @@ import { api, APIError } from 'encore.dev/api';
 import { userDB } from '../db';
 import { getAuthData } from '~encore/auth';
 import * as crypto from 'crypto';
-import argon2 from 'argon2';
 
 // ============================================
 // TYPES
@@ -113,17 +112,9 @@ export const createAccount = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive key from passphrase using Argon2id with fixed params
+    // Derive key from passphrase using PBKDF2-SHA256 for better mobile performance
     const salt = crypto.randomBytes(16);
-    const derivedKey = await argon2.hash(passphrase, {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt: salt,
-      timeCost: 3,
-      memoryCost: 65536, // 64MB
-      parallelism: 1,
-    });
+    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 10000, 32, 'sha256');
 
     // Wrap (encrypt) the master key with derived key
     const iv = crypto.randomBytes(12);
@@ -243,17 +234,9 @@ export const initializeNewAccount = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive key from passphrase using Argon2id with fixed params
+    // Derive key from passphrase using PBKDF2-SHA256 for better mobile performance
     const salt = crypto.randomBytes(16);
-    const derivedKey = await argon2.hash(passphrase, {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt: salt,
-      timeCost: 3,
-      memoryCost: 65536, // 64MB
-      parallelism: 1,
-    });
+    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 10000, 32, 'sha256');
 
     // Wrap (encrypt) the master key with derived key
     const iv = crypto.randomBytes(12);
@@ -417,15 +400,13 @@ export const updatePassphrase = api(
     }
 
     // Verify current passphrase and decrypt master key
-    const currentDerivedKey = await argon2.hash(currentPassphrase, {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt: Buffer.from(encData.salt, 'base64'),
-      timeCost: 3,
-      memoryCost: 65536,
-      parallelism: 1,
-    });
+    const currentDerivedKey = crypto.pbkdf2Sync(
+      currentPassphrase,
+      Buffer.from(encData.salt, 'base64'),
+      10000,
+      32,
+      'sha256'
+    );
 
     const decipher = crypto.createDecipheriv(
       'aes-256-gcm',
@@ -450,15 +431,13 @@ export const updatePassphrase = api(
 
     // Re-encrypt master key with new passphrase
     const newSalt = crypto.randomBytes(16);
-    const newDerivedKey = await argon2.hash(newPassphrase, {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt: newSalt,
-      timeCost: 3,
-      memoryCost: 65536,
-      parallelism: 1,
-    });
+    const newDerivedKey = crypto.pbkdf2Sync(
+      newPassphrase,
+      newSalt,
+      10000,
+      32,
+      'sha256'
+    );
 
     const newIv = crypto.randomBytes(12);
     const newCipher = crypto.createCipheriv(
@@ -530,17 +509,9 @@ export const initializeAccountEncryption = api(
     // Generate account master key (32 bytes for AES-256)
     const masterKey = crypto.randomBytes(32);
 
-    // Derive key from passphrase using Argon2id with fixed params
+    // Derive key from passphrase using PBKDF2-SHA256 for better mobile performance
     const salt = crypto.randomBytes(16);
-    const derivedKey = await argon2.hash(passphrase, {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt: salt,
-      timeCost: 3,
-      memoryCost: 65536, // 64MB
-      parallelism: 1,
-    });
+    const derivedKey = crypto.pbkdf2Sync(passphrase, salt, 10000, 32, 'sha256');
 
     // Wrap (encrypt) the master key with derived key
     const iv = crypto.randomBytes(12);
@@ -688,15 +659,13 @@ export const addSource = api(
     }
 
     // Derive key from passphrase to decrypt master key
-    const derivedKey = await argon2.hash(passphrase, {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt: Buffer.from(encData.salt, 'base64'),
-      timeCost: 3,
-      memoryCost: 65536,
-      parallelism: 1,
-    });
+    const derivedKey = crypto.pbkdf2Sync(
+      passphrase,
+      Buffer.from(encData.salt, 'base64'),
+      10000,
+      32,
+      'sha256'
+    );
 
     // Decrypt master key
     const decipher = crypto.createDecipheriv(
@@ -840,15 +809,13 @@ export const decryptSource = api(
     }
 
     // Derive key from passphrase
-    const derivedKey = await argon2.hash(passphrase, {
-      type: argon2.argon2id,
-      raw: true,
-      hashLength: 32,
-      salt: Buffer.from(data.salt, 'base64'),
-      timeCost: 3,
-      memoryCost: 65536,
-      parallelism: 1,
-    });
+    const derivedKey = crypto.pbkdf2Sync(
+      passphrase,
+      Buffer.from(data.salt, 'base64'),
+      10000,
+      32,
+      'sha256'
+    );
 
     // Decrypt master key
     const decipher = crypto.createDecipheriv(

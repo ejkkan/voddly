@@ -1,1 +1,4 @@
-module.exports = require('react-native-gesture-handler/src/mocks.ts');
+import mock from 'react-native-gesture-handler/src/mocks';
+
+declare module 'react-native-gesture-handler/src/mocks';
+export default mock;

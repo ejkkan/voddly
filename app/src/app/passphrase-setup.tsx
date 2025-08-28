@@ -27,8 +27,8 @@ export default function PassphraseSetup() {
     setError('');
 
     // Validate passphrase
-    if (passphrase.length < 6) {
-      setError('Passphrase must be at least 6 characters');
+    if (passphrase.length !== 6 || !/^\d{6}$/.test(passphrase)) {
+      setError('Passphrase must be exactly 6 digits');
       return;
     }
 

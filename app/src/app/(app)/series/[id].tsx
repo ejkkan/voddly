@@ -65,7 +65,7 @@ export default function SeriesDetails() {
       appendToResponse: 'videos,images,credits,external_ids',
     }
   );
-  console.log('[Series Details]', { metadata });
+
   // Extract display-ready metadata
   const displayData = useMemo(
     () => extractDisplayMetadata(metadata),

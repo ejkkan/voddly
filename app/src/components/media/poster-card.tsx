@@ -20,7 +20,7 @@ export const PosterCard = ({
   aspect = 'poster',
 }: PosterCardProps) => {
   const isPoster = aspect === 'poster';
-  console.log('posterUrl', title, posterUrl);
+
   return (
     <Pressable
       onPress={() => onPress?.(id)}

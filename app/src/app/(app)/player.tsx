@@ -1,11 +1,63 @@
-import { Platform } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React from 'react';
 
-// Expo Router requires a non-platform-specific route file.
-// Delegate to the platform-specific implementation.
+import { SafeAreaView, Text, View } from '@/components/ui';
+import { VideoPlayer } from '@/components/video';
+import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlaybackSource';
 
-const Impl =
-  Platform.OS === 'web'
-    ? require('./player.web').default
-    : require('./player.native').default;
+export default function Player() {
+  const router = useRouter();
+  const { url, loading, error, contentType } = useWebPlaybackSource();
 
-export default Impl;
+  // You can also get theme/layout preferences from params or user settings
+  const params = useLocalSearchParams();
+  const layout = (params.layout as 'netflix' | 'minimal') || 'netflix';
+  const theme = (params.theme as 'default' | 'compact') || 'compact';
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1">
+        <View className="flex-1 items-center justify-center bg-black">
+          <Text className="text-white">Loading player…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView className="flex-1">
+        <View className="flex-1 items-center justify-center bg-black">
+          <Text className="text-red-400">{error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!url) {
+    return (
+      <SafeAreaView className="flex-1">
+        <View className="flex-1 items-center justify-center bg-black">
+          <Text className="text-white">No video URL provided</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView className="flex-1">
+      <View className="flex-1 bg-black">
+        <VideoPlayer
+          url={url}
+          title={params.title as string}
+          type={contentType}
+          showBack
+          onBack={() => router.back()}
+          layout={layout}
+          theme={theme}
+          preferredPlayer="rn-video" // Force RN Video player to see compact theme
+        />
+      </View>
+    </SafeAreaView>
+  );
+}

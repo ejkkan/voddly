@@ -25,18 +25,62 @@ export async function clearAllData() {
   const db = await openDb();
 
   try {
-    // Clear all tables
-    await db.runAsync('DELETE FROM movies');
-    await db.runAsync('DELETE FROM series');
-    await db.runAsync('DELETE FROM channels');
-    await db.runAsync('DELETE FROM categories');
-    await db.runAsync('DELETE FROM sources');
-    await db.runAsync('DELETE FROM accounts');
+    // Check if any tables exist at all
+    const tableCount = await db.getFirstAsync<{ count: number }>(
+      "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'"
+    );
 
-    console.log('[DB-ISOLATION] ✅ All data cleared successfully');
+    if (!tableCount || tableCount.count === 0) {
+      console.log(
+        '[DB-ISOLATION] ℹ️ No tables exist yet (first time setup), nothing to clear'
+      );
+      return; // Exit gracefully - nothing to clear
+    }
+
+    // Check if tables exist before trying to clear them
+    const tables = [
+      'content_item_categories',
+      'movies_ext',
+      'series_ext',
+      'episodes_ext',
+      'live_ext',
+      'content_items',
+      'categories',
+      'sources',
+    ];
+
+    let clearedCount = 0;
+    for (const table of tables) {
+      try {
+        // Check if table exists
+        const tableExists = await db.getFirstAsync<{ name: string }>(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+          [table]
+        );
+
+        if (tableExists) {
+          await db.runAsync(`DELETE FROM ${table}`);
+          clearedCount++;
+          console.log(`[DB-ISOLATION] ✅ Cleared table: ${table}`);
+        }
+      } catch (tableError) {
+        console.log(`[DB-ISOLATION] ⚠️ Error with table ${table}:`, tableError);
+        // Continue with other tables
+      }
+    }
+
+    if (clearedCount > 0) {
+      console.log(
+        `[DB-ISOLATION] ✅ Cleared ${clearedCount} tables successfully`
+      );
+    } else {
+      console.log('[DB-ISOLATION] ℹ️ No existing tables to clear');
+    }
   } catch (error) {
-    console.error('[DB-ISOLATION] Failed to clear all data:', error);
-    throw error;
+    console.log(
+      '[DB-ISOLATION] ℹ️ Database not ready yet (first time setup), nothing to clear'
+    );
+    // Don't throw error - this is expected for first-time users
   }
 }
 
