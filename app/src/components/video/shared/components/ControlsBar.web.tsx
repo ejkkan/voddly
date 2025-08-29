@@ -77,7 +77,7 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
           }}
         >
           {/* Subtitle button */}
-          {playerState.subtitleTracks.length > 0 && (
+          {controls.hasSubtitles && (
             <button
               style={{
                 backgroundColor: theme.colors.surface,
@@ -88,17 +88,7 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
                 cursor: 'pointer',
                 fontSize: theme.dimensions.fontSize.small,
               }}
-              onClick={() => {
-                // Cycle through subtitles
-                const tracks = playerState.subtitleTracks;
-                const currentIndex = tracks.findIndex(
-                  (t) => t.id === playerState.selectedSubtitleTrack
-                );
-                const nextIndex = (currentIndex + 1) % (tracks.length + 1);
-                controls.selectSubtitleTrack(
-                  nextIndex < tracks.length ? tracks[nextIndex].id : ''
-                );
-              }}
+              onClick={controls.onPressSubtitles}
             >
               CC
             </button>

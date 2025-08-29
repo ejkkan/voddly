@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 
 import { queryKeys } from '@/lib/query-utils';
+
 import type { DashboardItem } from './useDashboard';
 
 // Hook for optimistic dashboard updates
@@ -17,7 +18,7 @@ export function useOptimisticDashboard() {
         queryKeys.dashboard.previews(),
         (oldData: any) => {
           if (!oldData) return oldData;
-          
+
           return {
             ...oldData,
             [type]: [item, ...(oldData[type] || [])],
@@ -35,10 +36,12 @@ export function useOptimisticDashboard() {
         queryKeys.dashboard.previews(),
         (oldData: any) => {
           if (!oldData) return oldData;
-          
+
           return {
             ...oldData,
-            [type]: (oldData[type] || []).filter((item: DashboardItem) => item.id !== itemId),
+            [type]: (oldData[type] || []).filter(
+              (item: DashboardItem) => item.id !== itemId
+            ),
           };
         }
       );
@@ -48,12 +51,16 @@ export function useOptimisticDashboard() {
 
   // Optimistically update an item in the dashboard
   const updateItemOptimistically = useCallback(
-    (itemId: string, updates: Partial<DashboardItem>, type: 'movies' | 'series' | 'live') => {
+    (
+      itemId: string,
+      updates: Partial<DashboardItem>,
+      type: 'movies' | 'series' | 'live'
+    ) => {
       queryClient.setQueryData(
         queryKeys.dashboard.previews(),
         (oldData: any) => {
           if (!oldData) return oldData;
-          
+
           return {
             ...oldData,
             [type]: (oldData[type] || []).map((item: DashboardItem) =>
@@ -73,14 +80,16 @@ export function useOptimisticDashboard() {
         queryKeys.dashboard.previews(),
         (oldData: any) => {
           if (!oldData) return oldData;
-          
+
           const currentItems = oldData[type] || [];
-          const itemMap = new Map(currentItems.map((item: DashboardItem) => [item.id, item]));
-          
+          const itemMap = new Map(
+            currentItems.map((item: DashboardItem) => [item.id, item])
+          );
+
           const reorderedItems = newOrder
-            .map(id => itemMap.get(id))
+            .map((id) => itemMap.get(id))
             .filter(Boolean) as DashboardItem[];
-          
+
           return {
             ...oldData,
             [type]: reorderedItems,
@@ -93,33 +102,48 @@ export function useOptimisticDashboard() {
 
   // Mutation for adding an item with optimistic updates
   const addItemMutation = useMutation({
-    mutationFn: async ({ item, type }: { item: DashboardItem; type: 'movies' | 'series' | 'live' }) => {
+    mutationFn: async ({
+      item,
+      type,
+    }: {
+      item: DashboardItem;
+      type: 'movies' | 'series' | 'live';
+    }) => {
       // Simulate API call - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       return { success: true, item };
     },
     onMutate: async ({ item, type }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: queryKeys.dashboard.previews() });
-      
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.dashboard.previews(),
+      });
+
       // Snapshot the previous value
-      const previousData = queryClient.getQueryData(queryKeys.dashboard.previews());
-      
+      const previousData = queryClient.getQueryData(
+        queryKeys.dashboard.previews()
+      );
+
       // Optimistically update to the new value
       addItemOptimistically(item, type);
-      
+
       // Return a context object with the snapshotted value
       return { previousData };
     },
     onError: (err, variables, context) => {
       // If the mutation fails, use the context returned from onMutate to roll back
       if (context?.previousData) {
-        queryClient.setQueryData(queryKeys.dashboard.previews(), context.previousData);
+        queryClient.setQueryData(
+          queryKeys.dashboard.previews(),
+          context.previousData
+        );
       }
     },
     onSettled: () => {
       // Always refetch after error or success
-      queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.previews() });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.dashboard.previews(),
+      });
     },
   });
 

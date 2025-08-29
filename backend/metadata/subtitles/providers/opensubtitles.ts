@@ -29,7 +29,15 @@ interface OpenSubtitlesSubtitle {
     comments: string;
     legacy_subtitle_id: number;
     uploader: { uploader_id: number; name: string; rank: string };
-    feature_details: { feature_id: number; feature_type: string; year: number; title: string; movie_name: string; imdb_id: number; tmdb_id: number };
+    feature_details: {
+      feature_id: number;
+      feature_type: string;
+      year: number;
+      title: string;
+      movie_name: string;
+      imdb_id: number;
+      tmdb_id: number;
+    };
     url: string;
     related_links: { label: string; url: string; img_url: string }[];
     files: { file_id: number; cd_number: number; file_name: string }[];
@@ -46,9 +54,13 @@ interface OpenSubtitlesResponse {
 
 export class OpenSubtitlesProvider extends BaseSubtitleProvider {
   name = 'OpenSubtitles';
-  constructor(private apiKey?: string) { super(); }
+  constructor(private apiKey?: string) {
+    super();
+  }
 
-  async searchSubtitles(params: SubtitleSearchParams): Promise<SubtitleMetadata[]> {
+  async searchSubtitles(
+    params: SubtitleSearchParams
+  ): Promise<SubtitleMetadata[]> {
     const response = await this.callOpenSubtitlesAPI(params);
     if (!response.data || response.data.length === 0) return [];
     return response.data
@@ -58,7 +70,8 @@ export class OpenSubtitlesProvider extends BaseSubtitleProvider {
         language_code: subtitle.attributes.language,
         language_name: this.getLanguageName(subtitle.attributes.language),
         source: 'opensubs' as const,
-        source_id: subtitle.attributes.files[0]?.file_id?.toString() || subtitle.id,
+        source_id:
+          subtitle.attributes.files[0]?.file_id?.toString() || subtitle.id,
         download_count: subtitle.attributes.download_count,
         hearing_impaired: subtitle.attributes.hearing_impaired,
         ai_translated: subtitle.attributes.ai_translated,
@@ -69,25 +82,81 @@ export class OpenSubtitlesProvider extends BaseSubtitleProvider {
       }));
   }
 
-  async downloadSubtitle(_subtitleId: string, metadata: SubtitleMetadata): Promise<string> {
+  async downloadSubtitle(
+    _subtitleId: string,
+    metadata: SubtitleMetadata
+  ): Promise<string> {
     if (!this.apiKey) throw new Error('OpenSubtitles API key not provided');
-    const response = await fetch('https://api.opensubtitles.com/api/v1/download', {
-      method: 'POST',
-      headers: {
-        'Api-Key': this.apiKey,
-        'User-Agent': 'IPTV-App v1.0.0',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ file_id: parseInt(metadata.source_id) }),
+
+    const fileId = parseInt(metadata.source_id);
+    log.info('🔽 OpenSubtitles download request', {
+      subtitleId: _subtitleId,
+      sourceId: metadata.source_id,
+      fileId,
+      isValidFileId: !isNaN(fileId),
     });
-    if (!response.ok) throw new Error(`OpenSubtitles download error: ${response.status} ${response.statusText}`);
+
+    if (isNaN(fileId)) {
+      throw new Error(
+        `Invalid file_id: ${metadata.source_id} cannot be parsed as integer`
+      );
+    }
+
+    const response = await fetch(
+      'https://api.opensubtitles.com/api/v1/download',
+      {
+        method: 'POST',
+        headers: {
+          'Api-Key': this.apiKey,
+          'User-Agent': 'IPTV-App v1.0.0',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ file_id: fileId }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      log.error('OpenSubtitles download API error', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText,
+        fileId,
+      });
+      throw new Error(
+        `OpenSubtitles download error: ${response.status} ${response.statusText} - ${errorText}`
+      );
+    }
+
     const { link } = (await response.json()) as { link: string };
+    log.info('📥 Got download link from OpenSubtitles', {
+      link: link.substring(0, 100) + '...',
+    });
+
     const subtitleResponse = await fetch(link);
-    if (!subtitleResponse.ok) throw new Error(`Failed to download subtitle file: ${subtitleResponse.status}`);
-    return subtitleResponse.text();
+    if (!subtitleResponse.ok) {
+      log.error('Failed to download subtitle file from link', {
+        status: subtitleResponse.status,
+        statusText: subtitleResponse.statusText,
+        link: link.substring(0, 100) + '...',
+      });
+      throw new Error(
+        `Failed to download subtitle file: ${subtitleResponse.status}`
+      );
+    }
+
+    const content = await subtitleResponse.text();
+    log.info('✅ Successfully downloaded subtitle content', {
+      contentLength: content.length,
+      firstLine: content.split('\n')[0],
+    });
+
+    return content;
   }
 
-  async getAvailableLanguages(params: SubtitleSearchParams): Promise<SubtitleLanguage[]> {
+  async getAvailableLanguages(
+    params: SubtitleSearchParams
+  ): Promise<SubtitleLanguage[]> {
     const response = await this.callOpenSubtitlesAPI(params);
     if (!response.data || response.data.length === 0) return [];
     const counts = new Map<string, number>();
@@ -97,20 +166,36 @@ export class OpenSubtitlesProvider extends BaseSubtitleProvider {
       counts.set(lang, (counts.get(lang) || 0) + 1);
     }
     return Array.from(counts.entries())
-      .map(([code, count]) => ({ code, name: this.getLanguageName(code), count }))
+      .map(([code, count]) => ({
+        code,
+        name: this.getLanguageName(code),
+        count,
+      }))
       .sort((a, b) => b.count - a.count);
   }
 
-  private async callOpenSubtitlesAPI(params: SubtitleSearchParams): Promise<OpenSubtitlesResponse> {
+  private async callOpenSubtitlesAPI(
+    params: SubtitleSearchParams
+  ): Promise<OpenSubtitlesResponse> {
     if (!this.apiKey) throw new Error('OpenSubtitles API key not provided');
     const url = new URL('https://api.opensubtitles.com/api/v1/subtitles');
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) url.searchParams.append(key, value.toString());
+      if (value !== undefined && value !== null)
+        url.searchParams.append(key, value.toString());
     });
     log.info(`🔍 Searching OpenSubtitles with params`, { params });
-    const response = await fetch(url.toString(), { method: 'GET', headers: { 'Api-Key': this.apiKey, 'User-Agent': 'IPTV-App v1.0.0', 'Content-Type': 'application/json' } });
-    if (!response.ok) throw new Error(`OpenSubtitles API error: ${response.status} ${response.statusText}`);
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Api-Key': this.apiKey,
+        'User-Agent': 'IPTV-App v1.0.0',
+        'Content-Type': 'application/json',
+      },
+    });
+    if (!response.ok)
+      throw new Error(
+        `OpenSubtitles API error: ${response.status} ${response.statusText}`
+      );
     return response.json() as Promise<OpenSubtitlesResponse>;
   }
 }
-

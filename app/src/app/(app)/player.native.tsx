@@ -8,9 +8,9 @@ import {
   AVAILABLE_PLAYERS,
   getDefaultPlayerId,
 } from '@/components/video/players';
-import { VlcPlayerView } from '@/components/video/VlcPlayerView';
 import { RNVideoPlayer } from '@/components/video/rn-video-player/RNVideoPlayer';
 import { themes } from '@/components/video/shared/themes';
+import { VlcPlayerView } from '@/components/video/VlcPlayerView';
 import { getContainerInfoForContent } from '@/lib/container-extension';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';

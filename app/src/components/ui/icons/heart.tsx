@@ -10,7 +10,7 @@ interface HeartProps extends SvgProps {
 
 export const Heart = ({ filled = false, color, ...props }: HeartProps) => {
   const iconColor = color || (filled ? colors.red[500] : colors.neutral[500]);
-  
+
   if (filled) {
     return (
       <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" {...props}>

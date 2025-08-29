@@ -62,6 +62,9 @@ export interface PlayerControls {
   selectSubtitleTrack: (trackId: string) => void;
   toggleFullscreen: () => void;
   retry: () => void;
+  // Subtitle controls
+  onPressSubtitles?: () => void;
+  hasSubtitles?: boolean;
   // Cast controls
   startCast?: () => void;
   stopCast?: () => void;

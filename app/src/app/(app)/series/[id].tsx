@@ -203,7 +203,12 @@ export default function SeriesDetails() {
       });
       router.push({
         pathname: '/(app)/player',
-        params: { playlist: sourceId, series: String(seriesId) },
+        params: {
+          playlist: sourceId,
+          series: String(seriesId),
+          tmdb_id: tmdbId || undefined,
+          title: item.title || undefined,
+        },
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to prepare playback');
@@ -332,7 +337,7 @@ export default function SeriesDetails() {
                   </View>
 
                   {/* Genres */}
-                  {displayData?.genres && displayData.genres.length > 0 && (
+                  {displayData?.genres && displayData?.genres?.length > 0 && (
                     <View className="mt-3 flex-row flex-wrap gap-2">
                       {displayData.genres.map((genre) => (
                         <View

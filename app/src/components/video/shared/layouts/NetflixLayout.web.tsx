@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { ControlsBar } from '../components/ControlsBar';
+import { ControlsBar } from '../components/ControlsBar.web';
 import { LoadingOverlay } from '../components/LoadingOverlay';
 import { TopBar } from '../components/TopBar';
 import { useTheme } from '../themes/ThemeProvider';

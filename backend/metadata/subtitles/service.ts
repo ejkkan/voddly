@@ -1,7 +1,7 @@
 import { metadataDB } from '../db';
 import log from 'encore.dev/log';
 import { OpenSubtitlesProvider } from './providers/opensubtitles';
-import { SubDLProvider } from './providers/subdl';
+// import { SubDLProvider } from './providers/subdl'; // Disabled temporarily
 import {
   type SubtitleProvider,
   type SubtitleSearchParams,
@@ -15,16 +15,28 @@ export class SubtitleService {
   private providers: SubtitleProvider[] = [];
 
   constructor(openSubsKey?: string, subDlKey?: string) {
-    this.providers = [new OpenSubtitlesProvider(openSubsKey), new SubDLProvider(subDlKey)];
+    this.providers = [new OpenSubtitlesProvider(openSubsKey)]; // SubDL disabled temporarily
   }
 
-  async getAvailableLanguages(movieId: string, searchParams: SubtitleSearchParams): Promise<SubtitleLanguage[]> {
-    const existing = await this.getStoredSubtitles(movieId, searchParams.tmdb_id);
+  async getAvailableLanguages(
+    movieId: string,
+    searchParams: SubtitleSearchParams
+  ): Promise<SubtitleLanguage[]> {
+    const existing = await this.getStoredSubtitles(
+      movieId,
+      searchParams.tmdb_id
+    );
     if (existing.length > 0) {
       const languageMap = new Map<string, { count: number; name: string }>();
       for (const sub of existing) {
-        const current = languageMap.get(sub.language_code) || { count: 0, name: sub.language_name };
-        languageMap.set(sub.language_code, { count: current.count + 1, name: sub.language_name });
+        const current = languageMap.get(sub.language_code) || {
+          count: 0,
+          name: sub.language_name,
+        };
+        languageMap.set(sub.language_code, {
+          count: current.count + 1,
+          name: sub.language_name,
+        });
       }
       return Array.from(languageMap.entries())
         .map(([code, { name, count }]) => ({ code, name, count }))
@@ -37,7 +49,9 @@ export class SubtitleService {
 
     const allLanguages = new Map<string, SubtitleLanguage>();
     const allMetadata: SubtitleMetadata[] = [];
-    const providersToUse = this.getProvidersForPreference(searchParams.preferred_provider);
+    const providersToUse = this.getProvidersForPreference(
+      searchParams.preferred_provider
+    );
 
     for (const provider of providersToUse) {
       try {
@@ -64,10 +78,16 @@ export class SubtitleService {
     const tmdbId = searchParams.parent_tmdb_id || searchParams.tmdb_id;
     await this.storeSubtitleMetadata(movieId, tmdbId, allMetadata);
 
-    return Array.from(allLanguages.values()).sort((a, b) => (b.count || 0) - (a.count || 0));
+    return Array.from(allLanguages.values()).sort(
+      (a, b) => (b.count || 0) - (a.count || 0)
+    );
   }
 
-  async getSubtitleVariants(movieId: string, languageCode: string, tmdbId?: number): Promise<StoredSubtitle[]> {
+  async getSubtitleVariants(
+    movieId: string,
+    languageCode: string,
+    tmdbId?: number
+  ): Promise<StoredSubtitle[]> {
     let query;
     if (tmdbId) {
       query = metadataDB.query<StoredSubtitle>`
@@ -94,7 +114,9 @@ export class SubtitleService {
     return variants;
   }
 
-  async getSubtitleContentById(variantId: string): Promise<SubtitleContent | null> {
+  async getSubtitleContentById(
+    variantId: string
+  ): Promise<SubtitleContent | null> {
     const variant = await metadataDB.queryRow<StoredSubtitle>`
       SELECT * FROM subtitles WHERE id = ${variantId}
     `;
@@ -146,7 +168,11 @@ export class SubtitleService {
     languageCode: string,
     searchParams: SubtitleSearchParams
   ): Promise<SubtitleContent | null> {
-    const stored = await this.getStoredSubtitleWithContent(movieId, languageCode, searchParams.tmdb_id);
+    const stored = await this.getStoredSubtitleWithContent(
+      movieId,
+      languageCode,
+      searchParams.tmdb_id
+    );
     if (stored) {
       return {
         id: stored.id,
@@ -158,7 +184,11 @@ export class SubtitleService {
       };
     }
 
-    const metadataOnly = await this.getStoredSubtitleMetadata(movieId, languageCode, searchParams.tmdb_id);
+    const metadataOnly = await this.getStoredSubtitleMetadata(
+      movieId,
+      languageCode,
+      searchParams.tmdb_id
+    );
     if (metadataOnly) {
       const provider = this.getProvidersForPreference('all').find(
         (p) =>
@@ -168,13 +198,43 @@ export class SubtitleService {
       );
       if (!provider) return null;
       try {
+        // Parse metadata to get the correct source_id
+        let actualSourceId = metadataOnly.source_id;
+        try {
+          const parsedMetadata = JSON.parse(metadataOnly.metadata || '{}');
+          if (parsedMetadata.source_id) {
+            actualSourceId = parsedMetadata.source_id;
+            log.info('🔧 Using source_id from metadata JSON', {
+              dbSourceId: metadataOnly.source_id,
+              metadataSourceId: actualSourceId,
+            });
+          }
+        } catch (e) {
+          log.warn('Failed to parse metadata JSON, using DB source_id', {
+            error: e,
+          });
+        }
+
+        log.info('🔄 Attempting to download subtitle content', {
+          subtitleId: metadataOnly.id,
+          source: metadataOnly.source,
+          sourceId: actualSourceId,
+          languageCode: metadataOnly.language_code,
+        });
+
         const content = await provider.downloadSubtitle(metadataOnly.id, {
           id: metadataOnly.id,
           language_code: metadataOnly.language_code,
           language_name: metadataOnly.language_name,
           source: metadataOnly.source as 'opensubs' | 'subdl',
-          source_id: metadataOnly.source_id,
+          source_id: actualSourceId,
         });
+
+        log.info('✅ Successfully downloaded subtitle content', {
+          subtitleId: metadataOnly.id,
+          contentLength: content.length,
+        });
+
         await this.updateSubtitleContent(metadataOnly.id, content);
         return {
           id: metadataOnly.id,
@@ -185,20 +245,33 @@ export class SubtitleService {
           content,
         };
       } catch (error) {
-        log.error(error, `Failed to download subtitle content`);
+        log.error(
+          error,
+          `Failed to download subtitle content for ${metadataOnly.id} (source: ${metadataOnly.source}, source_id: ${metadataOnly.source_id})`
+        );
         return null;
       }
     }
 
-    const providersToUse = this.getProvidersForPreference(searchParams.preferred_provider);
+    const providersToUse = this.getProvidersForPreference(
+      searchParams.preferred_provider
+    );
     for (const provider of providersToUse) {
       try {
-        const searchParamsWithLang = { ...searchParams, languages: languageCode.toUpperCase() };
+        const searchParamsWithLang = {
+          ...searchParams,
+          languages: languageCode.toUpperCase(),
+        };
         const metadata = await provider.searchSubtitles(searchParamsWithLang);
         const match = metadata.find((m) => m.language_code === languageCode);
         if (match) {
           const content = await provider.downloadSubtitle(match.id, match);
-          await this.storeSubtitleWithContent(movieId, searchParams.tmdb_id, match, content);
+          await this.storeSubtitleWithContent(
+            movieId,
+            searchParams.tmdb_id,
+            match,
+            content
+          );
           return { ...match, content };
         }
       } catch (error) {
@@ -208,7 +281,9 @@ export class SubtitleService {
     return null;
   }
 
-  private getProvidersForPreference(preference?: 'opensubs' | 'subdl' | 'all'): SubtitleProvider[] {
+  private getProvidersForPreference(
+    preference?: 'opensubs' | 'subdl' | 'all'
+  ): SubtitleProvider[] {
     switch (preference) {
       case 'opensubs':
         return this.providers.filter((p) => p.name === 'OpenSubtitles');
@@ -220,7 +295,10 @@ export class SubtitleService {
     }
   }
 
-  private async getStoredSubtitles(movieId: string, tmdbId?: number): Promise<StoredSubtitle[]> {
+  private async getStoredSubtitles(
+    movieId: string,
+    tmdbId?: number
+  ): Promise<StoredSubtitle[]> {
     const subtitles: StoredSubtitle[] = [];
     if (tmdbId) {
       const tmdbResults = metadataDB.query<StoredSubtitle>`
@@ -237,7 +315,11 @@ export class SubtitleService {
     return subtitles;
   }
 
-  private async getStoredSubtitleWithContent(movieId: string, languageCode: string, tmdbId?: number): Promise<StoredSubtitle | null> {
+  private async getStoredSubtitleWithContent(
+    movieId: string,
+    languageCode: string,
+    tmdbId?: number
+  ): Promise<StoredSubtitle | null> {
     let query;
     if (tmdbId) {
       query = metadataDB.query<StoredSubtitle>`
@@ -262,7 +344,11 @@ export class SubtitleService {
     return null;
   }
 
-  private async getStoredSubtitleMetadata(movieId: string, languageCode: string, tmdbId?: number): Promise<StoredSubtitle | null> {
+  private async getStoredSubtitleMetadata(
+    movieId: string,
+    languageCode: string,
+    tmdbId?: number
+  ): Promise<StoredSubtitle | null> {
     let query;
     if (tmdbId) {
       query = metadataDB.query<StoredSubtitle>`
@@ -285,7 +371,11 @@ export class SubtitleService {
     return null;
   }
 
-  private async storeSubtitleMetadata(movieId: string, tmdbId: number | undefined, metadata: SubtitleMetadata[]): Promise<void> {
+  private async storeSubtitleMetadata(
+    movieId: string,
+    tmdbId: number | undefined,
+    metadata: SubtitleMetadata[]
+  ): Promise<void> {
     for (const meta of metadata) {
       try {
         await metadataDB.exec`
@@ -294,7 +384,9 @@ export class SubtitleService {
             source, source_id, metadata
           )
           VALUES (
-            ${movieId}, ${tmdbId || null}, ${meta.language_code}, ${meta.language_name},
+            ${movieId}, ${tmdbId || null}, ${meta.language_code}, ${
+          meta.language_name
+        },
             ${meta.source}, ${meta.source_id}, ${JSON.stringify(meta)}
           )
           ON CONFLICT (movie_id, language_code, source) DO UPDATE SET
@@ -302,7 +394,10 @@ export class SubtitleService {
             updated_at = CURRENT_TIMESTAMP
         `;
       } catch (error) {
-        log.error(error, `Failed to store subtitle metadata for ${meta.language_code}`);
+        log.error(
+          error,
+          `Failed to store subtitle metadata for ${meta.language_code}`
+        );
       }
     }
   }
@@ -319,8 +414,12 @@ export class SubtitleService {
         source, source_id, content, metadata
       )
       VALUES (
-        ${movieId}, ${tmdbId || null}, ${metadata.language_code}, ${metadata.language_name},
-        ${metadata.source}, ${metadata.source_id}, ${content}, ${JSON.stringify(metadata)}
+        ${movieId}, ${tmdbId || null}, ${metadata.language_code}, ${
+      metadata.language_name
+    },
+        ${metadata.source}, ${metadata.source_id}, ${content}, ${JSON.stringify(
+      metadata
+    )}
       )
       ON CONFLICT (movie_id, language_code, source) DO UPDATE SET
         content = EXCLUDED.content,
@@ -329,7 +428,10 @@ export class SubtitleService {
     `;
   }
 
-  private async updateSubtitleContent(subtitleId: string, content: string): Promise<void> {
+  private async updateSubtitleContent(
+    subtitleId: string,
+    content: string
+  ): Promise<void> {
     await metadataDB.exec`
       UPDATE subtitles 
       SET content = ${content}, updated_at = CURRENT_TIMESTAMP
@@ -338,7 +440,9 @@ export class SubtitleService {
   }
 }
 
-export function createSubtitleService(openSubsKey?: string, subDlKey?: string): SubtitleService {
+export function createSubtitleService(
+  openSubsKey?: string,
+  subDlKey?: string
+): SubtitleService {
   return new SubtitleService(openSubsKey, subDlKey);
 }
-

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
 import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
-import { useUiPreview, useUiSections, useFavoriteManager } from '@/hooks/ui';
+import { useFavoriteManager, useUiPreview, useUiSections } from '@/hooks/ui';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 
 type Section = {

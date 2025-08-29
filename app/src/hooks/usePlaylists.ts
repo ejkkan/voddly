@@ -42,7 +42,10 @@ export function useDeletePlaylist(profileId: string | undefined) {
   });
 }
 
-export function usePlaylistItems(profileId: string | undefined, playlistId: string | undefined) {
+export function usePlaylistItems(
+  profileId: string | undefined,
+  playlistId: string | undefined
+) {
   return useQuery({
     queryKey: ['playlist-items', profileId, playlistId],
     queryFn: async () => {
@@ -54,7 +57,10 @@ export function usePlaylistItems(profileId: string | undefined, playlistId: stri
   });
 }
 
-export function useAddPlaylistItem(profileId: string | undefined, playlistId: string | undefined) {
+export function useAddPlaylistItem(
+  profileId: string | undefined,
+  playlistId: string | undefined
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (p: { contentUid: string; sortOrder?: number }) => {
@@ -62,21 +68,31 @@ export function useAddPlaylistItem(profileId: string | undefined, playlistId: st
       return apiClient.user.addPlaylistItem({ profileId, playlistId, ...p });
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['playlist-items', profileId, playlistId] });
+      await qc.invalidateQueries({
+        queryKey: ['playlist-items', profileId, playlistId],
+      });
     },
   });
 }
 
-export function useRemovePlaylistItem(profileId: string | undefined, playlistId: string | undefined) {
+export function useRemovePlaylistItem(
+  profileId: string | undefined,
+  playlistId: string | undefined
+) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (contentUid: string) => {
       if (!profileId || !playlistId) throw new Error('Missing params');
-      return apiClient.user.removePlaylistItem({ profileId, playlistId, contentUid });
+      return apiClient.user.removePlaylistItem({
+        profileId,
+        playlistId,
+        contentUid,
+      });
     },
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ['playlist-items', profileId, playlistId] });
+      await qc.invalidateQueries({
+        queryKey: ['playlist-items', profileId, playlistId],
+      });
     },
   });
 }
-

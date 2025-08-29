@@ -4,7 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';
 
-export function usePlayerBundle(profileId: string | undefined, contentUid: string | undefined) {
+export function usePlayerBundle(
+  profileId: string | undefined,
+  contentUid: string | undefined
+) {
   return useQuery({
     queryKey: ['player', profileId, contentUid],
     queryFn: async () => {
@@ -15,4 +18,3 @@ export function usePlayerBundle(profileId: string | undefined, contentUid: strin
     staleTime: 30_000,
   });
 }
-

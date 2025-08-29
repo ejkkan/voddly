@@ -43,7 +43,7 @@ export const PosterCard = ({
       onLongPress={() => onLongPress?.(id)}
       className="mr-3"
     >
-      <View className="overflow-hidden rounded-xl relative">
+      <View className="relative overflow-hidden rounded-xl">
         {posterUrl ? (
           <Image
             source={{ uri: posterUrl }}
@@ -72,10 +72,10 @@ export const PosterCard = ({
         {showFavoriteButton && onToggleFavorite && (
           <Pressable
             onPress={handleFavoritePress}
-            className={`absolute top-2 right-2 p-1 rounded-full ${
+            className={`absolute right-2 top-2 rounded-full p-1 ${
               hasProfile
                 ? 'bg-black/50 backdrop-blur-sm'
-                : 'bg-black/30 backdrop-blur-sm opacity-50'
+                : 'bg-black/30 opacity-50 backdrop-blur-sm'
             }`}
             disabled={!hasProfile}
           >

@@ -4,11 +4,7 @@ import { secret } from 'encore.dev/config';
 import { metadataDB } from '../db';
 import { TMDBClient } from '../providers/tmdb-client';
 import { enrichWithExternalAPIs, EnrichmentData } from '../enrichment';
-import {
-  ContentType,
-  ContentMetadata,
-  GetMetadataParams,
-} from '../types';
+import { ContentType, ContentMetadata, GetMetadataParams } from '../types';
 
 // TMDB API configuration from secrets
 const tmdbAccessToken = secret('TMDBAccessToken');
@@ -163,7 +159,15 @@ export const getMetadata = api(
     // Check cache first (unless force_refresh is true)
     if (!force_refresh) {
       const cached = await metadataDB.queryRow<ContentMetadata>`
-        SELECT * FROM content_metadata
+        SELECT 
+          id, provider, provider_id, content_type, title, original_title, overview,
+          release_date, poster_path, backdrop_path, vote_count, original_language,
+          genres, production_companies, runtime, status, tagline, number_of_seasons,
+          number_of_episodes, first_air_date, last_air_date, episode_run_time,
+          networks, created_by, season_number, air_date, episode_number,
+          parent_provider_id, external_ids, videos, images, "cast", crew,
+          keywords, raw_response, fetched_at, updated_at
+        FROM content_metadata
         WHERE provider = ${provider}
           AND provider_id = ${provider_id}
           AND content_type = ${content_type}
@@ -183,15 +187,12 @@ export const getMetadata = api(
             WHERE tmdb_id = ${parseInt(provider_id)} 
             AND content_type = ${content_type}
           `;
-          
+
           if (enrichment) {
             (cached as any).enrichment = enrichment;
           }
         }
-        
-        // Strip numeric fields that may decode poorly in encore client
-        cached.vote_average = undefined as any;
-        cached.popularity = undefined as any;
+
         return cached;
       }
     }
@@ -211,7 +212,10 @@ export const getMetadata = api(
 
       switch (content_type) {
         case 'movie':
-          apiResponse = await client.getMovieDetails(tmdbId, append_to_response);
+          apiResponse = await client.getMovieDetails(
+            tmdbId,
+            append_to_response
+          );
           break;
 
         case 'tv':
@@ -274,23 +278,30 @@ export const getMetadata = api(
           content_type,
           imdb_id: metadata.external_ids?.imdb_id,
           title: metadata.title,
-          year: metadata.release_date?.substring(0, 4) || metadata.first_air_date?.substring(0, 4),
+          year:
+            metadata.release_date?.substring(0, 4) ||
+            metadata.first_air_date?.substring(0, 4),
         });
-        
+
         // Add enrichment to response
         (metadata as any).enrichment = enrichmentData;
       } catch (error) {
         // Don't fail the request if enrichment fails
-        log.error('Enrichment failed but continuing', { error, tmdb_id: provider_id });
+        log.error('Enrichment failed but continuing', {
+          error,
+          tmdb_id: provider_id,
+        });
       }
     }
 
     // Store metadata in database
-    await storeMetadata(metadata, content_type, season_number, episode_number, parentTmdbId);
-
-    // Strip numeric fields that may decode poorly in encore client
-    metadata.vote_average = undefined as any;
-    metadata.popularity = undefined as any;
+    await storeMetadata(
+      metadata,
+      content_type,
+      season_number,
+      episode_number,
+      parentTmdbId
+    );
 
     return metadata;
   }
@@ -331,8 +342,12 @@ async function storeMetadata(
           runtime = ${numOrNull(metadata.runtime)},
           status = ${strOrNull(metadata.status)},
           tagline = ${strOrNull(metadata.tagline)},
-          number_of_seasons = CAST(${numOrNull(metadata.number_of_seasons)} AS INTEGER),
-          number_of_episodes = CAST(${numOrNull(metadata.number_of_episodes)} AS INTEGER),
+          number_of_seasons = CAST(${numOrNull(
+            metadata.number_of_seasons
+          )} AS INTEGER),
+          number_of_episodes = CAST(${numOrNull(
+            metadata.number_of_episodes
+          )} AS INTEGER),
           first_air_date = ${strOrNull(metadata.first_air_date)},
           last_air_date = ${strOrNull(metadata.last_air_date)},
           episode_run_time = ${jsonOrNull(metadata.episode_run_time)},
@@ -361,19 +376,29 @@ async function storeMetadata(
           air_date, episode_number, parent_provider_id, external_ids, videos, images,
           "cast", crew, keywords, raw_response, fetched_at, updated_at
         ) VALUES (
-          ${metadata.provider}, ${metadata.provider_id}, ${metadata.content_type},
+          ${metadata.provider}, ${metadata.provider_id}, ${
+        metadata.content_type
+      },
           ${strOrNull(metadata.title)}, ${strOrNull(metadata.original_title)}, 
           ${strOrNull(metadata.overview)}, ${strOrNull(metadata.release_date)}, 
-          ${strOrNull(metadata.poster_path)}, ${strOrNull(metadata.backdrop_path)},
+          ${strOrNull(metadata.poster_path)}, ${strOrNull(
+        metadata.backdrop_path
+      )},
           NULL, ${numOrNull(metadata.vote_count)}, NULL, 
           ${strOrNull(metadata.original_language)},
-          ${jsonOrNull(metadata.genres)}, ${jsonOrNull(metadata.production_companies)}, 
+          ${jsonOrNull(metadata.genres)}, ${jsonOrNull(
+        metadata.production_companies
+      )}, 
           ${numOrNull(metadata.runtime)}, ${strOrNull(metadata.status)}, 
           ${strOrNull(metadata.tagline)},
           CAST(${numOrNull(metadata.number_of_seasons)} AS INTEGER),
           CAST(${numOrNull(metadata.number_of_episodes)} AS INTEGER),
-          ${strOrNull(metadata.first_air_date)}, ${strOrNull(metadata.last_air_date)},
-          ${jsonOrNull(metadata.episode_run_time)}, ${jsonOrNull(metadata.networks)}, 
+          ${strOrNull(metadata.first_air_date)}, ${strOrNull(
+        metadata.last_air_date
+      )},
+          ${jsonOrNull(metadata.episode_run_time)}, ${jsonOrNull(
+        metadata.networks
+      )}, 
           ${jsonOrNull(metadata.created_by)},
           NULL, NULL, NULL, NULL,
           ${jsonOrNull(metadata.external_ids)}, ${jsonOrNull(metadata.videos)}, 
@@ -417,11 +442,15 @@ async function storeMetadata(
             poster_path, season_number, air_date, parent_provider_id,
             raw_response, fetched_at, updated_at
           ) VALUES (
-            ${metadata.provider}, ${metadata.provider_id}, ${metadata.content_type},
+            ${metadata.provider}, ${metadata.provider_id}, ${
+          metadata.content_type
+        },
             ${strOrNull(metadata.title)}, ${strOrNull(metadata.overview)},
             ${strOrNull(metadata.poster_path)}, 
             CAST(${numOrNull(season_number)} AS INTEGER),
-            ${strOrNull(metadata.air_date)}, ${strOrNull(metadata.parent_provider_id)},
+            ${strOrNull(metadata.air_date)}, ${strOrNull(
+          metadata.parent_provider_id
+        )},
             ${jsonOrNull(metadata.raw_response)}, ${metadata.fetched_at}, 
             ${metadata.updated_at}
           )
@@ -464,7 +493,9 @@ async function storeMetadata(
             season_number, episode_number, air_date, runtime, parent_provider_id,
             raw_response, fetched_at, updated_at
           ) VALUES (
-            ${metadata.provider}, ${metadata.provider_id}, ${metadata.content_type},
+            ${metadata.provider}, ${metadata.provider_id}, ${
+          metadata.content_type
+        },
             ${strOrNull(metadata.title)}, ${strOrNull(metadata.overview)},
             CAST(${numOrNull(season_number)} AS INTEGER),
             CAST(${numOrNull(episode_number)} AS INTEGER),

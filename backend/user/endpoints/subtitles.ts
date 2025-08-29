@@ -1,10 +1,14 @@
 import { api } from 'encore.dev/api';
 import { secret } from 'encore.dev/config';
 import log from 'encore.dev/log';
-import { createSubtitleService, type SubtitleSearchParams, type SubtitleLanguage } from '../../metadata/subtitles/service';
+import {
+  createSubtitleService,
+  type SubtitleSearchParams,
+} from '../../metadata/subtitles/service';
+import { type SubtitleLanguage } from '../../metadata/subtitles/types';
 import { metadataDB } from '../../metadata/db';
 import { OpenSubtitlesProvider } from '../../metadata/subtitles/providers/opensubtitles';
-import { SubDLProvider } from '../../metadata/subtitles/providers/subdl';
+// import { SubDLProvider } from '../../metadata/subtitles/providers/subdl'; // Disabled temporarily
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -451,7 +455,7 @@ export const getSubtitleById = api(
         row.source === 'opensubs'
           ? new OpenSubtitlesProvider(openSubsKey)
           : row.source === 'subdl'
-          ? new SubDLProvider(subDlKey)
+          ? null // SubDL disabled temporarily
           : null;
 
       if (!provider) {
@@ -565,7 +569,7 @@ export const resolveSubtitles = api(
           row.source === 'opensubs'
             ? new OpenSubtitlesProvider(openSubsKey)
             : row.source === 'subdl'
-            ? new SubDLProvider(subDlKey)
+            ? null // SubDL disabled temporarily
             : null;
         if (!provider)
           return {

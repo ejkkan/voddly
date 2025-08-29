@@ -14,6 +14,9 @@ import { useShakaPlayer } from './hooks/useShakaPlayer';
 
 interface WebPlayerProps extends BasePlayerProps {
   theme: VisualTheme;
+  // Subtitle functionality
+  onPressSubtitles?: () => void;
+  hasSubtitles?: boolean;
 }
 
 export function WebPlayer({
@@ -25,6 +28,8 @@ export function WebPlayer({
   theme,
   autoPlay = true,
   startTime = 0,
+  onPressSubtitles,
+  hasSubtitles = false,
 }: WebPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const {
@@ -211,6 +216,13 @@ export function WebPlayer({
       }
       handleUserActivity();
     },
+    // Subtitle controls
+    onPressSubtitles:
+      onPressSubtitles ||
+      (() => {
+        console.log('Subtitle button pressed');
+      }),
+    hasSubtitles: hasSubtitles || false,
     // Cast controls
     startCast: () => {
       startCast();

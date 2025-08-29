@@ -21,6 +21,11 @@ export type WebPlayerProps = {
   tmdbId?: number;
   type?: 'movie' | 'series' | 'live';
   disableAutoReload?: boolean;
+  subtitleContent?: string;
+  subtitleLanguage?: string;
+  onSubtitleApplied?: (language: string) => void;
+  externalOnPressSubtitles?: () => void;
+  externalHasSubtitles?: boolean;
 };
 
 export function WebPlayer(props: WebPlayerProps) {
@@ -33,6 +38,11 @@ export function WebPlayer(props: WebPlayerProps) {
     tmdbId,
     type,
     disableAutoReload = false,
+    subtitleContent,
+    subtitleLanguage,
+    onSubtitleApplied,
+    externalOnPressSubtitles,
+    externalHasSubtitles,
   } = props;
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const playerRef = React.useRef<any>(null);
@@ -52,6 +62,83 @@ export function WebPlayer(props: WebPlayerProps) {
   const pendingPlayRef = React.useRef<Promise<void> | null>(null);
   const audioCheckIntervalRef = React.useRef<any>(null);
   const rafIdRef = React.useRef<number | null>(null);
+  const subtitleTrackRef = React.useRef<HTMLTrackElement | null>(null);
+  const subtitleBlobUrlRef = React.useRef<string | null>(null);
+
+  // Convert SRT to VTT format
+  const convertSRTtoVTT = React.useCallback((srtContent: string): string => {
+    // Add VTT header
+    let vttContent = 'WEBVTT\n\n';
+
+    // Replace SRT timestamp format with VTT format
+    // SRT: 00:00:20,000 --> 00:00:24,400
+    // VTT: 00:00:20.000 --> 00:00:24.400
+    const convertedContent = srtContent
+      .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2')
+      .replace(/^\d+$/gm, '') // Remove sequence numbers
+      .replace(/\n\n\n+/g, '\n\n'); // Clean up extra newlines
+
+    vttContent += convertedContent;
+    return vttContent;
+  }, []);
+
+  // Function to apply subtitle content to video
+  const applySubtitleContent = React.useCallback(
+    (content: string, language: string) => {
+      if (!videoRef.current) return;
+
+      // Clean up existing subtitle track
+      if (subtitleTrackRef.current) {
+        videoRef.current.removeChild(subtitleTrackRef.current);
+        subtitleTrackRef.current = null;
+      }
+
+      // Clean up existing blob URL
+      if (subtitleBlobUrlRef.current) {
+        URL.revokeObjectURL(subtitleBlobUrlRef.current);
+        subtitleBlobUrlRef.current = null;
+      }
+
+      if (!content) return;
+
+      try {
+        // Convert SRT to VTT format if needed
+        const vttContent = content.includes('WEBVTT')
+          ? content
+          : convertSRTtoVTT(content);
+
+        // Create blob URL for subtitle content
+        const blob = new Blob([vttContent], { type: 'text/vtt' });
+        const blobUrl = URL.createObjectURL(blob);
+        subtitleBlobUrlRef.current = blobUrl;
+
+        // Create track element
+        const track = document.createElement('track');
+        track.kind = 'subtitles';
+        track.src = blobUrl;
+        track.srclang = language.toLowerCase();
+        track.label = language.toUpperCase();
+        track.default = true;
+
+        // Add track to video
+        videoRef.current.appendChild(track);
+        subtitleTrackRef.current = track;
+
+        // Enable the track
+        track.addEventListener('load', () => {
+          if (track.track) {
+            track.track.mode = 'showing';
+          }
+        });
+
+        console.log(`Applied subtitle track: ${language}`);
+        onSubtitleApplied?.(language);
+      } catch (error) {
+        console.error('Failed to apply subtitle content:', error);
+      }
+    },
+    [onSubtitleApplied, convertSRTtoVTT]
+  );
 
   const isActiveRef = React.useRef<boolean>(true);
   const setInactiveAndCleanup = React.useCallback(() => {
@@ -110,7 +197,7 @@ export function WebPlayer(props: WebPlayerProps) {
     number | undefined
   >(undefined);
 
-  const SUBS_DISABLED = true; // Temporarily disable subtitle fetching/UI per request
+  const SUBS_DISABLED = false; // Enable subtitle fetching/UI
   const AUDIO_FIX_ENABLED = false; // Hide MP4 fallback button by default
 
   useFocusEffect(
@@ -560,6 +647,12 @@ export function WebPlayer(props: WebPlayerProps) {
       } catch {}
       createdObjectUrlsRef.current = [];
       try {
+        if (subtitleBlobUrlRef.current) {
+          URL.revokeObjectURL(subtitleBlobUrlRef.current);
+          subtitleBlobUrlRef.current = null;
+        }
+      } catch {}
+      try {
         video.removeEventListener('error', onVideoError as any);
       } catch {}
       try {
@@ -675,9 +768,13 @@ export function WebPlayer(props: WebPlayerProps) {
       : 'Off';
 
   const onPressSubtitles = React.useCallback(async () => {
-    // Existing implementation defers fetching until enabled; keep placeholder hook point.
-    // Currently subtitles UI is disabled via SUBS_DISABLED.
-  }, []);
+    if (externalOnPressSubtitles) {
+      externalOnPressSubtitles();
+    } else {
+      // Existing implementation defers fetching until enabled; keep placeholder hook point.
+      // Currently subtitles UI is disabled via SUBS_DISABLED.
+    }
+  }, [externalOnPressSubtitles]);
 
   const audioFixAvailable = false; // computed inline in previous version
   const onPressAudioFix = React.useCallback(() => {
@@ -729,6 +826,13 @@ export function WebPlayer(props: WebPlayerProps) {
     } catch {}
   }, []);
 
+  // Apply subtitle content when it changes
+  React.useEffect(() => {
+    if (subtitleContent && subtitleLanguage) {
+      applySubtitleContent(subtitleContent, subtitleLanguage);
+    }
+  }, [subtitleContent, subtitleLanguage, applySubtitleContent]);
+
   return (
     <View className="flex-1 bg-black">
       <Pressable className="flex-1" onPress={() => setShowControls((v) => !v)}>
@@ -772,7 +876,7 @@ export function WebPlayer(props: WebPlayerProps) {
             subsDisabled={SUBS_DISABLED}
             subtitleLabel={subtitleLabel}
             onPressSubtitles={onPressSubtitles}
-            hasSubtitles={subtitleTracks.length > 0}
+            hasSubtitles={externalHasSubtitles || subtitleTracks.length > 0}
             audioFixEnabled={AUDIO_FIX_ENABLED}
             audioFixAvailable={audioFixAvailable}
             onPressAudioFix={onPressAudioFix}

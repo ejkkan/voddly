@@ -62,7 +62,7 @@ export default function MovieDetails() {
       appendToResponse: 'videos,images,credits,external_ids',
     }
   );
-
+  console.log('metadata', JSON.stringify(metadata, null, 2));
   // Extract display-ready metadata
   const displayData = useMemo(
     () => extractDisplayMetadata(metadata),
@@ -201,7 +201,12 @@ export default function MovieDetails() {
       });
       router.push({
         pathname: '/(app)/player',
-        params: { playlist: sourceId, movie: String(movieId) },
+        params: {
+          playlist: sourceId,
+          movie: String(movieId),
+          tmdb_id: tmdbId || undefined,
+          title: item.title || undefined,
+        },
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to prepare playback');
@@ -318,20 +323,22 @@ export default function MovieDetails() {
                   </View>
 
                   {/* Genres */}
-                  {displayData?.genres && displayData.genres.length > 0 && (
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                      {displayData.genres.map((genre) => (
-                        <View
-                          key={genre.id}
-                          className="rounded-full bg-neutral-200 px-3 py-1 dark:bg-neutral-800"
-                        >
-                          <Text className="text-sm text-neutral-700 dark:text-neutral-300">
-                            {genre.name}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
+                  {displayData?.genres &&
+                    Array.isArray(displayData.genres) &&
+                    displayData.genres.length > 0 && (
+                      <View className="mt-3 flex-row flex-wrap gap-2">
+                        {displayData.genres.map((genre) => (
+                          <View
+                            key={genre.id}
+                            className="rounded-full bg-neutral-200 px-3 py-1 dark:bg-neutral-800"
+                          >
+                            <Text className="text-sm text-neutral-700 dark:text-neutral-300">
+                              {genre.name}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
 
                   {/* Action Buttons */}
                   <View className="mt-6 flex-row flex-wrap gap-3">
@@ -420,7 +427,7 @@ export default function MovieDetails() {
               {/* Additional Metadata */}
               {(displayData?.budget ||
                 displayData?.revenue ||
-                metadata?.production_companies) && (
+                displayData?.productionCompanies) && (
                 <View className="mt-6">
                   <Text className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
                     Production Details
@@ -446,14 +453,14 @@ export default function MovieDetails() {
                         </Text>
                       </View>
                     )}
-                    {metadata?.production_companies &&
-                      metadata.production_companies.length > 0 && (
+                    {displayData?.productionCompanies &&
+                      displayData.productionCompanies.length > 0 && (
                         <View>
                           <Text className="mb-1 text-xs text-neutral-600 dark:text-neutral-400">
                             Production Companies
                           </Text>
                           <Text className="text-neutral-900 dark:text-neutral-50">
-                            {metadata.production_companies
+                            {displayData.productionCompanies
                               .map((c: any) => c.name)
                               .join(', ')}
                           </Text>

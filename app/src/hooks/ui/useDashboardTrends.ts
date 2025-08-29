@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/filename-case, max-lines-per-function */
+/* eslint-disable unicorn/filename-case */
 import { useQueries } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';

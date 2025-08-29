@@ -206,7 +206,7 @@ export function useContentMetadata<T extends ContentMetadata = ContentMetadata>(
     episodeNumber,
     enabled = true,
   } = params;
-  console.log('useContentMetadata', JSON.stringify(params, null, 2));
+
   return useQuery<T, Error>({
     queryKey: [
       'metadata',
@@ -383,6 +383,22 @@ export function useEpisodeMetadata(
 export function extractDisplayMetadata(metadata?: ContentMetadata) {
   if (!metadata) return null;
 
+  // Helper function to safely parse stringified JSON arrays
+  const parseJsonArrayField = (field: any): any[] => {
+    if (Array.isArray(field)) {
+      return field;
+    }
+    if (typeof field === 'string') {
+      try {
+        const parsed = JSON.parse(field);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   return {
     title: metadata.title || metadata.original_title,
     overview: metadata.overview,
@@ -394,7 +410,7 @@ export function extractDisplayMetadata(metadata?: ContentMetadata) {
       : null,
     rating: metadata.vote_average,
     voteCount: metadata.vote_count,
-    genres: metadata.genres,
+    genres: parseJsonArrayField(metadata.genres),
     runtime: metadata.runtime,
     status: metadata.status,
     tagline: metadata.tagline,
@@ -403,6 +419,9 @@ export function extractDisplayMetadata(metadata?: ContentMetadata) {
       releaseDate: (metadata as MovieMetadata).release_date,
       budget: (metadata as MovieMetadata).budget,
       revenue: (metadata as MovieMetadata).revenue,
+      productionCompanies: parseJsonArrayField(
+        (metadata as MovieMetadata).production_companies
+      ),
     }),
     ...(metadata.content_type === 'tv' && {
       firstAirDate: (metadata as TVMetadata).first_air_date,
