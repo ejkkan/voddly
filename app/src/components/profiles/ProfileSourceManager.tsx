@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { TextInput } from 'react-native';
 
 import { Pressable, Text, View } from '@/components/ui';
 import {
@@ -133,21 +132,6 @@ export default function ProfileSourceManager({
           Select which sources this profile can access. Leave empty to allow
           access to all sources.
         </Text>
-
-        {/* Notes input */}
-        <View className="mb-4">
-          <Text className="mb-2 text-sm font-medium text-neutral-700 dark:text-neutral-300">
-            Notes (optional)
-          </Text>
-          <TextInput
-            placeholder="Add notes about these source restrictions..."
-            value={notes}
-            onChangeText={setNotes}
-            className="rounded-md border border-neutral-300 bg-white px-3 py-2 text-neutral-900 dark:border-neutral-600 dark:bg-neutral-700 dark:text-neutral-50"
-            multiline
-            numberOfLines={2}
-          />
-        </View>
 
         {/* Source selection */}
         <View className="mb-6">

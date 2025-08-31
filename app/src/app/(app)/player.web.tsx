@@ -19,6 +19,9 @@ function PlayerContent({
   onPressSubtitles,
   hasSubtitles,
   onFormatInfoChange,
+  selectedMode,
+  selectedEmbeddedTrackIndex,
+  selectedEmbeddedLanguage,
 }: {
   url?: string;
   contentType?: 'movie' | 'series' | 'live';
@@ -31,6 +34,9 @@ function PlayerContent({
   onPressSubtitles: () => void;
   hasSubtitles: boolean;
   onFormatInfoChange?: (formatInfo: any) => void;
+  selectedMode: 'none' | 'external' | 'embedded';
+  selectedEmbeddedTrackIndex?: number;
+  selectedEmbeddedLanguage?: string;
 }) {
   const router = useRouter();
   return (
@@ -50,6 +56,9 @@ function PlayerContent({
           externalOnPressSubtitles={onPressSubtitles}
           externalHasSubtitles={hasSubtitles}
           onFormatInfoChange={onFormatInfoChange}
+          selectedMode={selectedMode}
+          selectedEmbeddedTrackIndex={selectedEmbeddedTrackIndex}
+          selectedEmbeddedLanguage={selectedEmbeddedLanguage}
         />
       )}
     </View>
@@ -76,6 +85,12 @@ export default function Player() {
   const [selectedSubtitleLanguage, setSelectedSubtitleLanguage] =
     useState<string>('');
   const [formatInfo, setFormatInfo] = useState<any>(null);
+  const [selectedMode, setSelectedMode] = useState<
+    'none' | 'external' | 'embedded'
+  >('none');
+  const [selectedEmbeddedTrackIndex, setSelectedEmbeddedTrackIndex] = useState<
+    number | undefined
+  >(undefined);
 
   // Debug: Log format info changes
   React.useEffect(() => {
@@ -140,6 +155,16 @@ export default function Player() {
     );
   }, [allSubtitles, selectedSubtitleLanguage]);
 
+  // Derive current embedded language for UI
+  const currentEmbeddedLanguage = React.useMemo(() => {
+    if (!formatInfo || selectedEmbeddedTrackIndex === undefined)
+      return undefined;
+    const track = formatInfo.subtitleTracks?.find(
+      (t: any) => t.index === selectedEmbeddedTrackIndex
+    );
+    return track?.language;
+  }, [formatInfo, selectedEmbeddedTrackIndex]);
+
   // Handle subtitle application
   const handleSubtitleApplied = React.useCallback((language: string) => {
     console.log(`Subtitle applied: ${language}`);
@@ -166,6 +191,9 @@ export default function Player() {
           formatInfo.subtitleTracks.length > 0)
       }
       onFormatInfoChange={setFormatInfo}
+      selectedMode={selectedMode}
+      selectedEmbeddedTrackIndex={selectedEmbeddedTrackIndex}
+      selectedEmbeddedLanguage={currentEmbeddedLanguage}
     />
   );
 
@@ -182,15 +210,25 @@ export default function Player() {
           subtitles={allSubtitles}
           formatInfo={formatInfo}
           isLoading={subtitlesLoading || selectedSubtitleLoading}
+          currentMode={selectedMode}
+          currentExternalLanguage={selectedSubtitleLanguage}
+          currentEmbeddedLanguage={currentEmbeddedLanguage}
+          onClearSelection={() => {
+            setSelectedMode('none');
+            setSelectedSubtitleLanguage('');
+            setSelectedEmbeddedTrackIndex(undefined);
+            setShowSubtitleModal(false);
+          }}
           onSubtitleSelect={(subtitle: any) => {
-            // Apply the selected subtitle to the video
+            setSelectedMode('external');
             setSelectedSubtitleLanguage(subtitle.language_code);
+            setSelectedEmbeddedTrackIndex(undefined);
             setShowSubtitleModal(false);
           }}
           onEmbeddedTrackSelect={(trackIndex: number) => {
-            // Handle embedded subtitle track selection
-            console.log('Selected embedded subtitle track:', trackIndex);
-            // TODO: Apply embedded subtitle track to video
+            setSelectedMode('embedded');
+            setSelectedSubtitleLanguage('');
+            setSelectedEmbeddedTrackIndex(trackIndex);
             setShowSubtitleModal(false);
           }}
         />

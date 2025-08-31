@@ -14,6 +14,10 @@ interface EnhancedSubtitleModalProps {
   isLoading: boolean;
   onSubtitleSelect: (subtitle: Subtitle) => void;
   onEmbeddedTrackSelect?: (trackIndex: number) => void;
+  currentMode?: 'external' | 'embedded' | 'none';
+  currentExternalId?: string;
+  currentEmbeddedLanguage?: string;
+  onClearSelection?: () => void;
 }
 
 export function EnhancedSubtitleModal({
@@ -24,13 +28,23 @@ export function EnhancedSubtitleModal({
   isLoading,
   onSubtitleSelect,
   onEmbeddedTrackSelect,
+  currentMode = 'none',
+  currentExternalId,
+  currentEmbeddedLanguage,
+  onClearSelection,
 }: EnhancedSubtitleModalProps) {
   const [activeTab, setActiveTab] = useState<'external' | 'embedded'>(
     'external'
   );
 
   const handleSubtitleSelect = (subtitle: Subtitle) => {
-    onSubtitleSelect(subtitle);
+    const isCurrentlySelected =
+      currentMode === 'external' && currentExternalId === subtitle.id;
+    if (isCurrentlySelected) {
+      onClearSelection?.();
+    } else {
+      onSubtitleSelect(subtitle);
+    }
     onClose();
   };
 
@@ -169,6 +183,27 @@ export function EnhancedSubtitleModal({
               </View>
             ) : (
               <ScrollView className="flex-1 p-4">
+                {/* None option */}
+                <View className="mb-4">
+                  <TouchableOpacity
+                    onPress={() => {
+                      onClearSelection?.();
+                      onClose();
+                    }}
+                    className={`flex-row items-center justify-between rounded-lg p-3 ${
+                      currentMode === 'none'
+                        ? 'border border-blue-700 bg-blue-900/40'
+                        : 'bg-gray-800 active:bg-gray-700'
+                    }`}
+                  >
+                    <Text className="font-medium text-white">None</Text>
+                    {currentMode === 'none' ? (
+                      <MaterialIcons name="check" size={20} color="#60a5fa" />
+                    ) : (
+                      <MaterialIcons name="close" size={20} color="white" />
+                    )}
+                  </TouchableOpacity>
+                </View>
                 {activeTab === 'external' && hasExternalSubtitles && (
                   <View>
                     <Text className="mb-3 font-medium text-white">
@@ -178,7 +213,12 @@ export function EnhancedSubtitleModal({
                       <TouchableOpacity
                         key={subtitle.id}
                         onPress={() => handleSubtitleSelect(subtitle)}
-                        className="mb-2 flex-row items-center justify-between rounded-lg bg-gray-800 p-3 active:bg-gray-700"
+                        className={`mb-2 flex-row items-center justify-between rounded-lg p-3 ${
+                          currentMode === 'external' &&
+                          currentExternalId === subtitle.id
+                            ? 'border border-blue-700 bg-blue-900/40'
+                            : 'bg-gray-800 active:bg-gray-700'
+                        }`}
                       >
                         <View className="flex-1">
                           <Text className="font-medium text-white">
@@ -190,11 +230,20 @@ export function EnhancedSubtitleModal({
                             </Text>
                           )}
                         </View>
-                        <MaterialIcons
-                          name="play-arrow"
-                          size={20}
-                          color="white"
-                        />
+                        {currentMode === 'external' &&
+                        currentExternalId === subtitle.id ? (
+                          <MaterialIcons
+                            name="check"
+                            size={20}
+                            color="#60a5fa"
+                          />
+                        ) : (
+                          <MaterialIcons
+                            name="subtitles"
+                            size={20}
+                            color="white"
+                          />
+                        )}
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -213,8 +262,23 @@ export function EnhancedSubtitleModal({
                       {formatInfo.subtitleTracks.map((track) => (
                         <TouchableOpacity
                           key={`embedded-${track.index}`}
-                          onPress={() => handleEmbeddedTrackSelect(track.index)}
-                          className="mb-2 flex-row items-center justify-between rounded-lg bg-gray-800 p-3 active:bg-gray-700"
+                          onPress={() => {
+                            const isSelected =
+                              currentMode === 'embedded' &&
+                              currentEmbeddedLanguage === track.language;
+                            if (isSelected) {
+                              onClearSelection?.();
+                              onClose();
+                            } else {
+                              handleEmbeddedTrackSelect(track.index);
+                            }
+                          }}
+                          className={`mb-2 flex-row items-center justify-between rounded-lg p-3 ${
+                            currentMode === 'embedded' &&
+                            currentEmbeddedLanguage === track.language
+                              ? 'border border-blue-700 bg-blue-900/40'
+                              : 'bg-gray-800 active:bg-gray-700'
+                          }`}
                         >
                           <View className="flex-1">
                             <View className="flex-row items-center">
@@ -233,11 +297,20 @@ export function EnhancedSubtitleModal({
                               Format: {track.format} | Codec: {track.codec}
                             </Text>
                           </View>
-                          <MaterialIcons
-                            name="play-arrow"
-                            size={20}
-                            color="white"
-                          />
+                          {currentMode === 'embedded' &&
+                          currentEmbeddedLanguage === track.language ? (
+                            <MaterialIcons
+                              name="check"
+                              size={20}
+                              color="#60a5fa"
+                            />
+                          ) : (
+                            <MaterialIcons
+                              name="subtitles"
+                              size={20}
+                              color="white"
+                            />
+                          )}
                         </TouchableOpacity>
                       ))}
                     </View>

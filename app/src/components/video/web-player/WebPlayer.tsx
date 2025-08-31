@@ -29,6 +29,9 @@ export type WebPlayerProps = {
   externalOnPressSubtitles?: () => void;
   externalHasSubtitles?: boolean;
   onFormatInfoChange?: (formatInfo: any) => void;
+  selectedMode?: 'none' | 'external' | 'embedded';
+  selectedEmbeddedTrackIndex?: number;
+  selectedEmbeddedLanguage?: string;
 };
 
 export function WebPlayer(props: WebPlayerProps) {
@@ -46,6 +49,9 @@ export function WebPlayer(props: WebPlayerProps) {
     onSubtitleApplied,
     externalOnPressSubtitles,
     externalHasSubtitles,
+    selectedMode = 'none',
+    selectedEmbeddedTrackIndex,
+    selectedEmbeddedLanguage,
   } = props;
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const playerRef = React.useRef<any>(null);
@@ -155,6 +161,86 @@ export function WebPlayer(props: WebPlayerProps) {
       }
     },
     [onSubtitleApplied, convertSRTtoVTT]
+  );
+
+  const clearExternalSubtitles = React.useCallback(() => {
+    try {
+      const video = videoRef.current;
+      if (!video) return;
+      if (subtitleTrackRef.current) {
+        try {
+          video.removeChild(subtitleTrackRef.current);
+        } catch {}
+        subtitleTrackRef.current = null;
+      }
+      if (subtitleBlobUrlRef.current) {
+        try {
+          URL.revokeObjectURL(subtitleBlobUrlRef.current);
+        } catch {}
+        subtitleBlobUrlRef.current = null;
+      }
+    } catch {}
+  }, []);
+
+  const disableAllEmbeddedTextTracks = React.useCallback(() => {
+    try {
+      const video = videoRef.current as any;
+      if (!video) return;
+      const nativeTracks: TextTrackList | undefined = video.textTracks;
+      if (nativeTracks) {
+        for (let i = 0; i < nativeTracks.length; i += 1) {
+          try {
+            (nativeTracks[i] as any).mode = 'disabled';
+          } catch {}
+        }
+      }
+      try {
+        if (playerRef.current?.setTextTrackVisibility) {
+          playerRef.current.setTextTrackVisibility(false);
+        }
+      } catch {}
+    } catch {}
+  }, []);
+
+  const enableEmbeddedTrackByLanguage = React.useCallback(
+    (language?: string) => {
+      try {
+        if (!language) return;
+        // Try Shaka first
+        if (playerRef.current) {
+          try {
+            if (playerRef.current.selectTextLanguage) {
+              playerRef.current.selectTextLanguage(language);
+              playerRef.current.setTextTrackVisibility?.(true);
+              return;
+            }
+          } catch {}
+        }
+        // Fallback to HTML5 native tracks by language
+        const video = videoRef.current as any;
+        if (video && video.textTracks) {
+          const list: any[] = Array.from(video.textTracks as any);
+          let selected = false;
+          list.forEach((t) => {
+            if (
+              !selected &&
+              (t.language === language ||
+                t.language === language?.toLowerCase())
+            ) {
+              try {
+                t.mode = 'showing';
+                selected = true;
+              } catch {}
+            } else {
+              try {
+                t.mode = 'disabled';
+              } catch {}
+            }
+          });
+        }
+      } catch {}
+    },
+    []
   );
 
   const isActiveRef = React.useRef<boolean>(true);
@@ -843,12 +929,35 @@ export function WebPlayer(props: WebPlayerProps) {
     } catch {}
   }, []);
 
-  // Apply subtitle content when it changes
+  // React to selection mode changes and apply/clear subtitles accordingly
   React.useEffect(() => {
-    if (subtitleContent && subtitleLanguage) {
-      applySubtitleContent(subtitleContent, subtitleLanguage);
+    if (selectedMode === 'external') {
+      // External: clear embedded visibility and apply external content
+      disableAllEmbeddedTextTracks();
+      if (subtitleContent && subtitleLanguage) {
+        applySubtitleContent(subtitleContent, subtitleLanguage);
+      }
+    } else if (selectedMode === 'embedded') {
+      // Embedded: clear external track and enable embedded by language
+      clearExternalSubtitles();
+      if (selectedEmbeddedLanguage) {
+        enableEmbeddedTrackByLanguage(selectedEmbeddedLanguage);
+      }
+    } else {
+      // None: clear both external and embedded
+      clearExternalSubtitles();
+      disableAllEmbeddedTextTracks();
     }
-  }, [subtitleContent, subtitleLanguage, applySubtitleContent]);
+  }, [
+    selectedMode,
+    subtitleContent,
+    subtitleLanguage,
+    selectedEmbeddedLanguage,
+    applySubtitleContent,
+    clearExternalSubtitles,
+    disableAllEmbeddedTextTracks,
+    enableEmbeddedTrackByLanguage,
+  ]);
 
   return (
     <View className="flex-1 bg-black">
