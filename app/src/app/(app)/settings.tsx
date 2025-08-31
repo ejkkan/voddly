@@ -18,6 +18,7 @@ import {
 import { Github, Rate, Share, Support, Website } from '@/components/ui/icons';
 import { translate } from '@/lib';
 import { useSignOut } from '@/lib/auth/hooks';
+import { profileStore } from '@/lib/profile-store';
 
 export default function Settings() {
   const router = useRouter();
@@ -88,6 +89,8 @@ export default function Settings() {
                     : () =>
                         signOut.mutate(undefined, {
                           onSettled: () => {
+                            // Clear the selected profile on sign out
+                            profileStore.clearProfile();
                             qc.removeQueries({ queryKey: ['auth'] });
                             router.replace('/signin');
                           },

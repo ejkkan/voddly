@@ -1,7 +1,8 @@
-import { Redirect, SplashScreen, Stack } from 'expo-router';
+import { Redirect, SplashScreen, Stack, usePathname } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
 
 import { AppShell } from '@/components/navigation/app-shell';
+import { ProfileGuard } from '@/components/navigation/ProfileGuard';
 import { useDeviceAutoRegister } from '@/hooks/useDeviceAutoRegister';
 import { useIsFirstTime } from '@/lib';
 import { useSession } from '@/lib/auth/hooks';
@@ -13,6 +14,7 @@ export const unstable_settings = {
 export default function ProtectedLayout() {
   const { data: session, isLoading } = useSession();
   const [isFirstTime] = useIsFirstTime();
+  const pathname = usePathname();
 
   // Monitor and handle device auto-registration
   useDeviceAutoRegister();
@@ -45,21 +47,36 @@ export default function ProtectedLayout() {
     return null;
   }
 
+  // Check if we're on the profile picker route
+  const isProfilePicker = pathname === '/(app)/profile-picker' || pathname === '/profile-picker';
+
+  // Wrap with ProfileGuard and conditionally show AppShell
   return (
-    <AppShell>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="dashboard" />
-        <Stack.Screen name="search" />
-        <Stack.Screen name="movies" />
-        <Stack.Screen name="player" />
-        <Stack.Screen name="series" />
-        <Stack.Screen name="tv" />
-        <Stack.Screen name="playlists" />
-        <Stack.Screen name="profiles" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="test" />
-      </Stack>
-    </AppShell>
+    <ProfileGuard>
+      {isProfilePicker ? (
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="profile-picker" />
+        </Stack>
+      ) : (
+        <AppShell>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="dashboard" />
+            <Stack.Screen name="search" />
+            <Stack.Screen name="movies" />
+            <Stack.Screen name="player" />
+            <Stack.Screen name="series" />
+            <Stack.Screen name="tv" />
+            <Stack.Screen name="playlists" />
+            <Stack.Screen name="profiles" />
+            <Stack.Screen name="settings" />
+            <Stack.Screen name="test" />
+            <Stack.Screen name="favorites" />
+            <Stack.Screen name="sources" />
+            <Stack.Screen name="category" />
+          </Stack>
+        </AppShell>
+      )}
+    </ProfileGuard>
   );
 }

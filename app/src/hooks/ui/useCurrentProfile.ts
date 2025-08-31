@@ -1,68 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';
 import { useProfileStore } from '@/lib/profile-store';
 
-import { useCreateProfile, useProfiles } from './useProfiles';
+import { useProfiles } from './useProfiles';
 
 export function useCurrentProfile() {
   const { data: profilesData, isLoading } = useProfiles();
-  const createProfile = useCreateProfile();
-  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const queryClient = useQueryClient();
   
   const { currentProfileId, setCurrentProfileId } = useProfileStore();
 
   const profiles = profilesData?.profiles || [];
   
-  // Find the current profile based on stored ID, or fall back to owner/first profile
-  const currentProfile = profiles.find((p) => p.id === currentProfileId) ||
-                        profiles.find((p) => p.is_owner) || 
-                        profiles[0];
+  // Only use the stored profile ID, don't auto-select
+  const currentProfile = profiles.find((p) => p.id === currentProfileId);
 
-  // Update stored profile ID when current profile changes
+  // Only auto-select if there's exactly one profile and no current selection
   useEffect(() => {
-    if (currentProfile && currentProfile.id !== currentProfileId) {
-      setCurrentProfileId(currentProfile.id);
+    if (!currentProfileId && profiles.length === 1) {
+      // Auto-select the single profile
+      setCurrentProfileId(profiles[0].id);
     }
-  }, [currentProfile, currentProfileId, setCurrentProfileId]);
+  }, [profiles, currentProfileId, setCurrentProfileId]);
 
-  // If no profiles exist and we're not loading, try to create a default profile
+  // No longer auto-create profiles - let ProfileGuard handle redirecting to picker
   useEffect(() => {
-    if (
-      !isLoading &&
-      profiles.length === 0 &&
-      !createProfile.isPending &&
-      !isCreatingProfile
-    ) {
-      console.log('No profiles found, attempting to create default profile');
-      setIsCreatingProfile(true);
-      createProfile.mutate(
-        {
-          name: 'Main',
-          hasSourceRestrictions: false,
-          allowedSources: [],
-        },
-        {
-          onSuccess: () => {
-            console.log('Profile created successfully');
-            setIsCreatingProfile(false);
-          },
-          onError: (error: any) => {
-            console.error('Failed to create default profile:', error);
-            setIsCreatingProfile(false);
-          },
-        }
-      );
+    if (!isLoading && profiles.length === 0) {
+      console.log('No profiles found, user needs to create one');
     }
-  }, [
-    isLoading,
-    profiles.length,
-    createProfile.mutate,
-    createProfile.isPending,
-    isCreatingProfile,
-  ]);
+  }, [isLoading, profiles.length]);
 
   // Function to switch profiles and invalidate all relevant queries
   const switchProfile = async (profileId: string) => {
@@ -100,14 +68,10 @@ export function useCurrentProfile() {
     }
   };
 
-  // Don't return profileId until we have a profile or have finished trying to create one
-  const shouldWaitForProfile =
-    profiles.length === 0 && (createProfile.isPending || isCreatingProfile);
-
   return {
     currentProfile,
-    isLoading: isLoading || createProfile.isPending || isCreatingProfile,
-    profileId: shouldWaitForProfile ? undefined : currentProfile?.id,
+    isLoading,
+    profileId: currentProfile?.id,
     switchProfile,
     profiles,
   };
