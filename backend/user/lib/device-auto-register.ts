@@ -6,18 +6,22 @@ import { promisify } from 'util';
 
 const pbkdf2 = promisify(crypto.pbkdf2);
 
-// Platform to device type mapping
+// Platform to device type mapping - maps to database-compatible values
 const getDeviceType = (deviceId: string): string => {
-  if (deviceId.startsWith('ios_')) return 'ios';
-  if (deviceId.startsWith('android_')) return 'android';
+  if (deviceId.startsWith('ios_')) return 'mobile';
+  if (deviceId.startsWith('android_')) return 'mobile';
+  if (deviceId.startsWith('tvos_')) return 'tv';
   if (deviceId.startsWith('web_')) return 'web';
-  return 'unknown';
+  return 'mobile'; // Default fallback
 };
 
-// Get device name from ID
+// Get device name from ID - use original platform name for display
 const getDeviceName = (deviceId: string): string => {
-  const type = getDeviceType(deviceId);
-  return `${type.charAt(0).toUpperCase() + type.slice(1)} Device`;
+  if (deviceId.startsWith('ios_')) return 'iOS Device';
+  if (deviceId.startsWith('android_')) return 'Android Device';
+  if (deviceId.startsWith('tvos_')) return 'Apple TV';
+  if (deviceId.startsWith('web_')) return 'Web Browser';
+  return 'Mobile Device'; // Default fallback
 };
 
 /**
@@ -29,8 +33,11 @@ export async function autoRegisterDevice(
   passphrase: string
 ): Promise<boolean> {
   try {
-    log.info('[DeviceAutoRegister] Starting auto-registration', { accountId, deviceId });
-    
+    log.info('[DeviceAutoRegister] Starting auto-registration', {
+      accountId,
+      deviceId,
+    });
+
     // Get account encryption details
     const account = await userDB.queryRow<{
       master_key_salt: string;
@@ -41,33 +48,47 @@ export async function autoRegisterDevice(
       FROM user_subscription 
       WHERE id = ${accountId}
     `;
-    
+
     if (!account) {
       log.error('[DeviceAutoRegister] Account not found', { accountId });
       return false;
     }
-    
+
     if (!account.master_key_salt || !account.master_key_hash) {
-      log.warn('[DeviceAutoRegister] Account has no encryption setup', { accountId });
+      log.warn('[DeviceAutoRegister] Account has no encryption setup', {
+        accountId,
+      });
       return false;
     }
-    
+
     // Verify passphrase by deriving master key and comparing hash
     const masterKeySalt = Buffer.from(account.master_key_salt, 'base64');
     const iterations = account.kdf_iterations || 100000;
-    
-    const derivedKey = await pbkdf2(passphrase, masterKeySalt, iterations, 32, 'sha256');
-    const derivedKeyHash = crypto.createHash('sha256').update(derivedKey).digest('base64');
-    
+
+    const derivedKey = await pbkdf2(
+      passphrase,
+      masterKeySalt,
+      iterations,
+      32,
+      'sha256'
+    );
+    const derivedKeyHash = crypto
+      .createHash('sha256')
+      .update(derivedKey)
+      .digest('base64');
+
     if (derivedKeyHash !== account.master_key_hash) {
-      log.error('[DeviceAutoRegister] Invalid passphrase provided', { accountId, deviceId });
+      log.error('[DeviceAutoRegister] Invalid passphrase provided', {
+        accountId,
+        deviceId,
+      });
       return false;
     }
-    
+
     // Generate device-specific encryption parameters
     const deviceSalt = crypto.randomBytes(16);
     const deviceIterations = 50000 + Math.floor(Math.random() * 50000); // 50k-100k
-    
+
     // Derive device-specific key from master key
     const deviceKey = await pbkdf2(
       derivedKey,
@@ -76,7 +97,7 @@ export async function autoRegisterDevice(
       32,
       'sha256'
     );
-    
+
     // Create wrapped master key for this device
     const cipher = crypto.createCipheriv(
       'aes-256-gcm',
@@ -85,19 +106,18 @@ export async function autoRegisterDevice(
     );
     const encrypted = Buffer.concat([
       cipher.update(derivedKey),
-      cipher.final()
+      cipher.final(),
     ]);
     const authTag = cipher.getAuthTag();
-    
-    const wrappedMasterKey = Buffer.concat([
-      encrypted,
-      authTag
-    ]).toString('base64');
-    
+
+    const wrappedMasterKey = Buffer.concat([encrypted, authTag]).toString(
+      'base64'
+    );
+
     // Get device info
     const deviceType = getDeviceType(deviceId);
     const deviceName = getDeviceName(deviceId);
-    
+
     // Insert device record
     await userDB.exec`
       INSERT INTO subscription_devices (
@@ -129,19 +149,19 @@ export async function autoRegisterDevice(
         is_active = true,
         last_used = CURRENT_TIMESTAMP
     `;
-    
-    log.info('[DeviceAutoRegister] Device successfully registered', { 
-      accountId, 
-      deviceId, 
-      deviceType 
+
+    log.info('[DeviceAutoRegister] Device successfully registered', {
+      accountId,
+      deviceId,
+      deviceType,
     });
-    
+
     return true;
   } catch (error) {
-    log.error('[DeviceAutoRegister] Registration failed', { 
-      error, 
-      accountId, 
-      deviceId 
+    log.error('[DeviceAutoRegister] Registration failed', {
+      error,
+      accountId,
+      deviceId,
     });
     return false;
   }

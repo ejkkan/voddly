@@ -61,7 +61,7 @@ export const useRouteActive = (path: string, exact = false): boolean => {
  */
 export const useIsDashboardRoute = (): boolean => {
   const pathname = usePathname();
-  console.log('useIsDashboardRoute', pathname);
+
   return useMemo(() => {
     return pathname.startsWith('/dashboard');
   }, [pathname]);

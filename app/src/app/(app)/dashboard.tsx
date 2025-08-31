@@ -14,7 +14,6 @@ import {
   useDashboardTrends,
 } from '@/hooks/ui/useDashboardTrends';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
-import { useIsDashboardRoute } from '@/hooks/ui/useRouteActive';
 
 import { CarouselRow } from '../../components/media/carousel-row';
 import { PosterCard } from '../../components/media/poster-card';
@@ -32,8 +31,6 @@ export default function Dashboard() {
   const [live, setLive] = useState<
     { id: string; title: string; imageUrl?: string | null; sourceId?: string }[]
   >([]);
-  const isDashboard = useIsDashboardRoute();
-  console.log('isDashboard', isDashboard);
 
   // Long press handlers for each content type
   const handleMovieLongPress = async (id: string | number) => {

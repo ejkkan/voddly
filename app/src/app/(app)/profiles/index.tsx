@@ -9,9 +9,11 @@ import {
   useProfiles,
   useUpdateProfile,
 } from '@/hooks/ui/useProfiles';
+import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
 
 export default function ProfilesPage() {
   const { data: profilesData, isLoading, refetch } = useProfiles();
+  const { currentProfile, switchProfile } = useCurrentProfile();
   const createProfile = useCreateProfile();
   const updateProfile = useUpdateProfile();
   const deleteProfile = useDeleteProfile();
@@ -20,6 +22,9 @@ export default function ProfilesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSourceManagerOpen, setIsSourceManagerOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<any>(null);
+  const [switchingProfileId, setSwitchingProfileId] = useState<string | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     name: '',
   });
@@ -81,6 +86,22 @@ export default function ProfilesPage() {
     [deleteProfile, refetch]
   );
 
+  const handleSwitchProfile = useCallback(
+    async (profileId: string) => {
+      if (profileId === currentProfile?.id) return;
+
+      try {
+        setSwitchingProfileId(profileId);
+        await switchProfile(profileId);
+      } catch (error) {
+        console.error('Failed to switch profile:', error);
+      } finally {
+        setSwitchingProfileId(null);
+      }
+    },
+    [currentProfile?.id, switchProfile]
+  );
+
   const openEditModal = useCallback((profile: any) => {
     setEditingProfile(profile);
     setFormData({
@@ -109,8 +130,16 @@ export default function ProfilesPage() {
           Profiles
         </Text>
         <Text className="mt-2 text-neutral-600 dark:text-neutral-400">
-          Manage your account profiles
+          Manage your account profiles and switch between them
         </Text>
+        {currentProfile && (
+          <View className="mt-4 rounded-lg bg-blue-50 p-3 dark:bg-blue-950">
+            <Text className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              Currently active:{' '}
+              <Text className="font-semibold">{currentProfile.name}</Text>
+            </Text>
+          </View>
+        )}
       </View>
 
       <Pressable
@@ -139,6 +168,13 @@ export default function ProfilesPage() {
                       </Text>
                     </View>
                   )}
+                  {currentProfile?.id === profile.id && (
+                    <View className="rounded-full bg-blue-100 px-2 py-1 dark:bg-blue-900">
+                      <Text className="text-xs font-medium text-blue-800 dark:text-blue-200">
+                        Current
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <Text className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
                   Created: {new Date(profile.created_at).toLocaleDateString()}
@@ -152,6 +188,27 @@ export default function ProfilesPage() {
               </View>
 
               <View className="flex-row space-x-2">
+                {/* Switch Profile button - show for all profiles except current */}
+                {currentProfile?.id !== profile.id ? (
+                  <Pressable
+                    onPress={() => handleSwitchProfile(profile.id)}
+                    disabled={switchingProfileId === profile.id}
+                    className="rounded-md bg-purple-100 px-3 py-2 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 disabled:opacity-50"
+                  >
+                    <Text className="text-sm font-medium text-purple-700 dark:text-purple-300">
+                      {switchingProfileId === profile.id
+                        ? 'Switching...'
+                        : 'Switch To'}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <View className="rounded-md bg-purple-100 px-3 py-2 dark:bg-purple-900">
+                    <Text className="text-sm font-medium text-purple-400 dark:text-purple-500">
+                      Active
+                    </Text>
+                  </View>
+                )}
+
                 {/* Edit button - owner can edit all profiles */}
                 <Pressable
                   onPress={() => openEditModal(profile)}
