@@ -54,6 +54,7 @@ export function WebPlayer(props: WebPlayerProps) {
     selectedEmbeddedLanguage,
   } = props;
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
   const playerRef = React.useRef<any>(null);
   const progressiveFallbackTriedRef = React.useRef<boolean>(false);
   const progressiveAlternateTriedRef = React.useRef<boolean>(false);
@@ -908,26 +909,146 @@ export function WebPlayer(props: WebPlayerProps) {
 
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const onToggleFullscreen = React.useCallback(() => {
-    const el = videoRef.current as any;
-    if (!el) return;
+    const container = containerRef.current;
+    if (!container) return;
     try {
       if (!document.fullscreenElement) {
-        (
-          el.requestFullscreen ||
-          el.webkitRequestFullscreen ||
-          el.msRequestFullscreen
-        )?.call(el);
-        setIsFullscreen(true);
+        const requestFullscreen = 
+          container.requestFullscreen ||
+          (container as any).webkitRequestFullscreen ||
+          (container as any).mozRequestFullScreen ||
+          (container as any).msRequestFullscreen;
+        
+        if (requestFullscreen) {
+          requestFullscreen.call(container);
+          setIsFullscreen(true);
+        }
       } else {
-        (
+        const exitFullscreen = 
           document.exitFullscreen ||
           (document as any).webkitExitFullscreen ||
-          (document as any).msExitFullscreen
-        )?.call(document);
-        setIsFullscreen(false);
+          (document as any).mozCancelFullScreen ||
+          (document as any).msExitFullscreen;
+        
+        if (exitFullscreen) {
+          exitFullscreen.call(document);
+          setIsFullscreen(false);
+        }
       }
-    } catch {}
+    } catch (err) {
+      console.error('Fullscreen toggle failed:', err);
+    }
   }, []);
+
+  // Keyboard controls
+  React.useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let isHoldingLeft = false;
+    let isHoldingRight = false;
+    let fastForwardInterval: NodeJS.Timeout | null = null;
+
+    const startFastForward = (direction: 'forward' | 'backward') => {
+      if (fastForwardInterval) return;
+      
+      fastForwardInterval = setInterval(() => {
+        if (!video) return;
+        const seekAmount = direction === 'forward' ? 2 : -2;
+        video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seekAmount));
+      }, 100);
+    };
+
+    const stopFastForward = () => {
+      if (fastForwardInterval) {
+        clearInterval(fastForwardInterval);
+        fastForwardInterval = null;
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevent default behavior for media keys
+      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'f', 'F'].includes(e.key)) {
+        e.preventDefault();
+      }
+
+      switch(e.key) {
+        case ' ':
+        case 'Spacebar':
+          onTogglePlay();
+          break;
+          
+        case 'ArrowUp':
+          if (video) {
+            video.volume = Math.min(1, video.volume + 0.1);
+            setIsMutedUi(false);
+            if (video.muted) video.muted = false;
+          }
+          break;
+          
+        case 'ArrowDown':
+          if (video) {
+            video.volume = Math.max(0, video.volume - 0.1);
+            setIsMutedUi(video.volume === 0);
+          }
+          break;
+          
+        case 'ArrowLeft':
+          if (!isHoldingLeft) {
+            isHoldingLeft = true;
+            if (!e.repeat) {
+              // First press - seek back 10 seconds
+              onSeek(Math.max(0, currentTime - 10));
+            } else {
+              // Holding - start fast rewind
+              startFastForward('backward');
+            }
+          }
+          break;
+          
+        case 'ArrowRight':
+          if (!isHoldingRight) {
+            isHoldingRight = true;
+            if (!e.repeat) {
+              // First press - seek forward 10 seconds
+              onSeek(currentTime + 10);
+            } else {
+              // Holding - start fast forward
+              startFastForward('forward');
+            }
+          }
+          break;
+          
+        case 'f':
+        case 'F':
+          onToggleFullscreen();
+          break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      switch(e.key) {
+        case 'ArrowLeft':
+          isHoldingLeft = false;
+          stopFastForward();
+          break;
+          
+        case 'ArrowRight':
+          isHoldingRight = false;
+          stopFastForward();
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+      stopFastForward();
+    };
+  }, [currentTime, duration, onSeek, onTogglePlay, onToggleFullscreen]);
 
   // React to selection mode changes and apply/clear subtitles accordingly
   React.useEffect(() => {
@@ -960,7 +1081,7 @@ export function WebPlayer(props: WebPlayerProps) {
   ]);
 
   return (
-    <View className="flex-1 bg-black">
+    <div ref={containerRef} className="flex-1 bg-black" style={{ display: 'flex', flex: 1, backgroundColor: 'black', position: 'relative' }}>
       <Pressable className="flex-1" onPress={() => setShowControls((v) => !v)}>
         <video
           key={url}
@@ -1042,7 +1163,7 @@ export function WebPlayer(props: WebPlayerProps) {
           <ActivityIndicator color="#ffffff" />
         </View>
       ) : null}
-    </View>
+    </div>
   );
 }
 

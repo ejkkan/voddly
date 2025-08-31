@@ -5,7 +5,7 @@ import { EnhancedSubtitleModal } from '@/components/subtitles/EnhancedSubtitleMo
 import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { WebPlayer } from '@/components/video/web-player';
 import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlaybackSource';
-import { useSubtitleForLanguage, useSubtitles } from '@/hooks/useSubtitles';
+import { type Subtitle, useSubtitles } from '@/hooks/useSubtitles';
 
 function PlayerContent({
   url,
@@ -82,8 +82,8 @@ function BackBar() {
 export default function Player() {
   const { url, loading, error, contentType } = useWebPlaybackSource();
   const [showSubtitleModal, setShowSubtitleModal] = useState(false);
-  const [selectedSubtitleLanguage, setSelectedSubtitleLanguage] =
-    useState<string>('');
+  const [selectedExternalSubtitle, setSelectedExternalSubtitle] =
+    useState<Subtitle | null>(null);
   const [formatInfo, setFormatInfo] = useState<any>(null);
   const [selectedMode, setSelectedMode] = useState<
     'none' | 'external' | 'embedded'
@@ -124,36 +124,11 @@ export default function Player() {
     enabled: !!movieId || !!tmdbId,
   });
 
-  // Fetch subtitle content for selected language
-  const { data: selectedSubtitle, isLoading: selectedSubtitleLoading } =
-    useSubtitleForLanguage(
-      {
-        movieId,
-        tmdbId,
-        title,
-        contentType: contentType === 'movie' ? 'movie' : 'episode',
-      },
-      selectedSubtitleLanguage
-    );
+  const selectedSubtitleLoading = false;
+  const allSubtitles = loadedSubtitles;
 
-  // Combine loaded subtitles with selected subtitle
-  const allSubtitles = React.useMemo(() => {
-    const combined = [...loadedSubtitles];
-    if (
-      selectedSubtitle &&
-      !combined.find((s) => s.language_code === selectedSubtitle.language_code)
-    ) {
-      combined.push(selectedSubtitle);
-    }
-    return combined;
-  }, [loadedSubtitles, selectedSubtitle]);
-
-  // Get the currently selected subtitle for the player
-  const currentSubtitle = React.useMemo(() => {
-    return allSubtitles.find(
-      (s) => s.language_code === selectedSubtitleLanguage
-    );
-  }, [allSubtitles, selectedSubtitleLanguage]);
+  // Get the currently selected external subtitle for the player
+  const currentSubtitle = selectedExternalSubtitle;
 
   // Derive current embedded language for UI
   const currentEmbeddedLanguage = React.useMemo(() => {
@@ -182,7 +157,7 @@ export default function Player() {
       tmdbId={tmdbId}
       title={title}
       selectedSubtitle={currentSubtitle}
-      selectedSubtitleLanguage={selectedSubtitleLanguage}
+      selectedSubtitleLanguage={currentSubtitle?.language_code}
       onSubtitleApplied={handleSubtitleApplied}
       onPressSubtitles={() => setShowSubtitleModal(true)}
       hasSubtitles={
@@ -211,23 +186,24 @@ export default function Player() {
           formatInfo={formatInfo}
           isLoading={subtitlesLoading || selectedSubtitleLoading}
           currentMode={selectedMode}
-          currentExternalLanguage={selectedSubtitleLanguage}
+          currentExternalId={selectedExternalSubtitle?.id}
           currentEmbeddedLanguage={currentEmbeddedLanguage}
+          currentEmbeddedIndex={selectedEmbeddedTrackIndex}
           onClearSelection={() => {
             setSelectedMode('none');
-            setSelectedSubtitleLanguage('');
+            setSelectedExternalSubtitle(null);
             setSelectedEmbeddedTrackIndex(undefined);
             setShowSubtitleModal(false);
           }}
           onSubtitleSelect={(subtitle: any) => {
             setSelectedMode('external');
-            setSelectedSubtitleLanguage(subtitle.language_code);
+            setSelectedExternalSubtitle(subtitle);
             setSelectedEmbeddedTrackIndex(undefined);
             setShowSubtitleModal(false);
           }}
           onEmbeddedTrackSelect={(trackIndex: number) => {
             setSelectedMode('embedded');
-            setSelectedSubtitleLanguage('');
+            setSelectedExternalSubtitle(null);
             setSelectedEmbeddedTrackIndex(trackIndex);
             setShowSubtitleModal(false);
           }}

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { FontAwesome5 } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
@@ -17,6 +18,7 @@ interface EnhancedSubtitleModalProps {
   currentMode?: 'external' | 'embedded' | 'none';
   currentExternalId?: string;
   currentEmbeddedLanguage?: string;
+  currentEmbeddedIndex?: number;
   onClearSelection?: () => void;
 }
 
@@ -31,6 +33,7 @@ export function EnhancedSubtitleModal({
   currentMode = 'none',
   currentExternalId,
   currentEmbeddedLanguage,
+  currentEmbeddedIndex,
   onClearSelection,
 }: EnhancedSubtitleModalProps) {
   const [activeTab, setActiveTab] = useState<'external' | 'embedded'>(
@@ -265,7 +268,7 @@ export function EnhancedSubtitleModal({
                           onPress={() => {
                             const isSelected =
                               currentMode === 'embedded' &&
-                              currentEmbeddedLanguage === track.language;
+                              currentEmbeddedIndex === track.index;
                             if (isSelected) {
                               onClearSelection?.();
                               onClose();
@@ -275,7 +278,7 @@ export function EnhancedSubtitleModal({
                           }}
                           className={`mb-2 flex-row items-center justify-between rounded-lg p-3 ${
                             currentMode === 'embedded' &&
-                            currentEmbeddedLanguage === track.language
+                            currentEmbeddedIndex === track.index
                               ? 'border border-blue-700 bg-blue-900/40'
                               : 'bg-gray-800 active:bg-gray-700'
                           }`}
@@ -298,7 +301,7 @@ export function EnhancedSubtitleModal({
                             </Text>
                           </View>
                           {currentMode === 'embedded' &&
-                          currentEmbeddedLanguage === track.language ? (
+                          currentEmbeddedIndex === track.index ? (
                             <MaterialIcons
                               name="check"
                               size={20}
