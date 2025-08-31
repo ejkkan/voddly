@@ -179,18 +179,43 @@ export default function LiveTV() {
                     : 'hover:bg-neutral-50 dark:hover:bg-neutral-900'
                 }`}
               >
-                <Text
-                  className={`text-sm ${
-                    selectedCategory?.categoryId === category.categoryId
-                      ? 'font-semibold text-blue-600 dark:text-blue-400'
-                      : 'text-neutral-700 dark:text-neutral-300'
-                  }`}
-                >
-                  {category.title}
-                </Text>
-                <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
-                  {category.items.length} channels
-                </Text>
+                <View className="flex-row items-center justify-between">
+                  <View>
+                    <Text
+                      className={`text-sm ${
+                        selectedCategory?.categoryId === category.categoryId
+                          ? 'font-semibold text-blue-600 dark:text-blue-400'
+                          : 'text-neutral-700 dark:text-neutral-300'
+                      }`}
+                    >
+                      {category.title}
+                    </Text>
+                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
+                      {category.items.length} channels
+                    </Text>
+                  </View>
+                  {category.categoryId ? (
+                    <Pressable
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(
+                          category.categoryId as string,
+                          'category'
+                        );
+                      }}
+                      className="rounded-full p-1 hover:bg-black/10 dark:hover:bg-white/10"
+                    >
+                      <Heart
+                        filled={isFavorite(category.categoryId)}
+                        color={
+                          isFavorite(category.categoryId)
+                            ? '#ef4444'
+                            : '#6b7280'
+                        }
+                      />
+                    </Pressable>
+                  ) : null}
+                </View>
               </Pressable>
             ))}
           </ScrollView>
@@ -335,24 +360,25 @@ export default function LiveTV() {
                           const now = new Date().getTime();
                           const start = new Date(program.since).getTime();
                           const end = new Date(program.till).getTime();
-                          
+
                           // Basic check: is current time within program's time range
                           if (!(now >= start && now <= end)) {
                             return false;
                           }
-                          
+
                           // Additional check: if there's a later program on the same channel that has started
                           // then this program is not currently airing
                           const allPrograms = (
                             epgProps.getLayoutProps().programs ?? epgPrograms
                           ).filter(Boolean) as Program[];
-                          const laterPrograms = allPrograms.filter((p) =>
-                            p.channelUuid === program.channelUuid &&
-                            p.id !== program.id &&
-                            new Date(p.since).getTime() > start &&
-                            new Date(p.since).getTime() <= now
+                          const laterPrograms = allPrograms.filter(
+                            (p) =>
+                              p.channelUuid === program.channelUuid &&
+                              p.id !== program.id &&
+                              new Date(p.since).getTime() > start &&
+                              new Date(p.since).getTime() <= now
                           );
-                          
+
                           // If any later program has started, this one is not airing
                           return laterPrograms.length === 0;
                         })();
@@ -372,12 +398,13 @@ export default function LiveTV() {
                           ).filter(Boolean) as Program[];
 
                           // Find programs on the same channel that might overlap
-                          const channelPrograms = allPrograms.filter((p) =>
-                            p.channelUuid === program.channelUuid &&
-                            p.position &&
-                            p.id !== program.id &&
-                            p.position.left > adjustedLeft &&
-                            p.position.left < adjustedLeft + adjustedWidth
+                          const channelPrograms = allPrograms.filter(
+                            (p) =>
+                              p.channelUuid === program.channelUuid &&
+                              p.position &&
+                              p.id !== program.id &&
+                              p.position.left > adjustedLeft &&
+                              p.position.left < adjustedLeft + adjustedWidth
                           );
 
                           // If there are potential conflicts, find the earliest one
@@ -385,7 +412,8 @@ export default function LiveTV() {
                             const earliestConflict = channelPrograms.reduce(
                               (earliest, current) => {
                                 if (!earliest) return current;
-                                return current.position.left < earliest.position.left
+                                return current.position.left <
+                                  earliest.position.left
                                   ? current
                                   : earliest;
                               },

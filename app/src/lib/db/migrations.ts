@@ -276,6 +276,7 @@ async function createIndexes(db: DatabaseHandle) {
     CREATE INDEX IF NOT EXISTS idx_items_account_source_type ON content_items(account_id, source_id, type);
     CREATE INDEX IF NOT EXISTS idx_items_type_added_at ON content_items(type, added_at DESC);
     CREATE INDEX IF NOT EXISTS idx_items_account_type_added_at ON content_items(account_id, type, added_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_items_tmdb_type ON content_items(tmdb_id, type);
     CREATE INDEX IF NOT EXISTS idx_categories_source ON categories(source_id, source_category_id);
     CREATE INDEX IF NOT EXISTS idx_categories_account_source ON categories(account_id, source_id, source_category_id);
     CREATE INDEX IF NOT EXISTS idx_sources_account ON sources(account_id, id);

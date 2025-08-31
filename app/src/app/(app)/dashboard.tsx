@@ -17,7 +17,6 @@ import {
 import { useIsDashboardRoute } from '@/hooks/ui/useRouteActive';
 
 import { CarouselRow } from '../../components/media/carousel-row';
-import Hero from '../../components/media/hero';
 import { PosterCard } from '../../components/media/poster-card';
 
 export default function Dashboard() {
@@ -136,16 +135,6 @@ export default function Dashboard() {
         className="flex-1 bg-white dark:bg-black"
         contentContainerStyle={{ paddingBottom: 48 }}
       >
-        <View className="px-3 md:px-6 lg:px-10">
-          <Hero
-            title="Dune: Part Two"
-            subtitle="Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family."
-            imageUrl="https://image.tmdb.org/t/p/original/8bcoRX3hQRHufLPSDREdvr3YMXx.jpg"
-            primaryAction={{ label: 'Play', onPress: () => {} }}
-            secondaryAction={{ label: 'More Info', onPress: () => {} }}
-          />
-        </View>
-
         <View className="mt-2">
           {DASHBOARD_TREND_FEEDS.map((feed) => {
             const feedTitleMap: Record<string, string> = {

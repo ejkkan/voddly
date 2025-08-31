@@ -14,6 +14,7 @@ type CarouselRowProps = {
   renderItem: (item: Item) => React.ReactElement;
   onEndReached?: () => void;
   loadingMore?: boolean;
+  titleAccessory?: React.ReactNode;
 };
 
 export const CarouselRow = ({
@@ -22,12 +23,16 @@ export const CarouselRow = ({
   renderItem,
   onEndReached,
   loadingMore,
+  titleAccessory,
 }: CarouselRowProps) => {
   return (
     <View className="mb-4">
-      <Text className="mb-2 px-2 text-lg font-semibold text-neutral-900 dark:text-white md:px-4 md:text-xl">
-        {title}
-      </Text>
+      <View className="mb-2 flex-row items-center px-2 md:px-4">
+        <Text className="text-lg font-semibold text-neutral-900 dark:text-white md:text-xl">
+          {title}
+        </Text>
+        {titleAccessory ? <View className="ml-2">{titleAccessory}</View> : null}
+      </View>
       <FlatList
         horizontal
         data={data}

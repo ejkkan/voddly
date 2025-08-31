@@ -5,7 +5,8 @@ import { useRouter } from 'expo-router';
 
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
-import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
+import { FlatList, Pressable, SafeAreaView, Text, View } from '@/components/ui';
+import { Heart } from '@/components/ui/icons';
 import { useUiSections, useFavoriteManager } from '@/hooks/ui';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 import { useIsMoviesRoute } from '@/hooks/ui/useRouteActive';
@@ -140,6 +141,21 @@ export default function VODs() {
           <CarouselRow
             title={item.title}
             data={item.data}
+            titleAccessory={
+              item.categoryId ? (
+                <Pressable
+                  onPress={() =>
+                    toggleFavorite(item.categoryId as string, 'category')
+                  }
+                  className="rounded-full p-1"
+                >
+                  <Heart
+                    filled={isFavorite(item.categoryId)}
+                    color={isFavorite(item.categoryId) ? '#ef4444' : '#6b7280'}
+                  />
+                </Pressable>
+              ) : null
+            }
             onEndReached={() => handleLoadMoreRow(item.categoryId)}
             loadingMore={
               !!(item.categoryId && loadingRowsRef.current[item.categoryId])

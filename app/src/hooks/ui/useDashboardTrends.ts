@@ -239,32 +239,83 @@ export type UseDashboardTrendsResult = {
   error?: Error | null;
 };
 
+// Batch query function to get multiple items at once
+async function getBatchContentData(
+  tmdbIds: string[],
+  type: 'movie' | 'series'
+) {
+  if (tmdbIds.length === 0) return new Map<string, any>();
+  
+  try {
+    const db = await openDb();
+    const placeholders = tmdbIds.map(() => '?').join(',');
+    
+    const query = `
+      SELECT
+        ci.id,
+        ci.title,
+        ci.poster_url,
+        ci.tmdb_id,
+        ci.type
+      FROM content_items ci
+      WHERE ci.tmdb_id IN (${placeholders}) AND ci.type = ?
+    `;
+    
+    const results = await db.getAllAsync<{
+      id: string;
+      title: string;
+      poster_url: string | null;
+      tmdb_id: string;
+      type: string;
+    }>(query, [...tmdbIds, type]);
+    
+    // Create a map for O(1) lookups
+    const dataMap = new Map<string, any>();
+    for (const item of results) {
+      if (item.tmdb_id) {
+        dataMap.set(item.tmdb_id, item);
+      }
+    }
+    
+    return dataMap;
+  } catch (error) {
+    console.error('Error in batch query:', error);
+    return new Map<string, any>();
+  }
+}
+
 // Helper function to enhance trends response with local poster data
 async function enhanceTrendsResponse(
   response: TrendsFeedResponse,
   contentType: 'movie' | 'tv'
 ): Promise<TrendsFeedResponse> {
   const localType = contentType === 'tv' ? 'series' : 'movie';
-  const enhancedItems = await Promise.all(
-    (response.items || []).map(async (item) => {
-      if (!item.tmdb_id)
-        return {
-          ...item,
-          poster_path: item.poster_path ?? null,
-          local_id: null,
-        };
-      const local = await getContentItemData(
-        String(item.tmdb_id),
-        localType as any
-      );
-      const poster = (local as any)?.poster_url || null;
+  
+  // Collect all TMDB IDs that need to be looked up
+  const tmdbIds = response.items
+    .filter(item => item.tmdb_id)
+    .map(item => String(item.tmdb_id));
+  
+  // Single batch query for all items
+  const localDataMap = await getBatchContentData(tmdbIds, localType);
+  
+  // Map the results back to items
+  const enhancedItems = response.items.map((item) => {
+    if (!item.tmdb_id) {
       return {
         ...item,
-        poster_path: poster,
-        local_id: (local as any)?.id || null,
-      } as TrendItem;
-    })
-  );
+        poster_path: item.poster_path ?? null,
+        local_id: null,
+      };
+    }
+    
+    const local = localDataMap.get(String(item.tmdb_id));
+    return {
+      ...item,
+      poster_path: local?.poster_url || null,
+      local_id: local?.id || null,
+    } as TrendItem;
+  });
 
   return {
     ...response,
