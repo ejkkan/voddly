@@ -16,10 +16,22 @@ if (!config.resolver.assetExts.includes('wasm')) {
 
 // Add COEP and COOP headers to support SharedArrayBuffer in web (required by expo-sqlite wasm)
 config.server = config.server || {};
+config.server.rewriteRequestUrl = (url) => {
+  // Serve WASM files from public directory
+  if (url.includes('canvaskit.wasm')) {
+    return '/canvaskit.wasm';
+  }
+  return url;
+};
+
 const existingEnhancer = config.server.enhanceMiddleware;
 config.server.enhanceMiddleware = (middleware) => {
   const base = existingEnhancer ? existingEnhancer(middleware) : middleware;
   return (req, res, next) => {
+    // Set WASM MIME type
+    if (req.url && req.url.endsWith('.wasm')) {
+      res.setHeader('Content-Type', 'application/wasm');
+    }
     res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
     base(req, res, next);

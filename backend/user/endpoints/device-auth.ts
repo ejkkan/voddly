@@ -2,7 +2,11 @@ import { api, APIError } from 'encore.dev/api';
 import * as crypto from 'crypto';
 import { userDB } from '../db';
 import { getServerEncryption } from '../lib/encryption-service';
-import { validateDevice, autoRegisterDevice, getAccountDevices } from '../lib/device-validation';
+import {
+  validateDevice,
+  autoRegisterDevice,
+  getAccountDevices,
+} from '../lib/device-validation';
 
 interface RegisterDeviceRequest {
   accountId: string; // UUID as string
@@ -11,6 +15,21 @@ interface RegisterDeviceRequest {
   deviceName?: string;
   deviceModel?: string;
   passphrase: string;
+}
+
+// Map client device types to database device types
+function mapDeviceType(clientDeviceType: string): string {
+  switch (clientDeviceType) {
+    case 'ios':
+    case 'android':
+      return 'mobile';
+    case 'tvos':
+      return 'tv';
+    case 'web':
+      return 'web';
+    default:
+      return 'mobile'; // Default fallback
+  }
 }
 
 interface RegisterDeviceResponse {
@@ -298,6 +317,9 @@ export const registerDevice = api<
       );
     }
 
+    // Map device type to database-compatible value
+    const dbDeviceType = mapDeviceType(deviceType);
+
     // Store device-specific encryption
     await userDB.exec`
       INSERT INTO subscription_devices (
@@ -315,7 +337,7 @@ export const registerDevice = api<
       ) VALUES (
         ${accountId},
         ${deviceId},
-        ${deviceType},
+        ${dbDeviceType},
         ${deviceName || null},
         ${deviceModel || null},
         ${deviceIterations},
@@ -429,16 +451,19 @@ export const getDeviceKey = api<GetDeviceKeyRequest, GetDeviceKeyResponse>(
  */
 export const listDevices = api<
   { accountId: string /* UUID */ },
-  { 
+  {
     devices: any[];
     activeCount: number;
     maxDevices: number;
     hasAvailableSlots: boolean;
   }
->({ method: 'GET', path: '/user/list-devices/:accountId', expose: true }, async (req) => {
-  const result = await getAccountDevices(req.accountId);
-  return result;
-});
+>(
+  { method: 'GET', path: '/user/list-devices/:accountId', expose: true },
+  async (req) => {
+    const result = await getAccountDevices(req.accountId);
+    return result;
+  }
+);
 
 /**
  * Remove/deactivate a device
@@ -446,12 +471,16 @@ export const listDevices = api<
 export const removeDevice = api<
   { accountId: string; deviceId: string },
   { success: boolean }
->({ method: 'POST', path: '/user/remove-device', expose: true }, async (req) => {
-  const { accountId, deviceId } = req;
-  
-  console.log(`[RemoveDevice] Deactivating device ${deviceId} for account ${accountId}`);
-  
-  await userDB.exec`
+>(
+  { method: 'POST', path: '/user/remove-device', expose: true },
+  async (req) => {
+    const { accountId, deviceId } = req;
+
+    console.log(
+      `[RemoveDevice] Deactivating device ${deviceId} for account ${accountId}`
+    );
+
+    await userDB.exec`
     UPDATE subscription_devices 
     SET 
       is_active = false,
@@ -459,17 +488,18 @@ export const removeDevice = api<
     WHERE subscription_id = ${accountId} 
       AND device_id = ${deviceId}
   `;
-  
-  return { success: true };
-});
+
+    return { success: true };
+  }
+);
 
 /**
  * Check if a device is registered for an account
  */
 export const checkDevice = api<
   { accountId: string; deviceId: string },
-  { 
-    isRegistered: boolean; 
+  {
+    isRegistered: boolean;
     requiresPassphrase: boolean;
     canAutoRegister?: boolean;
     deviceCount?: number;
@@ -478,18 +508,20 @@ export const checkDevice = api<
   }
 >({ method: 'POST', path: '/user/check-device', expose: true }, async (req) => {
   const { accountId, deviceId } = req;
-  
-  console.log(`[CheckDevice] Validating device ${deviceId} for account ${accountId}`);
+
+  console.log(
+    `[CheckDevice] Validating device ${deviceId} for account ${accountId}`
+  );
 
   // Use comprehensive device validation
   const validation = await validateDevice(accountId, deviceId);
-  
+
   console.log(`[CheckDevice] Validation result:`, validation);
 
   if (validation.isValid) {
     // Device is active and valid
-    return { 
-      isRegistered: true, 
+    return {
+      isRegistered: true,
       requiresPassphrase: false,
       canAutoRegister: false,
       deviceCount: validation.deviceCount,
@@ -501,8 +533,10 @@ export const checkDevice = api<
   const hasEncryption = await userDB.queryRow<{ subscription_id: string }>`
       SELECT subscription_id FROM subscription_encryption WHERE subscription_id = ${accountId}
     `;
-  
-  console.log(`[CheckDevice] Account ${accountId} has encryption: ${!!hasEncryption}`);
+
+  console.log(
+    `[CheckDevice] Account ${accountId} has encryption: ${!!hasEncryption}`
+  );
 
   return {
     isRegistered: false,
