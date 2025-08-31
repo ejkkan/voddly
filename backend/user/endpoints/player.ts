@@ -28,7 +28,7 @@ export const getPlayerBundle = api(
     const owns = await userDB.queryRow<{ id: string }>`
       SELECT p.id
       FROM profiles p
-      JOIN accounts a ON p.account_id = a.id
+      JOIN user_subscription a ON p.subscription_id = a.id
       WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
     `;
     if (!owns) throw APIError.permissionDenied('Profile not found or access denied');

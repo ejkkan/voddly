@@ -22,17 +22,17 @@ async function getTMDBClient(): Promise<TMDBClient> {
   return tmdbClient;
 }
 
-// Cache duration in hours (24 hours by default)
-const CACHE_DURATION_HOURS = 24;
-
-function isCacheValid(fetchedAt: Date): boolean {
-  const now = new Date();
-  const diffHours = (now.getTime() - fetchedAt.getTime()) / (1000 * 60 * 60);
-  return diffHours < CACHE_DURATION_HOURS;
-}
+// Remove cache freshness logic - always return cached data if available
 
 // Helper serializers to ensure proper SQL parameter types
 function numOrNull(value: unknown): number | null {
+  if (value === undefined || value === null) return null;
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Helper for floating point columns in PostgreSQL
+function floatOrNull(value: unknown): number | null {
   if (value === undefined || value === null) return null;
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n : null;
@@ -61,7 +61,7 @@ async function transformTMDBResponse(
     provider: 'tmdb',
     provider_id: String(tmdbId),
     content_type: contentType,
-    raw_response: apiResponse,
+    // Don't store raw_response anymore - it's too large
     fetched_at: new Date(),
     updated_at: new Date(),
     external_ids: {
@@ -87,7 +87,7 @@ async function transformTMDBResponse(
     base.cast = apiResponse.credits.cast;
     base.crew = apiResponse.credits.crew;
   }
-  if (apiResponse.keywords) base.keywords = apiResponse.keywords;
+  // Don't store keywords anymore - not used in UI
 
   // Merge external IDs
   if (apiResponse.external_ids) {
@@ -152,21 +152,19 @@ export const getMetadata = api(
       content_type,
       season_number,
       episode_number,
-      force_refresh,
-      append_to_response,
+      append_to_response = 'videos,images,credits,external_ids', // Default to all useful data
     } = params;
 
-    // Check cache first (unless force_refresh is true)
-    if (!force_refresh) {
-      const cached = await metadataDB.queryRow<ContentMetadata>`
+    // Always check cache first - no freshness logic
+    const cached = await metadataDB.queryRow<ContentMetadata>`
         SELECT 
           id, provider, provider_id, content_type, title, original_title, overview,
-          release_date, poster_path, backdrop_path, vote_count, original_language,
-          genres, production_companies, runtime, status, tagline, number_of_seasons,
-          number_of_episodes, first_air_date, last_air_date, episode_run_time,
-          networks, created_by, season_number, air_date, episode_number,
+          release_date, poster_path, backdrop_path, vote_average, vote_count, popularity,
+          original_language, genres, production_companies, runtime, status, tagline, 
+          number_of_seasons, number_of_episodes, first_air_date, last_air_date, 
+          episode_run_time, networks, created_by, season_number, air_date, episode_number,
           parent_provider_id, external_ids, videos, images, "cast", crew,
-          keywords, raw_response, fetched_at, updated_at
+          ratings, awards, rated, box_office, box_office_amount, fetched_at, updated_at
         FROM content_metadata
         WHERE provider = ${provider}
           AND provider_id = ${provider_id}
@@ -179,7 +177,83 @@ export const getMetadata = api(
       }))
       `;
 
-      if (cached && isCacheValid(cached.fetched_at!)) {
+      if (cached) {
+        // Parse JSONB fields that might be returned as strings
+        const parseJsonField = (field: any): any => {
+          if (field === null || field === undefined) return field;
+          if (typeof field === 'string') {
+            try {
+              return JSON.parse(field);
+            } catch {
+              return field;
+            }
+          }
+          return field;
+        };
+        
+        // Handle NUMERIC columns - convert to number if needed
+        if (cached.vote_average !== null && cached.vote_average !== undefined) {
+          cached.vote_average = Number(cached.vote_average);
+        }
+        if (cached.popularity !== null && cached.popularity !== undefined) {
+          cached.popularity = Number(cached.popularity);
+        }
+
+        // Parse all JSONB fields
+        cached.genres = parseJsonField(cached.genres);
+        cached.production_companies = parseJsonField(cached.production_companies);
+        cached.episode_run_time = parseJsonField(cached.episode_run_time);
+        cached.networks = parseJsonField(cached.networks);
+        cached.created_by = parseJsonField(cached.created_by);
+        cached.external_ids = parseJsonField(cached.external_ids);
+        cached.videos = parseJsonField(cached.videos);
+        cached.images = parseJsonField(cached.images);
+        cached.cast = parseJsonField(cached.cast);
+        cached.crew = parseJsonField(cached.crew);
+        cached.ratings = parseJsonField((cached as any).ratings);
+        // Don't parse raw_response - we don't select it anymore
+
+        // Debug logging for cached videos
+        log.info('📦 Returning cached metadata', {
+          provider_id,
+          content_type,
+          vote_average: cached.vote_average,
+          vote_average_type: typeof cached.vote_average,
+          has_videos: !!cached.videos,
+          videos_count: cached.videos ? (typeof cached.videos === 'object' && cached.videos.results ? cached.videos.results.length : 0) : 0,
+          videos_type: typeof cached.videos,
+          videos_sample: cached.videos && typeof cached.videos === 'object' && cached.videos.results && cached.videos.results.length > 0 
+            ? { first_video_key: cached.videos.results[0].key, total: cached.videos.results.length } 
+            : null,
+          has_images: !!cached.images,
+          images_type: typeof cached.images,
+          images_count: cached.images && typeof cached.images === 'object' 
+            ? Object.keys(cached.images).length 
+            : 0,
+          has_cast: !!cached.cast,
+          cast_type: typeof cached.cast,
+          cast_count: Array.isArray(cached.cast) ? cached.cast.length : 0,
+          has_crew: !!cached.crew,
+          crew_type: typeof cached.crew,
+          crew_count: Array.isArray(cached.crew) ? cached.crew.length : 0
+        });
+        
+        // Reconstruct credits from cast and crew if they exist
+        if (cached.cast || cached.crew) {
+          (cached as any).credits = {
+            cast: cached.cast || [],
+            crew: cached.crew || []
+          };
+          
+          log.info('🎬 Credits reconstructed', {
+            has_credits: true,
+            cast_count: Array.isArray(cached.cast) ? cached.cast.length : 0,
+            crew_count: Array.isArray(cached.crew) ? cached.crew.length : 0,
+            credits_cast_count: Array.isArray((cached as any).credits.cast) ? (cached as any).credits.cast.length : 0,
+            credits_crew_count: Array.isArray((cached as any).credits.crew) ? (cached as any).credits.crew.length : 0
+          });
+        }
+        
         // Also fetch enrichment data if it exists
         if (content_type === 'movie' || content_type === 'tv') {
           const enrichment = await metadataDB.queryRow<EnrichmentData>`
@@ -194,7 +268,6 @@ export const getMetadata = api(
         }
 
         return cached;
-      }
     }
 
     // Currently only TMDB is supported, but this can be extended
@@ -335,7 +408,9 @@ async function storeMetadata(
           release_date = ${strOrNull(metadata.release_date)},
           poster_path = ${strOrNull(metadata.poster_path)},
           backdrop_path = ${strOrNull(metadata.backdrop_path)},
+          vote_average = ${floatOrNull(metadata.vote_average)},
           vote_count = ${numOrNull(metadata.vote_count)},
+          popularity = ${floatOrNull(metadata.popularity)},
           original_language = ${strOrNull(metadata.original_language)},
           genres = ${jsonOrNull(metadata.genres)},
           production_companies = ${jsonOrNull(metadata.production_companies)},
@@ -358,8 +433,6 @@ async function storeMetadata(
           images = ${jsonOrNull(metadata.images)},
           "cast" = ${jsonOrNull(metadata.cast)},
           crew = ${jsonOrNull(metadata.crew)},
-          keywords = ${jsonOrNull(metadata.keywords)},
-          raw_response = ${jsonOrNull(metadata.raw_response)},
           fetched_at = ${metadata.fetched_at},
           updated_at = ${metadata.updated_at}
         WHERE id = ${existing.id}
@@ -374,7 +447,7 @@ async function storeMetadata(
           status, tagline, number_of_seasons, number_of_episodes, first_air_date,
           last_air_date, episode_run_time, networks, created_by, season_number,
           air_date, episode_number, parent_provider_id, external_ids, videos, images,
-          "cast", crew, keywords, raw_response, fetched_at, updated_at
+          "cast", crew, fetched_at, updated_at
         ) VALUES (
           ${metadata.provider}, ${metadata.provider_id}, ${
         metadata.content_type
@@ -384,7 +457,7 @@ async function storeMetadata(
           ${strOrNull(metadata.poster_path)}, ${strOrNull(
         metadata.backdrop_path
       )},
-          NULL, ${numOrNull(metadata.vote_count)}, NULL, 
+          ${floatOrNull(metadata.vote_average)}, ${numOrNull(metadata.vote_count)}, ${floatOrNull(metadata.popularity)}, 
           ${strOrNull(metadata.original_language)},
           ${jsonOrNull(metadata.genres)}, ${jsonOrNull(
         metadata.production_companies
@@ -403,8 +476,7 @@ async function storeMetadata(
           NULL, NULL, NULL, NULL,
           ${jsonOrNull(metadata.external_ids)}, ${jsonOrNull(metadata.videos)}, 
           ${jsonOrNull(metadata.images)}, ${jsonOrNull(metadata.cast)}, 
-          ${jsonOrNull(metadata.crew)}, ${jsonOrNull(metadata.keywords)},
-          ${jsonOrNull(metadata.raw_response)}, ${metadata.fetched_at}, 
+          ${jsonOrNull(metadata.crew)}, ${metadata.fetched_at}, 
           ${metadata.updated_at}
         )
         RETURNING id
@@ -428,7 +500,6 @@ async function storeMetadata(
           overview = ${strOrNull(metadata.overview)},
           poster_path = ${strOrNull(metadata.poster_path)},
           air_date = ${strOrNull(metadata.air_date)},
-          raw_response = ${jsonOrNull(metadata.raw_response)},
           fetched_at = ${metadata.fetched_at},
           updated_at = ${metadata.updated_at}
         WHERE id = ${existing.id}
@@ -440,7 +511,7 @@ async function storeMetadata(
           INSERT INTO content_metadata (
             provider, provider_id, content_type, title, overview,
             poster_path, season_number, air_date, parent_provider_id,
-            raw_response, fetched_at, updated_at
+            fetched_at, updated_at
           ) VALUES (
             ${metadata.provider}, ${metadata.provider_id}, ${
           metadata.content_type
@@ -451,7 +522,7 @@ async function storeMetadata(
             ${strOrNull(metadata.air_date)}, ${strOrNull(
           metadata.parent_provider_id
         )},
-            ${jsonOrNull(metadata.raw_response)}, ${metadata.fetched_at}, 
+            ${metadata.fetched_at}, 
             ${metadata.updated_at}
           )
           RETURNING id
@@ -479,7 +550,6 @@ async function storeMetadata(
           overview = ${strOrNull(metadata.overview)},
           air_date = ${strOrNull(metadata.air_date)},
           runtime = ${numOrNull(metadata.runtime)},
-          raw_response = ${jsonOrNull(metadata.raw_response)},
           fetched_at = ${metadata.fetched_at},
           updated_at = ${metadata.updated_at}
         WHERE id = ${existing.id}
@@ -491,7 +561,7 @@ async function storeMetadata(
           INSERT INTO content_metadata (
             provider, provider_id, content_type, title, overview,
             season_number, episode_number, air_date, runtime, parent_provider_id,
-            raw_response, fetched_at, updated_at
+            fetched_at, updated_at
           ) VALUES (
             ${metadata.provider}, ${metadata.provider_id}, ${
           metadata.content_type
@@ -501,7 +571,7 @@ async function storeMetadata(
             CAST(${numOrNull(episode_number)} AS INTEGER),
             ${strOrNull(metadata.air_date)}, ${numOrNull(metadata.runtime)},
             ${strOrNull(metadata.parent_provider_id)},
-            ${jsonOrNull(metadata.raw_response)}, ${metadata.fetched_at}, 
+            ${metadata.fetched_at}, 
             ${metadata.updated_at}
           )
           RETURNING id

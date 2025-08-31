@@ -105,8 +105,7 @@ export const getMetadataForContent = api(
             provider_id: title,
             content_type,
             title: title,
-            raw_response: { title, content_type },
-            fetched_at: new Date(),
+              fetched_at: new Date(),
             updated_at: new Date(),
             external_ids: {},
           };
@@ -128,7 +127,6 @@ export const getMetadataForContent = api(
           provider_id: title,
           content_type,
           title: title,
-          raw_response: { title, content_type },
           fetched_at: new Date(),
           updated_at: new Date(),
           external_ids: {},
@@ -151,7 +149,7 @@ export const getMetadataForContent = api(
         content_type,
         season_number,
         episode_number,
-        force_refresh: force_refresh ?? true,
+        force_refresh: force_refresh ?? false,
         append_to_response,
       });
 

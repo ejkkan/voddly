@@ -94,6 +94,8 @@ export interface ClientOptions {
 export namespace auth {
     export interface AuthParams {
         cookie: string
+        deviceId?: string
+        passphrase?: string
     }
 
     export class ServiceClient {
@@ -245,6 +247,7 @@ export namespace metadata {
         constructor(baseClient: BaseClient) {
             this.baseClient = baseClient
             this.getMetadata = this.getMetadata.bind(this)
+            this.getMetadataSubtitlesByTmdb = this.getMetadataSubtitlesByTmdb.bind(this)
             this.getTrendsFromDB = this.getTrendsFromDB.bind(this)
         }
 
@@ -266,6 +269,26 @@ export namespace metadata {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI("GET", `/metadata`, undefined, {query})
             return await resp.json() as ContentMetadata
+        }
+
+        /**
+         * Internal metadata endpoint: ensure subtitles exist (fetch if missing), return all with content
+         */
+        public async getMetadataSubtitlesByTmdb(tmdbId: number, params: {
+    provider?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitles: subtitles.Subtitle[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                provider: params.provider === undefined ? undefined : String(params.provider),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/metadata/subtitles/tmdb/${encodeURIComponent(tmdbId)}`, undefined, {query})
+            return await resp.json() as {
+    subtitles: subtitles.Subtitle[]
+}
         }
 
         /**
@@ -326,12 +349,13 @@ export namespace user {
             this.addFavorite = this.addFavorite.bind(this)
             this.addPlaylistItem = this.addPlaylistItem.bind(this)
             this.addSource = this.addSource.bind(this)
+            this.checkDevice = this.checkDevice.bind(this)
             this.clearWatchHistory = this.clearWatchHistory.bind(this)
-            this.createAccount = this.createAccount.bind(this)
             this.createPlaylist = this.createPlaylist.bind(this)
             this.createPortalSession = this.createPortalSession.bind(this)
             this.createProfile = this.createProfile.bind(this)
             this.createProfileAsOwner = this.createProfileAsOwner.bind(this)
+            this.createSubscription = this.createSubscription.bind(this)
             this.decryptSource = this.decryptSource.bind(this)
             this.deletePlaylist = this.deletePlaylist.bind(this)
             this.deleteProfile = this.deleteProfile.bind(this)
@@ -344,13 +368,13 @@ export namespace user {
             this.extractOriginalSubtitleContent = this.extractOriginalSubtitleContent.bind(this)
             this.extractOriginalSubtitles = this.extractOriginalSubtitles.bind(this)
             this.fixProfileOwnerStatus = this.fixProfileOwnerStatus.bind(this)
-            this.getAccount = this.getAccount.bind(this)
             this.getAccountSources = this.getAccountSources.bind(this)
-            this.getAccounts = this.getAccounts.bind(this)
             this.getAvailableLanguages = this.getAvailableLanguages.bind(this)
             this.getContentWatchState = this.getContentWatchState.bind(this)
             this.getCurrentUser = this.getCurrentUser.bind(this)
             this.getDashboardTrends = this.getDashboardTrends.bind(this)
+            this.getDeviceKey = this.getDeviceKey.bind(this)
+            this.getEncryptionStatus = this.getEncryptionStatus.bind(this)
             this.getEpisodeWatchStateByTmdb = this.getEpisodeWatchStateByTmdb.bind(this)
             this.getLanguagesByTmdb = this.getLanguagesByTmdb.bind(this)
             this.getMetadataForContent = this.getMetadataForContent.bind(this)
@@ -360,35 +384,45 @@ export namespace user {
             this.getProfileSources = this.getProfileSources.bind(this)
             this.getProfiles = this.getProfiles.bind(this)
             this.getSeasonWatchStatesByTmdb = this.getSeasonWatchStatesByTmdb.bind(this)
+            this.getSourceDecryptionKeys = this.getSourceDecryptionKeys.bind(this)
             this.getSources = this.getSources.bind(this)
+            this.getSubscription = this.getSubscription.bind(this)
+            this.getSubscriptions = this.getSubscriptions.bind(this)
             this.getSubtitleById = this.getSubtitleById.bind(this)
             this.getSubtitleContent = this.getSubtitleContent.bind(this)
             this.getSubtitleContentById = this.getSubtitleContentById.bind(this)
             this.getSubtitleContentByTmdb = this.getSubtitleContentByTmdb.bind(this)
             this.getSubtitleVariants = this.getSubtitleVariants.bind(this)
             this.getSubtitles = this.getSubtitles.bind(this)
+            this.getSubtitlesByTmdb = this.getSubtitlesByTmdb.bind(this)
             this.getUserById = this.getUserById.bind(this)
             this.getWatchState = this.getWatchState.bind(this)
             this.getWatchStateByUid = this.getWatchStateByUid.bind(this)
-            this.initializeAccountEncryption = this.initializeAccountEncryption.bind(this)
-            this.initializeNewAccount = this.initializeNewAccount.bind(this)
+            this.initializeSubscription = this.initializeSubscription.bind(this)
+            this.initializeSubscriptionEncryption = this.initializeSubscriptionEncryption.bind(this)
             this.isProfileOwner = this.isProfileOwner.bind(this)
+            this.listDevices = this.listDevices.bind(this)
             this.listFavorites = this.listFavorites.bind(this)
             this.listPlaylistItems = this.listPlaylistItems.bind(this)
             this.listPlaylists = this.listPlaylists.bind(this)
+            this.registerDevice = this.registerDevice.bind(this)
+            this.removeDevice = this.removeDevice.bind(this)
             this.removeFavorite = this.removeFavorite.bind(this)
             this.removePlaylistItem = this.removePlaylistItem.bind(this)
             this.removeProfileSource = this.removeProfileSource.bind(this)
             this.resolveSubtitles = this.resolveSubtitles.bind(this)
             this.searchSubtitles = this.searchSubtitles.bind(this)
+            this.setupPassphrase = this.setupPassphrase.bind(this)
             this.switchProfile = this.switchProfile.bind(this)
             this.updateCurrentUser = this.updateCurrentUser.bind(this)
+            this.updateDeviceSlots = this.updateDeviceSlots.bind(this)
             this.updatePassphrase = this.updatePassphrase.bind(this)
             this.updateProfile = this.updateProfile.bind(this)
             this.updateProfileAsOwner = this.updateProfileAsOwner.bind(this)
             this.updateProfileSources = this.updateProfileSources.bind(this)
             this.updateSubscription = this.updateSubscription.bind(this)
             this.updateWatchState = this.updateWatchState.bind(this)
+            this.upgradeAccountEncryption = this.upgradeAccountEncryption.bind(this)
         }
 
         public async addFavorite(profileId: string, params: endpoints.ModifyFavoriteRequest): Promise<{
@@ -415,15 +449,41 @@ export namespace user {
         }
 
         /**
-         * Add source to account
+         * Add source to subscription
          */
         public async addSource(params: endpoints.AddSourceRequest): Promise<{
     sourceId: string
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("POST", `/account/sources`, JSON.stringify(params))
+            const resp = await this.baseClient.callTypedAPI("POST", `/subscription/sources`, JSON.stringify(params))
             return await resp.json() as {
     sourceId: string
+}
+        }
+
+        /**
+         * Check if a device is registered for an account
+         */
+        public async checkDevice(params: {
+    accountId: string
+    deviceId: string
+}): Promise<{
+    isRegistered: boolean
+    requiresPassphrase: boolean
+    canAutoRegister?: boolean
+    deviceCount?: number
+    maxDevices?: number
+    message?: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/user/check-device`, JSON.stringify(params))
+            return await resp.json() as {
+    isRegistered: boolean
+    requiresPassphrase: boolean
+    canAutoRegister?: boolean
+    deviceCount?: number
+    maxDevices?: number
+    message?: string
 }
         }
 
@@ -437,23 +497,6 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/watch-state`)
             return await resp.json() as {
     ok: true
-}
-        }
-
-        /**
-         * Create account with initial source and default profile
-         */
-        public async createAccount(params: endpoints.CreateAccountRequest): Promise<{
-    accountId: string
-    sourceId: string
-    profileId: string
-}> {
-            // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("POST", `/accounts`, JSON.stringify(params))
-            return await resp.json() as {
-    accountId: string
-    sourceId: string
-    profileId: string
 }
         }
 
@@ -505,6 +548,23 @@ export namespace user {
         }
 
         /**
+         * Create subscription with initial source and default profile
+         */
+        public async createSubscription(params: endpoints.CreateSubscriptionRequest): Promise<{
+    subscriptionId: string
+    sourceId: string
+    profileId: string
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/subscription`, JSON.stringify(params))
+            return await resp.json() as {
+    subscriptionId: string
+    sourceId: string
+    profileId: string
+}
+        }
+
+        /**
          * Decrypt source credentials (requires passphrase)
          */
         public async decryptSource(sourceId: string, params: {
@@ -513,7 +573,7 @@ export namespace user {
     credentials: any
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("POST", `/account/sources/${encodeURIComponent(sourceId)}/decrypt`, JSON.stringify(params))
+            const resp = await this.baseClient.callTypedAPI("POST", `/subscription/sources/${encodeURIComponent(sourceId)}/decrypt`, JSON.stringify(params))
             return await resp.json() as {
     credentials: any
 }
@@ -562,7 +622,7 @@ export namespace user {
     deleted: boolean
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("DELETE", `/account/sources/${encodeURIComponent(sourceId)}`)
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/subscription/sources/${encodeURIComponent(sourceId)}`)
             return await resp.json() as {
     deleted: boolean
 }
@@ -637,21 +697,6 @@ export namespace user {
         }
 
         /**
-         * Get user's account (now just one)
-         */
-        public async getAccount(): Promise<{
-    account: endpoints.AccountRow | null
-    hasEncryption?: boolean
-}> {
-            // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("GET", `/account`)
-            return await resp.json() as {
-    account: endpoints.AccountRow | null
-    hasEncryption?: boolean
-}
-        }
-
-        /**
          * Get all sources available to the account (for selection)
          */
         public async getAccountSources(): Promise<{
@@ -661,19 +706,6 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/account/sources/available`)
             return await resp.json() as {
     sources: endpoints.SourceInfo[]
-}
-        }
-
-        /**
-         * Get user's accounts (backward compatibility - returns single account in array)
-         */
-        public async getAccounts(): Promise<{
-    accounts: endpoints.AccountRow[]
-}> {
-            // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("GET", `/accounts`)
-            return await resp.json() as {
-    accounts: endpoints.AccountRow[]
 }
         }
 
@@ -767,6 +799,32 @@ export namespace user {
             // Now make the actual call to the API
             const resp = await this.baseClient.callTypedAPI("GET", `/user/trends`, undefined, {query})
             return await resp.json() as endpoints.TrendsResponse
+        }
+
+        /**
+         * Get device-specific key data
+         */
+        public async getDeviceKey(params: endpoints.GetDeviceKeyRequest): Promise<endpoints.GetDeviceKeyResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/user/get-device-key`, JSON.stringify(params))
+            return await resp.json() as endpoints.GetDeviceKeyResponse
+        }
+
+        /**
+         * Check encryption status for the current account
+         */
+        public async getEncryptionStatus(): Promise<{
+    iterations: number
+    version: number
+    needsUpgrade: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/account/encryption-status`)
+            return await resp.json() as {
+    iterations: number
+    version: number
+    needsUpgrade: boolean
+}
         }
 
         /**
@@ -939,25 +997,84 @@ export namespace user {
         }
 
         /**
-         * Get sources for account
+         * Get sources for subscription with device validation
          */
-        public async getSources(): Promise<{
+        public async getSources(params: {
+    deviceId?: string
+}): Promise<{
     sources: endpoints.SourceRow[]
-    keyData?: {
-        "master_key_wrapped": string
-        salt: string
-        iv: string
-    }
 }> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                deviceId: params.deviceId,
+            })
+
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("GET", `/account/sources`)
+            const resp = await this.baseClient.callTypedAPI("GET", `/subscription/sources`, undefined, {query})
             return await resp.json() as {
     sources: endpoints.SourceRow[]
-    keyData?: {
+    }
+        }
+
+        /**
+         * Get encryption keys for decryption (separate endpoint for security)
+         */
+        public async getSourceDecryptionKeys(params: {
+    deviceId?: string
+}): Promise<{
+    keyData: {
         "master_key_wrapped": string
         salt: string
         iv: string
+        "kdf_iterations"?: number
+        "server_wrapped_key"?: string
+        "server_iv"?: string
+    } | null
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                deviceId: params.deviceId,
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subscription/decryption-keys`, undefined, {query})
+            return await resp.json() as {
+    keyData: {
+        "master_key_wrapped": string
+        salt: string
+        iv: string
+        "kdf_iterations"?: number
+        "server_wrapped_key"?: string
+        "server_iv"?: string
+    } | null
     }
+        }
+
+        /**
+         * Get user's subscription (now just one)
+         */
+        public async getSubscription(): Promise<{
+    subscription: endpoints.SubscriptionRow | null
+    hasEncryption?: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subscription`)
+            return await resp.json() as {
+    subscription: endpoints.SubscriptionRow | null
+    hasEncryption?: boolean
+}
+        }
+
+        /**
+         * DEPRECATED: Get subscriptions (backward compatibility - returns single subscription in array)
+         */
+        public async getSubscriptions(): Promise<{
+    subscriptions: endpoints.SubscriptionRow[]
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subscriptions`)
+            return await resp.json() as {
+    subscriptions: endpoints.SubscriptionRow[]
 }
         }
 
@@ -1107,6 +1224,26 @@ export namespace user {
         }
 
         /**
+         * GET /subtitles/tmdb/:tmdbId — auth user -> return all subtitles with content for tmdbId
+         */
+        public async getSubtitlesByTmdb(tmdbId: number, params: {
+    provider?: "opensubs" | "subdl" | "all"
+}): Promise<{
+    subtitles: subtitles.Subtitle[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                provider: params.provider === undefined ? undefined : String(params.provider),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subtitles/tmdb/${encodeURIComponent(tmdbId)}`, undefined, {query})
+            return await resp.json() as {
+    subtitles: subtitles.Subtitle[]
+}
+        }
+
+        /**
          * Get user by ID endpoint (for admin/internal use)
          */
         public async getUserById(id: string): Promise<endpoints.SimpleUser> {
@@ -1152,30 +1289,36 @@ export namespace user {
         }
 
         /**
-         * Initialize encryption for existing accounts (migration helper)
+         * Initialize new subscription with just encryption (no sources)
          */
-        public async initializeAccountEncryption(params: endpoints.InitializeEncryptionRequest): Promise<{
-    success: boolean
+        public async initializeSubscription(params: endpoints.InitializeSubscriptionRequest): Promise<{
+    subscriptionId: string
+    profileId: string
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("POST", `/account/initialize-encryption`, JSON.stringify(params))
+            const resp = await this.baseClient.callTypedAPI("POST", `/subscription/initialize`, JSON.stringify(params))
             return await resp.json() as {
-    success: boolean
+    subscriptionId: string
+    profileId: string
 }
         }
 
         /**
-         * Initialize new account with just encryption (no sources)
+         * Initialize encryption for existing user_subscription (migration helper)
          */
-        public async initializeNewAccount(params: endpoints.InitializeNewAccountRequest): Promise<{
-    accountId: string
-    profileId: string
+        public async initializeSubscriptionEncryption(params: {
+    passphrase: string
+    deviceId?: string
+    deviceType?: "ios" | "tvos" | "android" | "web"
+    deviceName?: string
+    deviceModel?: string
+}): Promise<{
+    success: boolean
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("POST", `/account/initialize`, JSON.stringify(params))
+            const resp = await this.baseClient.callTypedAPI("POST", `/subscription/initialize-encryption`, JSON.stringify(params))
             return await resp.json() as {
-    accountId: string
-    profileId: string
+    success: boolean
 }
         }
 
@@ -1189,6 +1332,25 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/owner`)
             return await resp.json() as {
     isOwner: boolean
+}
+        }
+
+        /**
+         * List all registered devices for an account with management info
+         */
+        public async listDevices(accountId: string): Promise<{
+    devices: any[]
+    activeCount: number
+    maxDevices: number
+    hasAvailableSlots: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/user/list-devices/${encodeURIComponent(accountId)}`)
+            return await resp.json() as {
+    devices: any[]
+    activeCount: number
+    maxDevices: number
+    hasAvailableSlots: boolean
 }
         }
 
@@ -1241,6 +1403,31 @@ export namespace user {
         name: string
         "created_at": string
     }[]
+}
+        }
+
+        /**
+         * Register a new device with device-specific encryption settings
+         */
+        public async registerDevice(params: endpoints.RegisterDeviceRequest): Promise<endpoints.RegisterDeviceResponse> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/user/register-device`, JSON.stringify(params))
+            return await resp.json() as endpoints.RegisterDeviceResponse
+        }
+
+        /**
+         * Remove/deactivate a device
+         */
+        public async removeDevice(params: {
+    accountId: string
+    deviceId: string
+}): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/user/remove-device`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
 }
         }
 
@@ -1327,6 +1514,19 @@ export namespace user {
         }
 
         /**
+         * One-time passphrase setup - only works if account has no encryption yet
+         */
+        public async setupPassphrase(params: endpoints.SetupPassphraseRequest): Promise<{
+    success: boolean
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/account/setup-passphrase`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+}
+        }
+
+        /**
          * Switch active profile (for tracking purposes)
          */
         public async switchProfile(profileId: string): Promise<{
@@ -1352,13 +1552,30 @@ export namespace user {
         }
 
         /**
-         * Update account passphrase
+         * Update device slots only
+         */
+        public async updateDeviceSlots(params: {
+    slots: number
+}): Promise<{
+    success: boolean
+    currentDevices: number
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("PUT", `/subscription/device-slots`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+    currentDevices: number
+}
+        }
+
+        /**
+         * Update subscription passphrase
          */
         public async updatePassphrase(params: endpoints.UpdatePassphraseRequest): Promise<{
     success: boolean
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("PUT", `/account/passphrase`, JSON.stringify(params))
+            const resp = await this.baseClient.callTypedAPI("PUT", `/subscription/passphrase`, JSON.stringify(params))
             return await resp.json() as {
     success: boolean
 }
@@ -1413,15 +1630,16 @@ export namespace user {
         }
 
         /**
-         * Update subscription tier
+         * Update subscription tier and device slots
          */
         public async updateSubscription(params: {
     tier: "basic" | "standard" | "premium"
+    deviceSlots?: number
 }): Promise<{
     success: boolean
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("PUT", `/account/subscription`, JSON.stringify(params))
+            const resp = await this.baseClient.callTypedAPI("PUT", `/subscription/subscription`, JSON.stringify(params))
             return await resp.json() as {
     success: boolean
 }
@@ -1437,6 +1655,24 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("POST", `/watch-state`, JSON.stringify(params))
             return await resp.json() as {
     ok: true
+}
+        }
+
+        /**
+         * Upgrade account encryption to use 500k iterations and double-layer protection
+         * This is a one-time upgrade for existing accounts
+         */
+        public async upgradeAccountEncryption(params: endpoints.UpgradeEncryptionRequest): Promise<{
+    success: boolean
+    message: string
+    iterations: number
+}> {
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("POST", `/account/upgrade-encryption`, JSON.stringify(params))
+            return await resp.json() as {
+    success: boolean
+    message: string
+    iterations: number
 }
         }
     }
@@ -1479,15 +1715,6 @@ export namespace webhooks {
 }
 
 export namespace endpoints {
-    export interface AccountRow {
-        id: string
-        "user_id": string
-        name: string
-        "subscription_tier": string
-        "subscription_status": string
-        "created_at": string
-    }
-
     export interface AddSourceRequest {
         name: string
         providerType: string
@@ -1501,8 +1728,17 @@ export namespace endpoints {
 
     export type ContentType = "movie" | "tv" | "season" | "episode"
 
-    export interface CreateAccountRequest {
-        accountName: string
+    export interface CreateProfileRequest {
+        name: string
+        allowedSources?: string[]
+    }
+
+    export interface CreateProfileRequest {
+        name: string
+        allowedSources?: string[]
+    }
+
+    export interface CreateSubscriptionRequest {
         sourceName: string
         providerType: string
         credentials: {
@@ -1511,16 +1747,6 @@ export namespace endpoints {
             password: string
         }
         passphrase: string
-    }
-
-    export interface CreateProfileRequest {
-        name: string
-        allowedSources?: string[]
-    }
-
-    export interface CreateProfileRequest {
-        name: string
-        allowedSources?: string[]
     }
 
     export interface DetectEmbeddedTracksParams {
@@ -1577,6 +1803,22 @@ export namespace endpoints {
         error?: string
     }
 
+    export interface GetDeviceKeyRequest {
+        accountId: string
+        deviceId: string
+    }
+
+    export interface GetDeviceKeyResponse {
+        keyData: {
+            "master_key_wrapped": string
+            salt: string
+            iv: string
+            "kdf_iterations": number
+            "server_wrapped_key"?: string
+            "server_iv"?: string
+        }
+    }
+
     export interface GetWatchStateResponse {
         states: {
             "content_id": string
@@ -1588,12 +1830,7 @@ export namespace endpoints {
         }[]
     }
 
-    export interface InitializeEncryptionRequest {
-        passphrase: string
-    }
-
-    export interface InitializeNewAccountRequest {
-        accountName: string
+    export interface InitializeSubscriptionRequest {
         passphrase: string
     }
 
@@ -1637,7 +1874,7 @@ export namespace endpoints {
     export interface ProfileWithSources {
         allowedSources?: string[]
         id: string
-        "account_id": string
+        "subscription_id": string
         name: string
         "has_source_restrictions": boolean
         "is_owner": boolean
@@ -1645,10 +1882,41 @@ export namespace endpoints {
         "updated_at": string
     }
 
+    export interface RegisterDeviceRequest {
+        accountId: string
+        deviceId: string
+        deviceType: "ios" | "tvos" | "android" | "web"
+        deviceName?: string
+        deviceModel?: string
+        passphrase: string
+    }
+
+    export interface RegisterDeviceResponse {
+        success: boolean
+        deviceId: string
+        iterations: number
+        keyData: {
+            "master_key_wrapped": string
+            salt: string
+            iv: string
+            "kdf_iterations": number
+            "server_wrapped_key"?: string
+            "server_iv"?: string
+        }
+    }
+
     export interface ResolveSubtitlesResponse {
         mode: "list" | "content"
         rows?: SubtitleRowItem[]
         subtitle?: Subtitle | null
+    }
+
+    export interface SetupPassphraseRequest {
+        passphrase: string
+        deviceId: string
+        deviceType: "ios" | "tvos" | "android" | "web"
+        deviceName?: string
+        deviceModel?: string
     }
 
     export interface SimpleUser {
@@ -1675,6 +1943,15 @@ export namespace endpoints {
         "encrypted_config": string
         "config_iv": string
         "is_active": boolean
+        "created_at": string
+    }
+
+    export interface SubscriptionRow {
+        id: string
+        "user_id": string
+        "subscription_tier": string
+        "subscription_status": string
+        "device_slots": number
         "created_at": string
     }
 
@@ -1734,6 +2011,10 @@ export namespace endpoints {
         totalDurationSeconds?: number | null
         isFavorite?: boolean | null
     }
+
+    export interface UpgradeEncryptionRequest {
+        passphrase: string
+    }
 }
 
 export namespace subtitles {
@@ -1770,6 +2051,22 @@ export namespace subtitles {
             "hearing_impaired": number
             "visual_impaired": number
         }
+    }
+
+    export interface Subtitle {
+        id: string
+        "language_code": string
+        "language_name": string
+        content: string
+        source?: string
+    }
+
+    export interface Subtitle {
+        id: string
+        "language_code": string
+        "language_name": string
+        content: string
+        source?: string
     }
 
     export interface SubtitleLanguage {
@@ -2058,7 +2355,9 @@ class BaseClient {
             const data: CallParameters = {};
 
             data.headers = makeRecord<string, string>({
-                cookie: authData.cookie,
+                cookie:         authData.cookie,
+                "x-device-id":  authData.deviceId,
+                "x-passphrase": authData.passphrase,
             });
 
             return data;

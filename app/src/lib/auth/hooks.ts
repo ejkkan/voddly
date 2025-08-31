@@ -74,11 +74,11 @@ export function useSignOut() {
             session.data.user.id
           );
 
-          // Get the account ID for this user first
-          const accounts = await apiClient.user.getAccounts();
-          console.log('[LOGOUT] Found accounts:', accounts);
+          // Get the subscription ID for this user first
+          const subscriptions = await apiClient.user.getSubscriptions();
+          console.log('[LOGOUT] Found subscriptions:', subscriptions);
 
-          accountId = accounts.accounts?.[0]?.id;
+          accountId = subscriptions.subscriptions?.[0]?.id;
           console.log('[LOGOUT] Using account ID:', accountId);
         } catch (error) {
           console.error(

@@ -24,6 +24,11 @@ export const auth: any = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
+    // Allow additional fields to be passed through
+    sendResetPassword: async (user: any, url: string) => {
+      console.log('[Auth] Password reset requested for:', user.email);
+      // Implement email sending here if needed
+    },
   },
   trustedOrigins: [
     'http://localhost:3000',
@@ -69,6 +74,9 @@ export const auth: any = betterAuth({
             email: user.email,
           });
 
+          // Note: Passphrase and device info will be handled separately
+          // after signup completes on the frontend
+
           // Create Stripe customer after user creation
           // This will be handled by the webhooks service via API call
           try {
@@ -82,16 +90,17 @@ export const auth: any = betterAuth({
           }
 
           // Create Netflix-style account and default profile for new user
+          let accountId: string | null = null;
           try {
-            const accountId = crypto.randomUUID();
+            accountId = crypto.randomUUID();
             const profileId = crypto.randomUUID();
 
-            // Create account (1:1 with user)
+            // Create account (1:1 with user) with default device slots
             await userDB.exec`
-              INSERT INTO accounts (id, user_id, name, subscription_tier, subscription_status)
+              INSERT INTO accounts (id, user_id, name, subscription_tier, subscription_status, device_slots)
               VALUES (${accountId}, ${user.id}, ${
               user.name + "'s Account"
-            }, 'basic', 'active')
+            }, 'basic', 'active', 3)
               ON CONFLICT (user_id) DO NOTHING
             `;
 
@@ -106,6 +115,7 @@ export const auth: any = betterAuth({
               accountId: accountId,
               profileId: profileId,
             });
+            // Encryption will be handled in the router after signup completes
           } catch (error) {
             console.error(
               '[AUTH-HOOK] Failed to create account/profile:',

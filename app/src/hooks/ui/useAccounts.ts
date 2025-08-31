@@ -4,23 +4,47 @@ import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';
 
-type AccountsResponse = Awaited<ReturnType<typeof apiClient.user.getAccounts>>;
+type SubscriptionResponse = Awaited<ReturnType<typeof apiClient.user.getSubscription>>;
 
-export function useAccounts() {
-  return useQuery<AccountsResponse>({
-    queryKey: ['accounts', 'list'],
-    queryFn: () => apiClient.user.getAccounts(),
-    staleTime: 60_000,
+// Centralized hook for subscription data - all other hooks should use this
+export function useSubscriptionData() {
+  return useQuery<SubscriptionResponse>({
+    queryKey: ['subscription', 'data'],
+    queryFn: () => apiClient.user.getSubscription(),
+    // Accounts don't change often, so cache aggressively
+    staleTime: 30 * 60 * 1000, // 30 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 }
 
-export function useActiveAccountId(): {
-  accountId?: string;
+// Hook for getting the active subscription ID
+export function useActiveSubscriptionId(): {
+  subscriptionId?: string;
   isLoading: boolean;
   isError: boolean;
 } {
-  const { data, isLoading, isError } = useAccounts();
-  const accountId =
-    (data?.accounts?.[0]?.id as string | undefined) ?? undefined;
-  return { accountId, isLoading, isError };
+  const { data, isLoading, isError } = useSubscriptionData();
+  const subscriptionId = data?.subscription?.id ?? undefined;
+  return { subscriptionId, isLoading, isError };
+}
+
+// Legacy hooks for backward compatibility
+export function useActiveAccountId() {
+  const { subscriptionId, ...rest } = useActiveSubscriptionId();
+  return { accountId: subscriptionId, ...rest };
+}
+
+export function useAccounts() {
+  const { data, ...rest } = useSubscriptionData();
+  // Transform to match old format
+  return {
+    data: data?.subscription ? { accounts: [data.subscription] } : { accounts: [] },
+    ...rest,
+  };
+}
+
+export function useAccountsData() {
+  return useAccounts();
 }

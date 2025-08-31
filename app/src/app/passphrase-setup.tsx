@@ -14,6 +14,8 @@ import { Shield } from '@/components/ui/icons/shield';
 import { Input } from '@/components/ui/input';
 import { apiClient } from '@/lib/api-client';
 import { useSession } from '@/lib/auth/hooks';
+import { DeviceManager } from '@/lib/device-manager';
+import { secureSession } from '@/lib/secure-session';
 
 export default function PassphraseSetup() {
   const router = useRouter();
@@ -40,20 +42,75 @@ export default function PassphraseSetup() {
     setIsSubmitting(true);
 
     try {
+      // Store passphrase securely for future use
+      await secureSession.setPassphrase(passphrase);
+      
+      // Get device info for registration
+      const deviceManager = DeviceManager.getInstance();
+      const deviceInfo = await deviceManager.getDeviceInfo();
+
       // Check if user has an account
-      const { account } = await apiClient.user.getAccount();
+      const { subscription: account } = await apiClient.user.getSubscription();
 
       if (!account) {
         // For new users, we need to create an account first
         // Let's create a minimal account just to set up encryption
         // The user will add sources later through the playlists page
-        await apiClient.user.initializeNewAccount({
-          accountName: `${session?.data?.user?.name || 'User'}'s Account`,
+        const result = await apiClient.user.initializeSubscription({
           passphrase,
         });
+
+        // Register device after account creation
+        if (result.subscriptionId) {
+          try {
+            await apiClient.user.registerDevice({
+              accountId: result.subscriptionId,
+              deviceId: deviceInfo.deviceId,
+              deviceType: deviceInfo.deviceType,
+              deviceName: deviceInfo.deviceName,
+              deviceModel: deviceInfo.deviceModel,
+              passphrase,
+            });
+            console.log('[PassphraseSetup] Device registered successfully');
+            // Mark device as registered for this account
+            await secureSession.setDeviceRegistered(true, result.subscriptionId);
+          } catch (err) {
+            console.log('[PassphraseSetup] Device registration failed:', err);
+            // Continue anyway - device can be registered later
+          }
+        }
       } else {
-        // Initialize encryption for existing account
-        await apiClient.user.initializeAccountEncryption({ passphrase });
+        // Account exists - either initialize encryption or register device
+        try {
+          // Use the new one-time setup endpoint
+          await apiClient.user.setupPassphrase({
+            passphrase,
+            deviceId: deviceInfo.deviceId,
+            deviceType: deviceInfo.deviceType,
+            deviceName: deviceInfo.deviceName,
+            deviceModel: deviceInfo.deviceModel,
+          });
+          console.log('[PassphraseSetup] Passphrase and device setup complete');
+          // Mark device as registered for this account
+          await secureSession.setDeviceRegistered(true, account.id);
+        } catch (error: any) {
+          // If it fails, it might be because passphrase was already set
+          if (error?.message?.includes('already')) {
+            console.log('[PassphraseSetup] Passphrase already set, trying to register device');
+            // Try to just register the device
+            await apiClient.user.registerDevice({
+              accountId: account.id,
+              deviceId: deviceInfo.deviceId,
+              deviceType: deviceInfo.deviceType,
+              deviceName: deviceInfo.deviceName,
+              deviceModel: deviceInfo.deviceModel,
+              passphrase,
+            });
+            await secureSession.setDeviceRegistered(true, account.id);
+          } else {
+            throw error;
+          }
+        }
       }
 
       // Navigate to main app
@@ -68,13 +125,12 @@ export default function PassphraseSetup() {
       ) {
         try {
           // Check if user has an account again
-          const { account } = await apiClient.user.getAccount();
+          const { subscription: account } = await apiClient.user.getSubscription();
 
           if (!account) {
             // Use the existing createAccount with dummy data
             // This is a temporary source that can be removed later
-            await apiClient.user.createAccount({
-              accountName: `${session?.data?.user?.name || 'User'}'s Account`,
+            await apiClient.user.createSubscription({
               sourceName: 'Setup',
               providerType: 'xtream',
               credentials: {
@@ -85,7 +141,17 @@ export default function PassphraseSetup() {
               passphrase,
             });
           } else {
-            await apiClient.user.initializeAccountEncryption({ passphrase });
+            // Get device info for registration (if not already done)
+            const deviceManager = DeviceManager.getInstance();
+            const deviceInfo = await deviceManager.getDeviceInfo();
+
+            await apiClient.user.initializeSubscriptionEncryption({
+              passphrase,
+              deviceId: deviceInfo.deviceId,
+              deviceType: deviceInfo.deviceType,
+              deviceName: deviceInfo.deviceName,
+              deviceModel: deviceInfo.deviceModel,
+            });
           }
 
           router.replace('/(app)');

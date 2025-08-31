@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React from 'react';
 import { hideMessage, showMessage } from 'react-native-flash-message';
 
+import { useAccountsData } from '@/hooks/ui/useAccounts';
 import { apiClient } from '@/lib/api-client';
 import { MobileCatalogStorage } from '@/lib/catalog-storage';
 import { getIptvClient } from '@/lib/iptv/get-client';
@@ -12,49 +13,51 @@ import { notify, toast } from '@/lib/toast';
 
 export type SourceSummary = { id: string; name: string; provider_type: string };
 
+// Centralized hook for sources data - all other hooks should use this
+export function useSourcesData() {
+  const { data: accountsData, isLoading: accountsLoading } = useAccountsData();
+
+  return useQuery({
+    queryKey: ['sources', 'data'],
+    queryFn: async () => {
+      const tKey = '[sources] getSources';
+      if (__DEV__) console.time(`${tKey}`);
+
+      try {
+        // Use the more efficient getSources endpoint (no longer includes keyData for security)
+        const response = await apiClient.user.getSources({});
+        if (__DEV__) console.log('[sources] Got sources response:', response);
+
+        const first = accountsData?.accounts?.[0];
+        return {
+          accountId: first?.id || null,
+          sources: response.sources || [],
+        };
+      } catch (error) {
+        if (__DEV__) console.error('[sources] Error fetching sources:', error);
+        return {
+          accountId: null,
+          sources: [],
+        };
+      } finally {
+        if (__DEV__) console.timeEnd(`${tKey}`);
+      }
+    },
+    // Only run when we have accounts data
+    enabled: !!accountsData && !accountsLoading,
+    // Add better caching - sources don't change often
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
+}
+
+// Main hook that provides sources data and reload functionality
 export function useSources() {
   const queryClient = useQueryClient();
   const [reloadingId, setReloadingId] = React.useState<string | null>(null);
-
-  const sourcesQuery = useQuery({
-    queryKey: ['sources'],
-    queryFn: async () => {
-      const tKey = '[sources] accounts+sources';
-      if (__DEV__) console.time(`${tKey} getAccounts`);
-      const accounts = await apiClient.user.getAccounts().finally(() => {
-        if (__DEV__) console.timeEnd(`${tKey} getAccounts`);
-      });
-      const first = accounts.accounts?.[0];
-      if (!first)
-        return {
-          accountId: null as string | null,
-          sources: [] as SourceSummary[],
-        };
-      if (__DEV__) console.time(`${tKey} getSources`);
-      const { sources } = await apiClient.user.getSources().finally(() => {
-        if (__DEV__) console.timeEnd(`${tKey} getSources`);
-      });
-
-      // Synchronize local sources with backend sources
-      // REMOVED: This was causing database clearing issues
-      // if (first && sources) {
-      //   try {
-      //     await syncSourcesWithBackend(
-      //       first.id,
-      //       sources.map((s) => ({
-      //         id: s.id,
-      //         name: s.name,
-      //         kind: s.provider_type,
-      //       }))
-      //     );
-      //   } catch (error) {
-      //     console.warn('Failed to sync sources with backend:', error);
-      //   }
-      // }
-
-      return { accountId: first.id as string, sources: sources || [] };
-    },
-  });
+  const sourcesQuery = useSourcesData();
 
   // Store loading toast IDs for cleanup
   const loadingToastIdRef = React.useRef<string | null>(null);
@@ -75,7 +78,14 @@ export function useSources() {
     mutationFn: async ({ sourceId }: { sourceId: string }) => {
       const accountId = sourcesQuery.data?.accountId;
       if (!accountId) throw new Error('No account');
-      const { sources, keyData } = await apiClient.user.getSources();
+      let sources;
+      try {
+        const response = await apiClient.user.getSources({});
+        sources = response.sources;
+      } catch (error) {
+        if (__DEV__) console.error('[reload] Error fetching sources:', error);
+        throw error;
+      }
       const src = (sources || []).find((s) => s.id === sourceId);
       if (!src) throw new Error('Source not found');
       const provider = (src.provider_type || '').toLowerCase();
@@ -109,22 +119,8 @@ export function useSources() {
           server: creds.server,
           username: creds.username,
           password: creds.password,
-        })
-          .getCatalog()
-          .finally(() => {
-            if (__DEV__) console.timeEnd(`${tKey} getCatalog`);
-          });
-        if (__DEV__)
-          console.log('[reload] xtream fetched', {
-            cats: data.categories.length,
-            movies: data.movies.length,
-            series: data.series.length,
-            channels: data.channels.length,
-            sampleCats: data.categories.slice(0, 3),
-            sampleMovies: data.movies.slice(0, 3),
-            sampleSeries: data.series.slice(0, 3),
-            sampleChannels: data.channels.slice(0, 3),
-          });
+        }).getCatalog();
+
         await storage.storeSourceCatalog(
           accountId,
           sourceId,

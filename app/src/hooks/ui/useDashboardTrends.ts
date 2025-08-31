@@ -273,7 +273,17 @@ async function enhanceTrendsResponse(
   };
 }
 
-export function useDashboardTrends(): UseDashboardTrendsResult {
+/**
+ * Hook to fetch dashboard trends with optional enabled flag
+ *
+ * @example
+ * // Only fetch trends when on dashboard route
+ * const { movies, series, isLoading } = useDashboardTrends(useIsDashboardRoute());
+ *
+ * @param enabled - Whether the trends queries should be enabled (default: true)
+ * @returns Object containing movie trends, series trends, loading state, and errors
+ */
+export function useDashboardTrends(enabled = true): UseDashboardTrendsResult {
   // Movie feeds
   const movieQueries = useQueries({
     queries: DASHBOARD_TREND_FEEDS.map((feed) => ({
@@ -286,6 +296,7 @@ export function useDashboardTrends(): UseDashboardTrendsResult {
         });
         return enhanceTrendsResponse(response, 'movie');
       },
+      enabled,
       ...createQueryOptions('MEDIUM_LIVED'),
     })),
   });
@@ -302,23 +313,30 @@ export function useDashboardTrends(): UseDashboardTrendsResult {
         });
         return enhanceTrendsResponse(response, 'tv');
       },
+      enabled,
       ...createQueryOptions('MEDIUM_LIVED'),
     })),
   });
 
   const movies = movieQueries.reduce<
     Partial<Record<TrendFeed, TrendsFeedResponse | null>>
-  >((acc, q, idx) => {
-    acc[DASHBOARD_TREND_FEEDS[idx]] = q.data || null;
-    return acc;
-  }, {});
+  >(
+    (acc, q, idx) => {
+      acc[DASHBOARD_TREND_FEEDS[idx]] = q.data ?? null;
+      return acc;
+    },
+    {} as Partial<Record<TrendFeed, TrendsFeedResponse | null>>
+  );
 
   const series = seriesQueries.reduce<
     Partial<Record<TrendFeed, TrendsFeedResponse | null>>
-  >((acc, q, idx) => {
-    acc[DASHBOARD_TREND_FEEDS[idx]] = q.data || null;
-    return acc;
-  }, {});
+  >(
+    (acc, q, idx) => {
+      acc[DASHBOARD_TREND_FEEDS[idx]] = q.data ?? null;
+      return acc;
+    },
+    {} as Partial<Record<TrendFeed, TrendsFeedResponse | null>>
+  );
 
   const isLoading =
     movieQueries.some((q) => q.isLoading) ||

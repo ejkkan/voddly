@@ -1,5 +1,5 @@
 /* eslint-disable simple-import-sort/imports */
-/* eslint-disable max-lines-per-function */
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 
@@ -8,6 +8,7 @@ import { PosterCard } from '@/components/media/poster-card';
 import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
 import { useUiSections, useFavoriteManager } from '@/hooks/ui';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
+import { useIsMoviesRoute } from '@/hooks/ui/useRouteActive';
 
 type Section = {
   categoryId?: string;
@@ -23,6 +24,7 @@ type Section = {
 export default function VODs() {
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavoriteManager();
+  const isMovies = useIsMoviesRoute();
   const [sections, setSections] = useState<Section[]>([]);
   const [catOffset, setCatOffset] = useState(0);
   const [loadingCats, setLoadingCats] = useState(false);
@@ -33,10 +35,12 @@ export default function VODs() {
     limitPerCategory: 2,
     maxCategories: 4,
     categoryOffset: 1,
+    enabled: isMovies, // Only run query when isMovies is true
   });
 
   useEffect(() => {
-    if (sectionsQuery.isPending || sectionsQuery.isError) return;
+    // Only run this effect when isMovies is true
+    if (!isMovies || sectionsQuery.isPending || sectionsQuery.isError) return;
     const cats = sectionsQuery.data || [];
     const mapped: Section[] = cats.map((c) => ({
       categoryId: c.categoryId,
@@ -51,10 +55,16 @@ export default function VODs() {
     setSections(mapped);
     setCatOffset(mapped.length);
     setInitialLoaded(true);
-  }, [sectionsQuery.isPending, sectionsQuery.isError, sectionsQuery.data]);
+  }, [
+    isMovies,
+    sectionsQuery.isPending,
+    sectionsQuery.isError,
+    sectionsQuery.data,
+  ]);
 
   const loadMoreCategories = useCallback(async () => {
-    if (loadingCats || !initialLoaded) return;
+    // Only run when isMovies is true
+    if (!isMovies || loadingCats || !initialLoaded) return;
     setLoadingCats(true);
     try {
       const cats = await fetchCategoriesWithPreviews('movie', 20, 5, catOffset);
@@ -76,11 +86,12 @@ export default function VODs() {
     } finally {
       setLoadingCats(false);
     }
-  }, [loadingCats, initialLoaded, catOffset]);
+  }, [isMovies, loadingCats, initialLoaded, catOffset]);
 
   const handleLoadMoreRow = useCallback(
     async (categoryId?: string) => {
-      if (!categoryId) return;
+      // Only run when isMovies is true
+      if (!isMovies || !categoryId) return;
       if (loadingRowsRef.current[categoryId]) return;
       loadingRowsRef.current[categoryId] = true;
       try {
@@ -117,7 +128,7 @@ export default function VODs() {
         loadingRowsRef.current[categoryId] = false;
       }
     },
-    [sections]
+    [isMovies, sections]
   );
 
   return (
@@ -153,7 +164,7 @@ export default function VODs() {
         ListHeaderComponent={
           <View className="px-6 py-4">
             <Text className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
-              VODs
+              Moviess
             </Text>
           </View>
         }

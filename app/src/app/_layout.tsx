@@ -20,6 +20,7 @@ import { PassphraseProvider } from '@/components/passphrase/PassphraseProvider';
 import { loadSelectedTheme } from '@/lib';
 import { AppToasterHost } from '@/lib';
 import { DbProvider } from '@/lib/db/provider';
+import { queryErrorHandler } from '@/lib/device-error-handler';
 import { useThemeConfig } from '@/lib/use-theme-config';
 
 // Install atob shim as early as possible on web to handle URL-safe base64 and missing padding
@@ -74,10 +75,12 @@ const queryClient = new QueryClient({
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
+      onError: queryErrorHandler,
     },
     mutations: {
       retry: 1,
       retryDelay: 1000,
+      onError: queryErrorHandler,
     },
   },
 });

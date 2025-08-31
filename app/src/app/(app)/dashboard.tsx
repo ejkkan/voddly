@@ -14,6 +14,7 @@ import {
   getLocalItemData,
   useDashboardTrends,
 } from '@/hooks/ui/useDashboardTrends';
+import { useIsDashboardRoute } from '@/hooks/ui/useRouteActive';
 
 import { CarouselRow } from '../../components/media/carousel-row';
 import Hero from '../../components/media/hero';
@@ -38,11 +39,14 @@ export default function Dashboard() {
     const movieData = await getLocalItemData(id, 'movie');
 
     if (movieData) {
-      console.log('📽️ Local movie data:', movieData);
+      console.log('📽️ Local movie data:', JSON.stringify(movieData, null, 2));
       // Parse original payload if it's JSON
       try {
         const payload = JSON.parse(movieData.original_payload_json);
-        console.log('🎭 Original movie payload:', payload);
+        console.log(
+          '🎭 Original movie payload:',
+          JSON.stringify(payload, null, 2)
+        );
       } catch {
         console.log('📄 Raw movie payload:', movieData.original_payload_json);
       }
@@ -85,18 +89,12 @@ export default function Dashboard() {
     }
   };
 
-  const dashboard = useDashboardPreviews(10);
-  const trends = useDashboardTrends();
+  // Track route focus to conditionally enable trends and content
 
-  // Log trends data whenever it changes
-  useEffect(() => {
-    console.log('Dashboard - Trends data keys:', {
-      movieFeeds: Object.keys(trends.movies || {}),
-      seriesFeeds: Object.keys(trends.series || {}),
-      isLoading: trends.isLoading,
-      error: trends.error,
-    });
-  }, [trends.movies, trends.series, trends.isLoading, trends.error]);
+  const isDashboard = useIsDashboardRoute();
+  const dashboard = useDashboardPreviews(10);
+  const trends = useDashboardTrends(isDashboard);
+
   useEffect(() => {
     const res = dashboard.data as DashboardPreviewsResult | undefined;
     if (!res) return;
@@ -220,60 +218,71 @@ export default function Dashboard() {
             );
           })}
 
-          <CarouselRow
-            title="Movies"
-            data={movies}
-            renderItem={(item) => (
-              <PosterCard
-                id={item.id}
-                title={item.title}
-                posterUrl={item.imageUrl}
-                onPress={(id) =>
-                  router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
-                }
-                onLongPress={handleMovieLongPress}
-                isFavorite={isFavorite(item.id)}
-                onToggleFavorite={() => toggleFavorite(item.id)}
-                hasProfile={hasProfile}
+          {/* Only render content sections when on dashboard route */}
+          {isDashboard && (
+            <>
+              <CarouselRow
+                title="Movies"
+                data={movies}
+                renderItem={(item) => (
+                  <PosterCard
+                    id={item.id}
+                    title={item.title}
+                    posterUrl={item.imageUrl}
+                    onPress={(id) =>
+                      router.push(
+                        `/(app)/movies/${encodeURIComponent(String(id))}`
+                      )
+                    }
+                    onLongPress={handleMovieLongPress}
+                    isFavorite={isFavorite(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    hasProfile={hasProfile}
+                  />
+                )}
               />
-            )}
-          />
-          <CarouselRow
-            title="Series"
-            data={series}
-            renderItem={(item) => (
-              <PosterCard
-                id={item.id}
-                title={item.title}
-                posterUrl={item.imageUrl}
-                onPress={(id) =>
-                  router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
-                }
-                onLongPress={handleSeriesLongPress}
-                isFavorite={isFavorite(item.id)}
-                onToggleFavorite={() => toggleFavorite(item.id)}
-                hasProfile={hasProfile}
+              <CarouselRow
+                title="Series"
+                data={series}
+                renderItem={(item) => (
+                  <PosterCard
+                    id={item.id}
+                    title={item.title}
+                    posterUrl={item.imageUrl}
+                    onPress={(id) =>
+                      router.push(
+                        `/(app)/series/${encodeURIComponent(String(id))}`
+                      )
+                    }
+                    onLongPress={handleSeriesLongPress}
+                    isFavorite={isFavorite(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    hasProfile={hasProfile}
+                  />
+                )}
               />
-            )}
-          />
-          <CarouselRow
-            title="Live"
-            data={live}
-            renderItem={(item) => (
-              <PosterCard
-                id={item.id}
-                title={item.title}
-                posterUrl={item.imageUrl}
-                onPress={(id) =>
-                  router.push(`/(app)/live/${encodeURIComponent(String(id))}`)
-                }
-                onLongPress={handleLiveLongPress}
-                isFavorite={isFavorite(item.id)}
-                onToggleFavorite={() => toggleFavorite(item.id)}
-                hasProfile={hasProfile}
+              <CarouselRow
+                title="Live"
+                data={live}
+                renderItem={(item) => (
+                  <PosterCard
+                    id={item.id}
+                    title={item.title}
+                    posterUrl={item.imageUrl}
+                    onPress={(id) =>
+                      router.push(
+                        `/(app)/live/${encodeURIComponent(String(id))}`
+                      )
+                    }
+                    onLongPress={handleLiveLongPress}
+                    isFavorite={isFavorite(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    hasProfile={hasProfile}
+                  />
+                )}
               />
-            )}
-          />
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

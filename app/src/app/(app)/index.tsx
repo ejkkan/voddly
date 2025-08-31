@@ -1,6 +1,7 @@
-import { Redirect } from 'expo-router';
 import React from 'react';
 
+import Dashboard from './dashboard';
+
 export default function AppIndex() {
-  return <Redirect href="/(app)/dashboard" />;
+  return <Dashboard />;
 }

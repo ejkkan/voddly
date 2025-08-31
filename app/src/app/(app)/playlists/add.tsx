@@ -1,7 +1,7 @@
 import { Redirect, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Platform } from 'react-native';
 
+import { usePassphraseUI } from '@/components/passphrase/PassphraseProvider';
 import {
   Pressable,
   SafeAreaView,
@@ -19,6 +19,7 @@ import { XtreamClient } from '@/lib/xtream-client';
 export default function AddPlaylist() {
   const router = useRouter();
   const { data: session } = useSession();
+  const { requestPassphrase } = usePassphraseUI();
   const [mode, setMode] = useState<'xtream' | 'm3u'>('xtream');
   const [accountName, setAccountName] = useState('My Account');
   const [sourceName, setSourceName] = useState('Living Room');
@@ -26,7 +27,6 @@ export default function AddPlaylist() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [m3uUrl, setM3uUrl] = useState('');
-  const [passphrase, setPassphrase] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [existingAccount, setExistingAccount] = useState<string | null>(null);
   const [isFirstTime, setIsFirstTime] = useState(false);
@@ -35,10 +35,10 @@ export default function AddPlaylist() {
     // Check if user already has an account
     if (session?.data?.user) {
       apiClient.user
-        .getAccount()
+        .getSubscription()
         .then((res) => {
-          if (res.account) {
-            setExistingAccount(res.account.id);
+          if (res.subscription) {
+            setExistingAccount(res.subscription.id);
           } else {
             setIsFirstTime(true);
           }
@@ -57,11 +57,9 @@ export default function AddPlaylist() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      if (passphrase.length < 6)
-        throw new Error('Passphrase must be at least 6 characters');
-
       let sourceId: string;
       let accountId: string;
+      let passphrase: string = '';
 
       if (mode === 'xtream') {
         if (!serverUrl || !username || !password)
@@ -70,24 +68,47 @@ export default function AddPlaylist() {
         if (existingAccount) {
           // User already has an account, add source to it
           try {
+            // Try first without passphrase in case we have a valid session
             const res = await apiClient.user.addSource({
               name: sourceName,
               providerType: 'xtream',
               credentials: { server: serverUrl, username, password },
-              passphrase,
+              passphrase: '',
             });
             sourceId = res.sourceId;
             accountId = existingAccount;
           } catch (error: any) {
-            // If encryption not set up, initialize it first
+            // If we need a passphrase, prompt for it
             if (
               error?.details?.internal_message?.includes(
                 'Account encryption not set up'
               ) ||
-              error?.message?.includes('Account encryption not set up')
+              error?.message?.includes('Account encryption not set up') ||
+              error?.message?.includes('Passphrase must be at least') ||
+              error?.message?.includes('passphrase') ||
+              error?.message?.includes('decrypt')
             ) {
-              await apiClient.user.initializeAccountEncryption({ passphrase });
-              // Retry adding source
+              // Request passphrase from user
+              passphrase = await requestPassphrase({
+                accountId: existingAccount,
+                title: 'Add New Source',
+                message:
+                  'Enter your passphrase to add this source to your account',
+              });
+
+              // Check if encryption needs to be initialized
+              if (
+                error?.details?.internal_message?.includes(
+                  'Account encryption not set up'
+                ) ||
+                error?.message?.includes('Account encryption not set up')
+              ) {
+                await apiClient.user.initializeAccountEncryption({
+                  passphrase,
+                });
+              }
+
+              // Retry adding source with passphrase
               const res = await apiClient.user.addSource({
                 name: sourceName,
                 providerType: 'xtream',
@@ -102,6 +123,14 @@ export default function AddPlaylist() {
           }
         } else {
           // First time user, create account with initial source
+          // Request passphrase for new account
+          passphrase = await requestPassphrase({
+            accountId: 'new',
+            title: 'Create New Account',
+            message:
+              'Create a passphrase to secure your account (minimum 6 characters)',
+          });
+
           const res = await apiClient.user.createAccount({
             accountName,
             sourceName,
@@ -113,8 +142,10 @@ export default function AddPlaylist() {
           accountId = res.accountId;
         }
 
-        // Cache passphrase for this account for 5 minutes
-        passphraseCache.set(accountId, passphrase);
+        // Cache passphrase for this account for 5 minutes if we have one
+        if (passphrase) {
+          passphraseCache.set(accountId, passphrase);
+        }
         // Directly fetch catalog from source and store locally
         const client = new XtreamClient({
           server: serverUrl,
@@ -168,24 +199,47 @@ export default function AddPlaylist() {
         if (existingAccount) {
           // User already has an account, add source to it
           try {
+            // Try first without passphrase in case we have a valid session
             const res = await apiClient.user.addSource({
               name: sourceName,
               providerType: 'm3u',
               credentials: { server: m3uUrl, username: '-', password: '-' },
-              passphrase,
+              passphrase: '',
             });
             sourceId = res.sourceId;
             accountId = existingAccount;
           } catch (error: any) {
-            // If encryption not set up, initialize it first
+            // If we need a passphrase, prompt for it
             if (
               error?.details?.internal_message?.includes(
                 'Account encryption not set up'
               ) ||
-              error?.message?.includes('Account encryption not set up')
+              error?.message?.includes('Account encryption not set up') ||
+              error?.message?.includes('Passphrase must be at least') ||
+              error?.message?.includes('passphrase') ||
+              error?.message?.includes('decrypt')
             ) {
-              await apiClient.user.initializeAccountEncryption({ passphrase });
-              // Retry adding source
+              // Request passphrase from user
+              passphrase = await requestPassphrase({
+                accountId: existingAccount,
+                title: 'Add New Source',
+                message:
+                  'Enter your passphrase to add this source to your account',
+              });
+
+              // Check if encryption needs to be initialized
+              if (
+                error?.details?.internal_message?.includes(
+                  'Account encryption not set up'
+                ) ||
+                error?.message?.includes('Account encryption not set up')
+              ) {
+                await apiClient.user.initializeAccountEncryption({
+                  passphrase,
+                });
+              }
+
+              // Retry adding source with passphrase
               const res = await apiClient.user.addSource({
                 name: sourceName,
                 providerType: 'm3u',
@@ -200,6 +254,14 @@ export default function AddPlaylist() {
           }
         } else {
           // First time user, create account with initial source
+          // Request passphrase for new account
+          passphrase = await requestPassphrase({
+            accountId: 'new',
+            title: 'Create New Account',
+            message:
+              'Create a passphrase to secure your account (minimum 6 characters)',
+          });
+
           const res = await apiClient.user.createAccount({
             accountName,
             sourceName,
@@ -211,7 +273,10 @@ export default function AddPlaylist() {
           accountId = res.accountId;
         }
 
-        passphraseCache.set(accountId, passphrase);
+        // Cache passphrase if we have one
+        if (passphrase) {
+          passphraseCache.set(accountId, passphrase);
+        }
         // Minimal M3U fetch: download playlist text and parse basic lines
         const cleaned = m3uUrl.endsWith('/') ? m3uUrl.slice(0, -1) : m3uUrl;
         const url = cleaned.includes('m3u')
@@ -329,20 +394,6 @@ export default function AddPlaylist() {
             </>
           ) : (
             <Input label="M3U URL" value={m3uUrl} onChangeText={setM3uUrl} />
-          )}
-
-          <Input
-            label="Passphrase"
-            value={passphrase}
-            onChangeText={setPassphrase}
-            secureTextEntry
-          />
-
-          {Platform.OS !== 'web' && (
-            <Text className="text-sm text-neutral-600 dark:text-neutral-400">
-              Encryption is fully supported. Passphrase will be cached for 5
-              minutes.
-            </Text>
           )}
 
           <Pressable

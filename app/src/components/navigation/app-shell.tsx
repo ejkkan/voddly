@@ -8,7 +8,7 @@ import { ProfileSelector } from './profile-selector';
 type AppHref =
   | '/(app)/dashboard'
   | '/(app)/search'
-  | '/(app)/vods'
+  | '/(app)/movies'
   | '/(app)/series'
   | '/(app)/live'
   | '/(app)/playlists'
@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/(app)/dashboard' },
   { label: 'Search', href: '/(app)/search' },
   { label: 'Series', href: '/(app)/series' },
-  { label: 'VODs', href: '/(app)/vods' },
+  { label: 'Movies', href: '/(app)/movies' },
   { label: 'Live', href: '/(app)/live' },
   { label: 'Playlists', href: '/(app)/playlists' },
   { label: 'Profiles', href: '/(app)/profiles' },

@@ -1,10 +1,14 @@
 import { APIError, Header } from 'encore.dev/api';
 import { authHandler } from 'encore.dev/auth';
+import log from 'encore.dev/log';
 import { userDB } from '../user/db';
+import { checkDeviceStatus } from '../user/lib/device-management';
 
-// Update AuthParams to include the Cookie header
+// Update AuthParams to include the Cookie header, Device ID, and optional Passphrase
 interface AuthParams {
   cookie: Header<'Cookie'>;
+  deviceId?: Header<'x-device-id'>;
+  passphrase?: Header<'x-passphrase'>;
 }
 
 // AuthData now includes full user information for use in endpoints
@@ -15,6 +19,9 @@ interface AuthData {
   emailVerified: boolean;
   role: string;
   stripeCustomerId: string | null;
+  accountId?: string;
+  deviceId?: string;
+  passphrase?: string;
 }
 
 // Authentication handler implementation
@@ -74,7 +81,7 @@ export const handler = authHandler<AuthParams, AuthData>(async (params) => {
     }
 
     // Get full user information from our user table (stripeCustomerId now in accounts table)
-    console.log('🔍 Looking for user with ID:', sessionData.userId);
+    log.debug('Looking for user', { userId: sessionData.userId });
 
     const user = await userDB.queryRow<{
       id: string;
@@ -92,14 +99,78 @@ export const handler = authHandler<AuthParams, AuthData>(async (params) => {
         u.role,
         a.stripe_customer_id as "stripeCustomerId"
       FROM "user" u
-      LEFT JOIN accounts a ON a.user_id = u.id
+      LEFT JOIN user_subscription a ON a.user_id = u.id
       WHERE u.id = ${sessionData.userId}
     `;
 
-    console.log('🔍 User query result:', user);
+    log.debug('User query result', { user });
 
     if (!user) {
       throw APIError.unauthenticated('User not found');
+    }
+
+    // Get the user's account ID
+    const account = await userDB.queryRow<{ id: string }>`
+      SELECT id FROM user_subscription WHERE user_id = ${user.id}
+    `;
+
+    let accountId: string | undefined;
+    let deviceId: string | undefined;
+    let passphrase: string | undefined;
+
+    // Only validate device if we have an account and device ID
+    if (account && params.deviceId) {
+      accountId = account.id;
+      deviceId = params.deviceId;
+      passphrase = params.passphrase;
+
+      log.info('[Auth] Validating device', { deviceId, accountId, hasPassphrase: !!passphrase });
+
+      try {
+        const deviceStatus = await checkDeviceStatus(accountId, deviceId);
+
+        if (deviceStatus.exists) {
+          // Device exists and is now marked as active
+          log.info('[Auth] Device validated and activated', { deviceId });
+        } else if (deviceStatus.canRegister) {
+          // Device can be registered
+          if (passphrase) {
+            // Auto-register the device since we have the passphrase
+            log.info('[Auth] Auto-registering device with provided passphrase', { 
+              deviceId, 
+              deviceCount: deviceStatus.deviceCount, 
+              maxDevices: deviceStatus.maxDevices 
+            });
+            // Passphrase will be available in AuthData for middleware to use
+          } else {
+            log.info('[Auth] Device not registered but can be registered (no passphrase provided)', { 
+              deviceId, 
+              deviceCount: deviceStatus.deviceCount, 
+              maxDevices: deviceStatus.maxDevices 
+            });
+          }
+        } else {
+          // Device limit exceeded
+          log.error('[Auth] Device limit exceeded', {
+            accountId,
+            deviceCount: deviceStatus.deviceCount,
+            maxDevices: deviceStatus.maxDevices
+          });
+          throw APIError.forbidden(
+            `Device limit exceeded. You have ${deviceStatus.deviceCount} devices registered out of ${deviceStatus.maxDevices} allowed. Please remove a device to continue.`
+          );
+        }
+      } catch (error) {
+        // If it's already an APIError, re-throw it
+        if (error && typeof error === 'object' && 'code' in error) {
+          throw error;
+        }
+        // Otherwise log and continue (backward compatibility)
+        log.error('[Auth] Device validation error', { error });
+      }
+    } else if (account && !params.deviceId) {
+      // We have an account but no device ID - log warning but allow for backward compatibility
+      log.warn('[Auth] No device ID provided', { accountId: account.id });
     }
 
     return {
@@ -109,9 +180,12 @@ export const handler = authHandler<AuthParams, AuthData>(async (params) => {
       emailVerified: user.emailVerified,
       role: user.role || 'user',
       stripeCustomerId: user.stripeCustomerId,
+      accountId,
+      deviceId,
+      passphrase,
     };
   } catch (error) {
-    console.error('Auth handler error:', error);
+    log.error('Auth handler error', { error });
     throw APIError.unauthenticated('Invalid session');
   }
 });

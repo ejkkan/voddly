@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 
-import { SubtitleModal } from '@/components/subtitles';
+import { EnhancedSubtitleModal } from '@/components/subtitles/EnhancedSubtitleModal';
 import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { WebPlayer } from '@/components/video/web-player';
 import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlaybackSource';
@@ -18,6 +18,7 @@ function PlayerContent({
   onSubtitleApplied,
   onPressSubtitles,
   hasSubtitles,
+  onFormatInfoChange,
 }: {
   url?: string;
   contentType?: 'movie' | 'series' | 'live';
@@ -29,6 +30,7 @@ function PlayerContent({
   onSubtitleApplied?: (language: string) => void;
   onPressSubtitles: () => void;
   hasSubtitles: boolean;
+  onFormatInfoChange?: (formatInfo: any) => void;
 }) {
   const router = useRouter();
   return (
@@ -47,6 +49,7 @@ function PlayerContent({
           onSubtitleApplied={onSubtitleApplied}
           externalOnPressSubtitles={onPressSubtitles}
           externalHasSubtitles={hasSubtitles}
+          onFormatInfoChange={onFormatInfoChange}
         />
       )}
     </View>
@@ -72,6 +75,20 @@ export default function Player() {
   const [showSubtitleModal, setShowSubtitleModal] = useState(false);
   const [selectedSubtitleLanguage, setSelectedSubtitleLanguage] =
     useState<string>('');
+  const [formatInfo, setFormatInfo] = useState<any>(null);
+
+  // Debug: Log format info changes
+  React.useEffect(() => {
+    if (formatInfo) {
+      console.log('🎬 Format info updated:', {
+        containerFormat: formatInfo.containerFormat,
+        subtitleTracks: formatInfo.subtitleTracks?.length || 0,
+        audioTracks: formatInfo.audioTracks?.length || 0,
+        hasEmbeddedSubtitles: formatInfo.hasEmbeddedSubtitles,
+        hasMultipleAudioTracks: formatInfo.hasMultipleAudioTracks,
+      });
+    }
+  }, [formatInfo]);
 
   // Get route parameters for subtitle fetching
   const params = useLocalSearchParams();
@@ -143,7 +160,12 @@ export default function Player() {
       selectedSubtitleLanguage={selectedSubtitleLanguage}
       onSubtitleApplied={handleSubtitleApplied}
       onPressSubtitles={() => setShowSubtitleModal(true)}
-      hasSubtitles={availableLanguages.length > 0}
+      hasSubtitles={
+        availableLanguages.length > 0 ||
+        (formatInfo?.hasEmbeddedSubtitles &&
+          formatInfo.subtitleTracks.length > 0)
+      }
+      onFormatInfoChange={setFormatInfo}
     />
   );
 
@@ -153,17 +175,22 @@ export default function Player() {
         <BackBar />
         {body}
 
-
-
-        {/* Subtitle Modal */}
-        <SubtitleModal
+        {/* Enhanced Subtitle Modal */}
+        <EnhancedSubtitleModal
           visible={showSubtitleModal}
           onClose={() => setShowSubtitleModal(false)}
           subtitles={allSubtitles}
+          formatInfo={formatInfo}
           isLoading={subtitlesLoading || selectedSubtitleLoading}
-          onSubtitleSelect={(subtitle) => {
+          onSubtitleSelect={(subtitle: any) => {
             // Apply the selected subtitle to the video
             setSelectedSubtitleLanguage(subtitle.language_code);
+            setShowSubtitleModal(false);
+          }}
+          onEmbeddedTrackSelect={(trackIndex: number) => {
+            // Handle embedded subtitle track selection
+            console.log('Selected embedded subtitle track:', trackIndex);
+            // TODO: Apply embedded subtitle track to video
             setShowSubtitleModal(false);
           }}
         />

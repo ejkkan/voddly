@@ -4,8 +4,9 @@ export * from './getUserById';
 export * from './metadata';
 export * from './updateCurrentUser';
 
-// Account & source management
-export * from './accounts';
+// Subscription & source management
+export * from './subscription';
+export * from './device-auth';
 
 // Profile management (Netflix-style)
 export * from './profiles';
@@ -27,3 +28,9 @@ export * from './playlists';
 
 // Trends proxy
 export * from './trends';
+
+// Passphrase setup (one-time only)
+export * from './setup-passphrase';
+
+// Internal endpoints (not exposed to frontend)
+export * from './internal-encryption';

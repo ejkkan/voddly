@@ -15,7 +15,6 @@ import { getContainerInfoForContent } from '@/lib/container-extension';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
 
-// eslint-disable-next-line max-lines-per-function
 export default function Player() {
   const router = useRouter();
   const params = useLocalSearchParams<{

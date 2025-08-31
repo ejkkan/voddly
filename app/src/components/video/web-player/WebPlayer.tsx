@@ -6,6 +6,8 @@ import { View, Text, Pressable, ActivityIndicator } from '@/components/ui';
 import { notify } from '@/lib';
 import { TopBar } from './components/TopBar';
 import { ControlsBar } from '@/components/video/web-player/components/ControlsBar';
+import { FormatSupportIndicator } from './components/FormatSupportIndicator';
+import { useFormatSupport } from './hooks/useFormatSupport';
 
 let ShakaNS: any = null;
 const STARTUP_PLAY_TIMEOUT_MS = 3500;
@@ -26,6 +28,7 @@ export type WebPlayerProps = {
   onSubtitleApplied?: (language: string) => void;
   externalOnPressSubtitles?: () => void;
   externalHasSubtitles?: boolean;
+  onFormatInfoChange?: (formatInfo: any) => void;
 };
 
 export function WebPlayer(props: WebPlayerProps) {
@@ -64,6 +67,20 @@ export function WebPlayer(props: WebPlayerProps) {
   const rafIdRef = React.useRef<number | null>(null);
   const subtitleTrackRef = React.useRef<HTMLTrackElement | null>(null);
   const subtitleBlobUrlRef = React.useRef<string | null>(null);
+
+  // Format support analysis
+  const {
+    formatInfo,
+    isLoading: formatAnalysisLoading,
+    error: formatError,
+  } = useFormatSupport(url);
+
+  // Notify parent component when format info changes
+  React.useEffect(() => {
+    if (formatInfo && props.onFormatInfoChange) {
+      props.onFormatInfoChange(formatInfo);
+    }
+  }, [formatInfo, props.onFormatInfoChange]);
 
   // Convert SRT to VTT format
   const convertSRTtoVTT = React.useCallback((srtContent: string): string => {
@@ -850,6 +867,22 @@ export function WebPlayer(props: WebPlayerProps) {
       {showControls && (
         <View className="absolute left-0 right-0 top-0">
           <TopBar showBack={showBack} onBack={onBack} title={title} />
+
+          {/* Format Support Indicator */}
+          {formatInfo && (
+            <FormatSupportIndicator
+              formatInfo={formatInfo}
+              onTrackSelect={(type, trackIndex) => {
+                if (type === 'subtitle') {
+                  // Handle subtitle track selection
+                  console.log('Selected subtitle track:', trackIndex);
+                } else if (type === 'audio') {
+                  // Handle audio track selection
+                  console.log('Selected audio track:', trackIndex);
+                }
+              }}
+            />
+          )}
         </View>
       )}
 
@@ -883,6 +916,14 @@ export function WebPlayer(props: WebPlayerProps) {
             onRetry={onRetry}
             onToggleFullscreen={onToggleFullscreen}
             isFullscreen={isFullscreen}
+            // Format support props
+            formatInfo={formatInfo}
+            onPressAudioTracks={() => {
+              // TODO: Show audio track modal
+              console.log('Show audio track selection');
+            }}
+            hasMultipleAudioTracks={formatInfo?.hasMultipleAudioTracks}
+            hasEmbeddedSubtitles={formatInfo?.hasEmbeddedSubtitles}
           />
           {null}
         </View>

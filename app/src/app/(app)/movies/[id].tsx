@@ -62,7 +62,7 @@ export default function MovieDetails() {
       appendToResponse: 'videos,images,credits,external_ids',
     }
   );
-  console.log('metadata', JSON.stringify(metadata, null, 2));
+
   // Extract display-ready metadata
   const displayData = useMemo(
     () => extractDisplayMetadata(metadata),
@@ -190,6 +190,11 @@ export default function MovieDetails() {
       if (!item) return;
       const sourceId = item.source_id;
       const movieId = item.source_item_id;
+      console.log('[MovieDetails] handlePlay called with:', {
+        sourceId,
+        movieId,
+      });
+
       await prepareContentPlayback({
         sourceId,
         contentId: movieId,
@@ -199,6 +204,10 @@ export default function MovieDetails() {
           message: 'Enter your passphrase to play the movie',
         },
       });
+
+      console.log(
+        '[MovieDetails] prepareContentPlayback succeeded, navigating to player'
+      );
       router.push({
         pathname: '/(app)/player',
         params: {
@@ -209,6 +218,7 @@ export default function MovieDetails() {
         },
       });
     } catch (e) {
+      console.error('[MovieDetails] handlePlay error:', e);
       setError(e instanceof Error ? e.message : 'Failed to prepare playback');
     }
   };
@@ -293,7 +303,7 @@ export default function MovieDetails() {
 
                   {displayData?.tagline ? (
                     <Text className="mt-2 italic text-neutral-600 dark:text-neutral-400">
-                      "{displayData.tagline}"
+                      &ldquo;{displayData.tagline}&rdquo;
                     </Text>
                   ) : null}
 
@@ -316,9 +326,11 @@ export default function MovieDetails() {
                       HD
                     </Text>
                     {displayData?.status && (
-                      <Text className="text-neutral-600 dark:text-neutral-400">
-                        {displayData.status}
-                      </Text>
+                      <View className="rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-900">
+                        <Text className="text-xs font-medium text-green-800 dark:text-green-200">
+                          {displayData.status}
+                        </Text>
+                      </View>
                     )}
                   </View>
 
@@ -400,28 +412,59 @@ export default function MovieDetails() {
 
               {/* Ratings Section */}
               <RatingsDisplay
-                tmdbRating={metadata?.vote_average}
-                tmdbVotes={metadata?.vote_count}
+                tmdbRating={
+                  typeof metadata?.vote_average === 'number'
+                    ? metadata.vote_average
+                    : undefined
+                }
+                tmdbVotes={
+                  typeof metadata?.vote_count === 'number'
+                    ? metadata.vote_count
+                    : undefined
+                }
                 imdbRating={
-                  (metadata as EnrichedMetadata)?.enrichment?.imdb_rating
+                  typeof (metadata as EnrichedMetadata)?.enrichment
+                    ?.imdb_rating === 'number'
+                    ? (metadata as EnrichedMetadata)?.enrichment?.imdb_rating
+                    : undefined
                 }
                 imdbVotes={
-                  (metadata as EnrichedMetadata)?.enrichment?.imdb_votes
+                  typeof (metadata as EnrichedMetadata)?.enrichment
+                    ?.imdb_votes === 'number'
+                    ? (metadata as EnrichedMetadata)?.enrichment?.imdb_votes
+                    : undefined
                 }
                 rottenTomatoesRating={
-                  (metadata as EnrichedMetadata)?.enrichment
-                    ?.rotten_tomatoes_rating
+                  typeof (metadata as EnrichedMetadata)?.enrichment
+                    ?.rotten_tomatoes_rating === 'number'
+                    ? (metadata as EnrichedMetadata)?.enrichment
+                        ?.rotten_tomatoes_rating
+                    : undefined
                 }
                 metacriticRating={
-                  (metadata as EnrichedMetadata)?.enrichment?.metacritic_rating
+                  typeof (metadata as EnrichedMetadata)?.enrichment
+                    ?.metacritic_rating === 'number'
+                    ? (metadata as EnrichedMetadata)?.enrichment
+                        ?.metacritic_rating
+                    : undefined
                 }
                 traktRating={
-                  (metadata as EnrichedMetadata)?.enrichment?.trakt_rating
+                  typeof (metadata as EnrichedMetadata)?.enrichment
+                    ?.trakt_rating === 'number'
+                    ? (metadata as EnrichedMetadata)?.enrichment?.trakt_rating
+                    : undefined
                 }
                 traktVotes={
-                  (metadata as EnrichedMetadata)?.enrichment?.trakt_votes
+                  typeof (metadata as EnrichedMetadata)?.enrichment
+                    ?.trakt_votes === 'number'
+                    ? (metadata as EnrichedMetadata)?.enrichment?.trakt_votes
+                    : undefined
                 }
-                localRating={item.rating_5based ?? undefined}
+                localRating={
+                  typeof item.rating_5based === 'number'
+                    ? item.rating_5based
+                    : undefined
+                }
               />
 
               {/* Additional Metadata */}
@@ -470,7 +513,7 @@ export default function MovieDetails() {
                 </View>
               )}
             </View>
-
+            {console.log('metadata?.credits?.cast', metadata)}
             {/* Cast Carousel */}
             <CastCarousel cast={metadata?.credits?.cast} />
 

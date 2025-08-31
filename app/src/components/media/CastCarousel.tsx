@@ -24,7 +24,7 @@ interface CastCarouselProps {
 
 export function CastCarousel({ cast, title = 'Cast' }: CastCarouselProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-
+  console.log('cast', JSON.stringify(cast, null, 2));
   if (!cast || cast.length === 0) {
     return null;
   }

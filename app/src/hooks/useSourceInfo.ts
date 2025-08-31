@@ -2,8 +2,9 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { apiClient } from '@/lib/api-client';
-import { useSourceCredentials } from '@/lib/source-credentials';
+import { useActiveAccountId } from '@/hooks/ui/useAccounts';
+import { useSourceCredentialsCached } from '@/hooks/useSourceCredentials';
+import { useSourcesData } from '@/hooks/useSources';
 
 type UseSourceInfoResult = {
   accountId: string;
@@ -29,22 +30,25 @@ type UseSourceInfoResult = {
 
 export function useSourceInfo(sourceId?: string) {
   console.log('[useSourceInfo] Hook called with sourceId:', sourceId);
-  const { getCredentials } = useSourceCredentials();
+  const { getCredentials } = useSourceCredentialsCached();
+  const { accountId, isLoading: accountsLoading } = useActiveAccountId();
+  const { data: sourcesData, isLoading: sourcesLoading } = useSourcesData();
+
   return useQuery<UseSourceInfoResult>({
     queryKey: ['source', 'info', sourceId],
-    enabled: !!sourceId,
+    enabled:
+      !!sourceId &&
+      !!accountId &&
+      !accountsLoading &&
+      !sourcesLoading &&
+      (sourcesData?.sources || []).length > 0,
     queryFn: async () => {
       console.log('[useSourceInfo] Starting queryFn for sourceId:', sourceId);
       if (!sourceId) throw new Error('Missing sourceId');
+      if (!accountId) throw new Error('No account found');
 
-      console.log('[useSourceInfo] Fetching accounts...');
-      const accounts = await apiClient.user.getAccounts();
-      const first = accounts.accounts?.[0];
-      if (!first) throw new Error('No account found');
-
-      console.log('[useSourceInfo] Fetching sources for account:', first.id);
-      const { sources } = await apiClient.user.getSources(first.id);
-      const source = (sources || []).find(
+      // Use the cached sources data instead of making another API call
+      const source = (sourcesData?.sources || []).find(
         (s: any) => s.id === sourceId || s.name === sourceId
       );
 
@@ -56,7 +60,7 @@ export function useSourceInfo(sourceId?: string) {
 
       console.log('[useSourceInfo] getCredentials completed successfully');
       return {
-        accountId: first.id as string,
+        accountId: accountId as string,
         source,
         baseUrl: credentials.server,
         credentials,

@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 
 interface Profile {
   id: string;
-  account_id: string;
+  subscription_id: string;
   name: string;
   has_source_restrictions: boolean;
   is_owner: boolean;
@@ -54,7 +54,7 @@ export const getProfiles = api(
 
     // Get user's account
     const account = await userDB.queryRow<{ id: string }>`
-      SELECT id FROM accounts WHERE user_id = ${auth.userID}
+      SELECT id FROM user_subscription WHERE user_id = ${auth.userID}
     `;
 
     if (!account) {
@@ -65,13 +65,13 @@ export const getProfiles = api(
     const profileRows = userDB.query<Profile>`
       SELECT 
         id, 
-        account_id, 
+        subscription_id, 
         name, 
         is_owner,
         created_at,
         updated_at
       FROM profiles
-      WHERE account_id = ${account.id}
+      WHERE subscription_id = ${account.id}
       ORDER BY created_at ASC
     `;
 
@@ -122,7 +122,7 @@ export const createProfile = api(
       id: string;
       subscription_tier: string;
     }>`
-      SELECT id, subscription_tier FROM accounts WHERE user_id = ${auth.userID}
+      SELECT id, subscription_tier FROM user_subscription WHERE user_id = ${auth.userID}
     `;
 
     if (!account) {
@@ -132,7 +132,7 @@ export const createProfile = api(
     // Check if user is the account owner by checking if they have an owner profile
     const ownerProfile = await userDB.queryRow<{ id: string }>`
       SELECT id FROM profiles 
-      WHERE account_id = ${account.id} AND is_owner = true
+      WHERE subscription_id = ${account.id} AND is_owner = true
     `;
 
     if (!ownerProfile) {
@@ -143,7 +143,7 @@ export const createProfile = api(
 
     // Check profile limits based on subscription tier
     const currentProfileCount = await userDB.queryRow<{ count: number }>`
-      SELECT COUNT(*) as count FROM profiles WHERE account_id = ${account.id}
+      SELECT COUNT(*) as count FROM profiles WHERE subscription_id = ${account.id}
     `;
 
     const profileLimit = getProfileLimit(account.subscription_tier);
@@ -158,7 +158,7 @@ export const createProfile = api(
     try {
       // Create the profile (only the account owner can create profiles)
       await userDB.exec`
-        INSERT INTO profiles (id, account_id, name, is_owner)
+        INSERT INTO profiles (id, subscription_id, name, is_owner)
         VALUES (${profileId}, ${account.id}, ${name}, false)
       `;
 
@@ -207,11 +207,11 @@ export const updateProfile = api(
 
     // First check if the current user is the account owner
     const userAccount = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
     }>`
-      SELECT a.id as account_id
-      FROM accounts a
-      JOIN profiles p ON a.id = p.account_id
+      SELECT a.id as subscription_id
+      FROM user_subscription a
+      JOIN profiles p ON a.id = p.subscription_id
       WHERE a.user_id = ${auth.userID} AND p.is_owner = true
     `;
 
@@ -220,10 +220,10 @@ export const updateProfile = api(
     }
 
     // Verify the profile belongs to the user's account
-    const profile = await userDB.queryRow<{ account_id: string }>`
-      SELECT p.account_id 
+    const profile = await userDB.queryRow<{ subscription_id: string }>`
+      SELECT p.subscription_id 
       FROM profiles p
-      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
+      WHERE p.id = ${profileId} AND p.subscription_id = ${userAccount.subscription_id}
     `;
 
     if (!profile) {
@@ -290,11 +290,11 @@ export const deleteProfile = api(
 
     // First check if the current user is the account owner
     const userAccount = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
     }>`
-      SELECT a.id as account_id
-      FROM accounts a
-      JOIN profiles p ON a.id = p.account_id
+      SELECT a.id as subscription_id
+      FROM user_subscription a
+      JOIN profiles p ON a.id = p.subscription_id
       WHERE a.user_id = ${auth.userID} AND p.is_owner = true
     `;
 
@@ -309,9 +309,9 @@ export const deleteProfile = api(
       profile_count: number;
     }>`
       SELECT 
-        (SELECT COUNT(*) FROM profiles WHERE account_id = ${userAccount.account_id}) as profile_count
+        (SELECT COUNT(*) FROM profiles WHERE subscription_id = ${userAccount.subscription_id}) as profile_count
       FROM profiles p
-      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
+      WHERE p.id = ${profileId} AND p.subscription_id = ${userAccount.subscription_id}
     `;
 
     if (!profileCheck) {
@@ -375,7 +375,7 @@ export const switchProfile = api(
     const profile = await userDB.queryRow<{ id: string }>`
       SELECT p.id
       FROM profiles p
-      JOIN accounts a ON p.account_id = a.id
+      JOIN user_subscription a ON p.subscription_id = a.id
       WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
     `;
 
@@ -408,7 +408,7 @@ export const isProfileOwner = api(
 
     // Get user's account
     const account = await userDB.queryRow<{ id: string }>`
-      SELECT id FROM accounts WHERE user_id = ${auth.userID}
+      SELECT id FROM user_subscription WHERE user_id = ${auth.userID}
     `;
 
     if (!account) {
@@ -419,7 +419,7 @@ export const isProfileOwner = api(
     const profile = await userDB.queryRow<{ is_owner: boolean }>`
       SELECT is_owner 
       FROM profiles 
-      WHERE id = ${profileId} AND account_id = ${account.id}
+      WHERE id = ${profileId} AND subscription_id = ${account.id}
     `;
 
     if (!profile) {
@@ -450,12 +450,12 @@ export const updateProfileAsOwner = api(
 
     // Verify the profile belongs to the user's account and they are the owner
     const profile = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
       is_owner: boolean;
     }>`
-      SELECT p.account_id, p.is_owner
+      SELECT p.subscription_id, p.is_owner
       FROM profiles p
-      JOIN accounts a ON p.account_id = a.id
+      JOIN user_subscription a ON p.subscription_id = a.id
       WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
     `;
 
@@ -527,11 +527,11 @@ export const deleteProfileAsOwner = api(
 
     // First check if the current user is the account owner
     const userAccount = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
     }>`
-      SELECT a.id as account_id
-      FROM accounts a
-      JOIN profiles p ON a.id = p.account_id
+      SELECT a.id as subscription_id
+      FROM user_subscription a
+      JOIN profiles p ON a.id = p.subscription_id
       WHERE a.user_id = ${auth.userID} AND p.is_owner = true
     `;
 
@@ -546,9 +546,9 @@ export const deleteProfileAsOwner = api(
       profile_count: number;
     }>`
       SELECT 
-        (SELECT COUNT(*) FROM profiles WHERE account_id = ${userAccount.account_id}) as profile_count
+        (SELECT COUNT(*) FROM profiles WHERE subscription_id = ${userAccount.subscription_id}) as profile_count
       FROM profiles p
-      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
+      WHERE p.id = ${profileId} AND p.subscription_id = ${userAccount.subscription_id}
     `;
 
     if (!profileCheck) {
@@ -596,7 +596,7 @@ export const createProfileAsOwner = api(
       id: string;
       subscription_tier: string;
     }>`
-      SELECT id, subscription_tier FROM accounts WHERE user_id = ${auth.userID}
+      SELECT id, subscription_tier FROM user_subscription WHERE user_id = ${auth.userID}
     `;
 
     if (!account) {
@@ -606,7 +606,7 @@ export const createProfileAsOwner = api(
     // Check if user is the account owner by checking if they have an owner profile
     const ownerProfile = await userDB.queryRow<{ id: string }>`
       SELECT id FROM profiles 
-      WHERE account_id = ${account.id} AND is_owner = true
+      WHERE subscription_id = ${account.id} AND is_owner = true
     `;
 
     if (!ownerProfile) {
@@ -617,7 +617,7 @@ export const createProfileAsOwner = api(
 
     // Check profile limits based on subscription tier
     const currentProfileCount = await userDB.queryRow<{ count: number }>`
-      SELECT COUNT(*) as count FROM profiles WHERE account_id = ${account.id}
+      SELECT COUNT(*) as count FROM profiles WHERE subscription_id = ${account.id}
     `;
 
     const profileLimit = getProfileLimit(account.subscription_tier);
@@ -632,7 +632,7 @@ export const createProfileAsOwner = api(
     try {
       // Create the profile (non-owner profile)
       await userDB.exec`
-        INSERT INTO profiles (id, account_id, name, is_owner)
+        INSERT INTO profiles (id, subscription_id, name, is_owner)
         VALUES (${profileId}, ${account.id}, ${name}, false)
       `;
 
@@ -675,7 +675,7 @@ export const fixProfileOwnerStatus = api(
 
     // Get user's account
     const account = await userDB.queryRow<{ id: string }>`
-      SELECT id FROM accounts WHERE user_id = ${auth.userID}
+      SELECT id FROM user_subscription WHERE user_id = ${auth.userID}
     `;
 
     if (!account) {
@@ -685,7 +685,7 @@ export const fixProfileOwnerStatus = api(
     // Check if there's already an owner profile
     const existingOwner = await userDB.queryRow<{ id: string }>`
       SELECT id FROM profiles 
-      WHERE account_id = ${account.id} AND is_owner = true
+      WHERE subscription_id = ${account.id} AND is_owner = true
     `;
 
     if (existingOwner) {
@@ -698,7 +698,7 @@ export const fixProfileOwnerStatus = api(
     // Find the first profile (oldest) and make it the owner
     const firstProfile = await userDB.queryRow<{ id: string; name: string }>`
       SELECT id, name FROM profiles 
-      WHERE account_id = ${account.id}
+      WHERE subscription_id = ${account.id}
       ORDER BY created_at ASC
       LIMIT 1
     `;

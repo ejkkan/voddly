@@ -15,9 +15,9 @@ export default function PublicHome() {
     if (!sessionLoading && session?.data?.user) {
       setCheckingEncryption(true);
       apiClient.user
-        .getAccount()
-        .then(({ account, hasEncryption }) => {
-          setHasEncryption(!!account && !!hasEncryption);
+        .getSubscription()
+        .then(({ subscription, hasEncryption }) => {
+          setHasEncryption(!!subscription && !!hasEncryption);
         })
         .catch(() => {
           setHasEncryption(false);
@@ -44,6 +44,8 @@ export default function PublicHome() {
   // Redirect based on auth/encryption status
   if (session?.data?.user) {
     if (hasEncryption === false) {
+      // For legacy users without encryption, redirect to passphrase setup
+      // New users will have encryption set up during signup
       return <Redirect href="/passphrase-setup" />;
     }
     return <Redirect href="/(app)/dashboard" />;

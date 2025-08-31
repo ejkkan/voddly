@@ -4,6 +4,7 @@ import React, { useCallback, useEffect } from 'react';
 import { AppShell } from '@/components/navigation/app-shell';
 import { useIsFirstTime } from '@/lib';
 import { useSession } from '@/lib/auth/hooks';
+import { useDeviceAutoRegister } from '@/hooks/useDeviceAutoRegister';
 
 export const unstable_settings = {
   initialRouteName: 'dashboard',
@@ -12,6 +13,9 @@ export const unstable_settings = {
 export default function ProtectedLayout() {
   const { data: session, isLoading } = useSession();
   const [isFirstTime] = useIsFirstTime();
+  
+  // Monitor and handle device auto-registration
+  useDeviceAutoRegister();
 
   const hideSplash = useCallback(async () => {
     await SplashScreen.hideAsync();

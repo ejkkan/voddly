@@ -29,6 +29,11 @@ export type ControlsBarProps = {
   onRetry: () => void;
   onToggleFullscreen: () => void;
   isFullscreen?: boolean;
+  // New format support props
+  formatInfo?: any;
+  onPressAudioTracks?: () => void;
+  hasMultipleAudioTracks?: boolean;
+  hasEmbeddedSubtitles?: boolean;
 };
 
 export function ControlsBar(props: ControlsBarProps) {
@@ -58,6 +63,11 @@ export function ControlsBar(props: ControlsBarProps) {
     onRetry,
     onToggleFullscreen,
     isFullscreen,
+    // New format support props
+    formatInfo,
+    onPressAudioTracks,
+    hasMultipleAudioTracks,
+    hasEmbeddedSubtitles,
   } = props;
 
   const barWidthRef = React.useRef(0);
@@ -87,7 +97,15 @@ export function ControlsBar(props: ControlsBarProps) {
           />
         </Pressable>
 
-        {audioLanguages.length > 0 ? (
+        {/* Enhanced Audio Track Selection */}
+        {hasMultipleAudioTracks && onPressAudioTracks ? (
+          <Pressable
+            className="rounded-md bg-white/10 px-4 py-3"
+            onPress={onPressAudioTracks}
+          >
+            <Fontisto name="music-note" color="#fff" size={16} />
+          </Pressable>
+        ) : audioLanguages.length > 0 ? (
           <Pressable
             className="rounded-md bg-white/10 px-4 py-3"
             onPress={onCycleAudioLanguage}
@@ -105,7 +123,8 @@ export function ControlsBar(props: ControlsBarProps) {
           </Pressable>
         ) : null}
 
-        {!subsDisabled && hasSubtitles ? (
+        {/* Enhanced Subtitle Selection */}
+        {!subsDisabled && (hasSubtitles || hasEmbeddedSubtitles) ? (
           <Pressable
             className="rounded-md bg-white/10 px-4 py-3"
             onPress={onPressSubtitles}

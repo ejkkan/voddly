@@ -69,8 +69,7 @@ export interface EnrichmentData {
   rotten_tomatoes_score?: number;
 
   // Dynamic JSON responses for multi-item display
-  fanart_response?: any; // Multiple artworks of each type
-  youtube_response?: any; // Multiple videos/trailers
+  // These fields were removed - we only store the best selections in the main columns
 }
 
 // Helpers to ensure only finite numbers are stored; convert invalid values to undefined (NULL in DB)
@@ -388,7 +387,7 @@ export async function enrichWithExternalAPIs(
           enrichment.disc_url = bestArtwork.disc_url;
           enrichment.poster_url = bestArtwork.poster_url;
           enrichment.background_url = bestArtwork.background_url;
-          enrichment.fanart_response = artwork; // Keep full response for multiple artwork options
+          // Don't store full response anymore - just the best selections
           log.info('FanArt data fetched', {
             tmdb_id,
             hasLogo: !!enrichment.logo_url,
@@ -442,7 +441,7 @@ export async function enrichWithExternalAPIs(
               enrichment.trailer_thumbnail_url = `https://img.youtube.com/vi/${trailer.id}/maxresdefault.jpg`;
             }
 
-            enrichment.youtube_response = videos; // Keep all videos for dynamic display
+            // Don't store full response anymore - just the primary trailer
             log.info('YouTube trailer found', {
               tmdb_id,
               trailer_id: enrichment.trailer_youtube_id,
@@ -500,12 +499,6 @@ async function storeEnrichmentData(enrichment: EnrichmentData): Promise<void> {
       trailer_youtube_id: typeof enrichment.trailer_youtube_id,
       trailer_title: typeof enrichment.trailer_title,
       trailer_title_len: enrichment.trailer_title?.length || 0,
-      fanart_response_len: enrichment.fanart_response
-        ? JSON.stringify(enrichment.fanart_response).length
-        : 0,
-      youtube_response_len: enrichment.youtube_response
-        ? JSON.stringify(enrichment.youtube_response).length
-        : 0,
     };
     log.debug('Enrichment: store values shape', shape as any);
 
@@ -660,31 +653,7 @@ async function storeEnrichmentData(enrichment: EnrichmentData): Promise<void> {
       });
     }
 
-    // Step 6: Store FanArt and YouTube raw responses for dynamic multi-item display
-    try {
-      await metadataDB.exec`
-        UPDATE content_enrichment SET
-          fanart_response = ${
-            enrichment.fanart_response
-              ? JSON.stringify(enrichment.fanart_response)
-              : null
-          },
-          youtube_response = ${
-            enrichment.youtube_response
-              ? JSON.stringify(enrichment.youtube_response)
-              : null
-          },
-          updated_at = CURRENT_TIMESTAMP
-        WHERE tmdb_id = ${enrichment.tmdb_id}
-          AND content_type = ${enrichment.content_type}
-      `;
-      log.debug('Dynamic JSON responses updated successfully');
-    } catch (e) {
-      log.error('Failed to update dynamic JSON responses', {
-        error: e,
-        tmdb_id: enrichment.tmdb_id,
-      });
-    }
+    // Step 6: Dynamic JSON responses columns have been removed - we only store curated data now
 
     log.info('Enrichment data stored', { tmdb_id: enrichment.tmdb_id });
   } catch (error) {

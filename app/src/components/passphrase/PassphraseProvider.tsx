@@ -5,12 +5,12 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { Keyboard, Modal, Platform } from 'react-native';
 
-import { Text, TouchableOpacity, View } from '@/components/ui';
-import { Input } from '@/components/ui/input';
+import { usePassphraseWithProgress } from '@/hooks/usePassphraseWithProgress';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { registerPassphraseResolver } from '@/lib/passphrase-ui';
+
+import { ImprovedPassphraseModal } from './ImprovedPassphraseModal';
 
 type PromptState = {
   visible: boolean;
@@ -43,8 +43,7 @@ export function PassphraseProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<PromptState>({ visible: false });
-  const [value, setValue] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const { validatePassphraseWithProgress } = usePassphraseWithProgress();
 
   const requestPassphrase = useCallback(
     ({
@@ -62,26 +61,11 @@ export function PassphraseProvider({
       if (cached) return Promise.resolve(cached);
 
       return new Promise<string>((resolve, reject) => {
-        // Web: try native prompt first for simplicity
-        if (
-          Platform.OS === 'web' &&
-          typeof window !== 'undefined' &&
-          typeof window.prompt === 'function'
-        ) {
-          const resp = window.prompt(
-            `${title || 'Decrypt'}\n\n${message || 'Enter your passphrase'}:`
-          );
-          if (!resp || resp.length < 6)
-            return reject(new Error('Passphrase required'));
-          passphraseCache.set(accountId, resp);
-          return resolve(resp);
-        }
-
-        setValue('');
+        // Web: Use improved modal for consistent UX
         setState({
           visible: true,
-          title: title || 'Decrypt',
-          message: message || 'Enter your passphrase',
+          title: title || 'Decrypt Source',
+          message: message || 'Enter your passphrase to decrypt',
           accountId,
           accountName,
           resolve,
@@ -92,7 +76,7 @@ export function PassphraseProvider({
     []
   );
 
-  // Register a global resolver to be used by libraries that don't have direct access to the provider
+  // Register a global resolver to be used by libraries
   React.useEffect(() => {
     const fn = async (
       accountId: string,
@@ -106,131 +90,63 @@ export function PassphraseProvider({
       });
     registerPassphraseResolver(fn);
     return () => {
-      // no explicit unregister to avoid race when unmounting root
+      // unregister by setting same function only if API supported
+      // or rely on provider unmount not to use the old resolver
     };
   }, [requestPassphrase]);
 
-  const onCancel = useCallback(() => {
-    if (__DEV__) console.log('[passphrase] cancel pressed');
-    const rej = state.reject;
-    setSubmitting(false);
-    Keyboard.dismiss();
-    setState((s) => ({
-      ...s,
-      visible: false,
-      resolve: undefined,
-      reject: undefined,
-    }));
-    if (rej) setTimeout(() => rej(new Error('Passphrase required')), 0);
-  }, [state.reject]);
+  const handleSubmit = useCallback(
+    async (
+      passphrase: string,
+      onProgress?: (progress: number, message?: string) => void
+    ) => {
+      if (!state.resolve || !state.accountId) return;
 
-  const onSubmit = useCallback(() => {
-    if (__DEV__)
-      console.log(
-        '[passphrase] confirm pressed with value length',
-        value.length
+      // Validate passphrase length
+      if (passphrase.length < 6) {
+        throw new Error('Passphrase must be at least 6 characters');
+      }
+
+      // Perform actual decryption validation with real progress
+      const isValid = await validatePassphraseWithProgress(
+        state.accountId,
+        passphrase,
+        onProgress
       );
-    const pass = value.trim();
 
-    // Enforce 6 digits only
-    if (pass.length !== 6 || !/^\d{6}$/.test(pass)) {
-      // Show error or just return without action
-      return;
+      if (!isValid) {
+        throw new Error('Invalid passphrase - decryption failed');
+      }
+
+      // Passphrase is valid and cached
+      state.resolve(passphrase);
+
+      // Close modal after success
+      setState({ visible: false });
+    },
+    [state, validatePassphraseWithProgress]
+  );
+
+  const handleCancel = useCallback(() => {
+    if (state.reject) {
+      state.reject(new Error('User cancelled passphrase input'));
     }
+    setState({ visible: false });
+  }, [state]);
 
-    const accountId = state.accountId!;
-    setSubmitting(true);
-    Keyboard.dismiss();
-    passphraseCache.set(accountId, pass);
-    const res = state.resolve;
-    setState((s) => ({
-      ...s,
-      visible: false,
-      resolve: undefined,
-      reject: undefined,
-    }));
-    if (res) setTimeout(() => res(pass), 0);
-    setSubmitting(false);
-  }, [state.accountId, state.resolve, value]);
-
-  const ctxValue = useMemo(() => ({ requestPassphrase }), [requestPassphrase]);
+  const context = useMemo(() => ({ requestPassphrase }), [requestPassphrase]);
 
   return (
-    <PassphraseContext.Provider value={ctxValue}>
+    <PassphraseContext.Provider value={context}>
       {children}
-      <Modal
+      <ImprovedPassphraseModal
         visible={state.visible}
-        transparent
-        animationType="fade"
-        onRequestClose={onCancel}
-      >
-        <View className="flex-1 items-center justify-center bg-black/40">
-          <View className="w-[90%] rounded-xl bg-white p-4 dark:bg-neutral-900">
-            <Text className="text-lg font-semibold text-neutral-900 dark:text-neutral-50">
-              {state.title}
-            </Text>
-            {!!state.accountName && (
-              <Text className="mt-1 text-neutral-600 dark:text-neutral-400">
-                Account: {state.accountName}
-              </Text>
-            )}
-            <Text className="mt-2 text-neutral-700 dark:text-neutral-200">
-              {state.message}
-            </Text>
-            <Input
-              value={value}
-              onChangeText={setValue}
-              secureTextEntry
-              placeholder="Enter 6-digit passphrase"
-              keyboardType="numeric"
-              maxLength={6}
-            />
-            {value.length > 0 && (
-              <Text
-                className={`mt-1 text-sm ${
-                  value.length === 6 && /^\d{6}$/.test(value)
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}
-              >
-                {value.length === 6 && /^\d{6}$/.test(value)
-                  ? '✓ Valid passphrase'
-                  : 'Passphrase must be exactly 6 digits'}
-              </Text>
-            )}
-            <View className="mt-3 flex-row justify-end gap-3">
-              <TouchableOpacity
-                activeOpacity={0.7}
-                className="rounded-xl border border-neutral-300 px-4 py-2 dark:border-neutral-700"
-                onPress={onCancel}
-                testID="passphrase-cancel"
-                disabled={submitting}
-              >
-                <Text className="text-neutral-800 dark:text-neutral-200">
-                  Cancel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                className={`rounded-xl px-4 py-2 ${
-                  value.length === 6 && /^\d{6}$/.test(value)
-                    ? 'bg-neutral-900'
-                    : 'bg-neutral-400'
-                }`}
-                onPress={onSubmit}
-                testID="passphrase-confirm"
-                disabled={
-                  submitting || value.length !== 6 || !/^\d{6}$/.test(value)
-                }
-              >
-                <Text className="text-white">
-                  {submitting ? 'Confirming…' : 'Confirm'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        title={state.title || 'Decrypt Source'}
+        message={state.message || 'Enter your passphrase to decrypt'}
+        accountName={state.accountName}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+      />
     </PassphraseContext.Provider>
   );
 }

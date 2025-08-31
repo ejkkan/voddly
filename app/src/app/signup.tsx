@@ -25,7 +25,7 @@ export default function SignUp() {
     if ((result as any)?.data) {
       // Mark that we just signed up to prevent auto-redirect
       setJustSignedUp(true);
-      // Go through root index which will redirect to passphrase-setup
+      // Go to root which will redirect to passphrase-setup if needed
       router.replace('/');
     }
   };

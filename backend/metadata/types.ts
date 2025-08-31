@@ -51,10 +51,15 @@ export interface ContentMetadata {
   images?: any;
   cast?: any[];
   crew?: any[];
-  keywords?: any;
+  
+  // Enrichment fields
+  ratings?: any;
+  awards?: string;
+  rated?: string;
+  box_office?: string;
+  box_office_amount?: number;
   
   // Cache management
-  raw_response?: any;
   fetched_at?: Date;
   updated_at?: Date;
 }
@@ -65,7 +70,6 @@ export interface GetMetadataParams {
   content_type: ContentType;
   season_number?: number;
   episode_number?: number;
-  force_refresh?: boolean;
   append_to_response?: string; // TMDB-specific: "videos,images,credits"
 }
 
@@ -74,7 +78,6 @@ export interface GetMetadataByExternalIdParams {
   imdb_id?: string;
   tvdb_id?: number;
   content_type: ContentType;
-  force_refresh?: boolean;
 }
 
 export interface SearchParams {

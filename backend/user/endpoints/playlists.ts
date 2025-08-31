@@ -10,7 +10,7 @@ async function verifyProfile(profileId: string, userId: string): Promise<boolean
   const row = await userDB.queryRow<{ id: string }>`
     SELECT p.id
     FROM profiles p
-    JOIN accounts a ON p.account_id = a.id
+    JOIN user_subscription a ON p.subscription_id = a.id
     WHERE p.id = ${profileId} AND a.user_id = ${userId}
   `;
   return !!row;

@@ -4,7 +4,9 @@ import { Env } from '@env';
 import { Platform } from 'react-native';
 
 import auth from '@/lib/auth/auth-client';
+import { getDeviceId } from '@/lib/device-id';
 import Client, { Environment } from '@/lib/encore-client';
+import { secureSession } from '@/lib/secure-session';
 // Debug log removed
 
 function normalizeDevHost(url: string): string {
@@ -32,10 +34,38 @@ class EncoreAPI {
           'Content-Type': 'application/json',
         },
       },
-      // Provide cookie from stored better-auth session for Encore auth handler
-      auth: () => {
+      // Provide cookie and device ID for Encore auth handler
+      auth: async () => {
         const cookie = auth.getCookie();
-        return cookie ? { cookie } : undefined;
+        const deviceId = getDeviceId();
+
+        // Check if device is registered for this account
+        const isRegistered = await secureSession.isDeviceRegistered();
+        const passphrase = !isRegistered
+          ? await secureSession.getPassphrase()
+          : undefined;
+
+        // if (__DEV__) {
+        //   console.log('[API Client] Auth - Device ID:', deviceId);
+        //   console.log('[API Client] Auth - Cookie present:', !!cookie);
+        //   console.log('[API Client] Auth - Cookie value:', cookie);
+        //   console.log('[API Client] Auth - Device registered:', isRegistered);
+        //   console.log(
+        //     '[API Client] Auth - Passphrase available:',
+        //     !!passphrase
+        //   );
+        // }
+
+        // Return AuthParams structure expected by generated client
+        if (cookie || deviceId) {
+          return {
+            cookie: cookie || '',
+            deviceId: deviceId || undefined,
+            // Include passphrase only if device not registered
+            passphrase: passphrase || undefined,
+          } as any;
+        }
+        return undefined;
       },
     });
   }
@@ -112,11 +142,13 @@ class EncoreAPI {
     if (appendToResponse)
       url.searchParams.set('append_to_response', appendToResponse);
 
+    const deviceId = getDeviceId();
     const res = await fetch(url.toString(), {
       method: 'GET',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...(deviceId && { 'X-Device-Id': deviceId }),
       },
     });
     if (!res.ok) throw new Error(`getUserMetadata failed: ${res.status}`);
@@ -142,11 +174,13 @@ class EncoreAPI {
     }[];
     error?: string;
   }> {
+    const deviceId = getDeviceId();
     const res = await fetch(`${this.baseUrl}/subtitles/extract-original`, {
       method: 'POST',
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        ...(deviceId && { 'X-Device-Id': deviceId }),
       },
       body: JSON.stringify(params),
     });
@@ -165,6 +199,7 @@ class EncoreAPI {
     content?: string;
     error?: string;
   }> {
+    const deviceId = getDeviceId();
     const res = await fetch(
       `${this.baseUrl}/subtitles/extract-original-content`,
       {
@@ -172,6 +207,7 @@ class EncoreAPI {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          ...(deviceId && { 'X-Device-Id': deviceId }),
         },
         body: JSON.stringify(params),
       }
@@ -202,9 +238,13 @@ class EncoreAPI {
     );
     if (params?.tmdb_id)
       url.searchParams.set('tmdb_id', String(params.tmdb_id));
+    const deviceId = getDeviceId();
     const res = await fetch(url.toString(), {
       method: 'GET',
       credentials: 'include',
+      headers: {
+        ...(deviceId && { 'X-Device-Id': deviceId }),
+      },
     });
     if (!res.ok) throw new Error(`getSubtitleVariants failed: ${res.status}`);
     return res.json();
@@ -219,11 +259,15 @@ class EncoreAPI {
       source?: string;
     } | null;
   }> {
+    const deviceId = getDeviceId();
     const res = await fetch(
       `${this.baseUrl}/subtitles/variant/${encodeURIComponent(variantId)}/content`,
       {
         method: 'GET',
         credentials: 'include',
+        headers: {
+          ...(deviceId && { 'X-Device-Id': deviceId }),
+        },
       }
     );
     if (!res.ok)

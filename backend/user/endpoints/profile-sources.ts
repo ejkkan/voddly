@@ -43,7 +43,7 @@ export const getAccountSources = api(
 
     // Get user's account
     const account = await userDB.queryRow<{ id: string }>`
-      SELECT id FROM accounts WHERE user_id = ${auth.userID}
+      SELECT id FROM user_subscription WHERE user_id = ${auth.userID}
     `;
 
     if (!account) {
@@ -59,7 +59,7 @@ export const getAccountSources = api(
         is_active, 
         created_at
       FROM sources
-      WHERE account_id = ${account.id} AND is_active = true
+      WHERE subscription_id = ${account.id} AND is_active = true
       ORDER BY name ASC
     `;
 
@@ -90,12 +90,12 @@ export const getProfileSources = api(
 
     // Verify the profile belongs to the user's account
     const profile = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
       is_owner: boolean;
     }>`
-      SELECT p.account_id, p.is_owner
+      SELECT p.subscription_id, p.is_owner
       FROM profiles p
-      JOIN accounts a ON p.account_id = a.id
+      JOIN user_subscription a ON p.subscription_id = a.id
       WHERE p.id = ${profileId} AND a.user_id = ${auth.userID}
     `;
 
@@ -118,7 +118,7 @@ export const getProfileSources = api(
           NULL as added_at,
           NULL as notes
         FROM sources
-        WHERE account_id = ${profile.account_id} AND is_active = true
+        WHERE subscription_id = ${profile.subscription_id} AND is_active = true
         ORDER BY name ASC
       `;
     } else {
@@ -142,7 +142,7 @@ export const getProfileSources = api(
             NULL as added_at,
             NULL as notes
           FROM sources
-          WHERE account_id = ${profile.account_id} AND is_active = true
+          WHERE subscription_id = ${profile.subscription_id} AND is_active = true
           ORDER BY name ASC
         `;
       } else {
@@ -194,11 +194,11 @@ export const updateProfileSources = api(
 
     // First check if the current user is the account owner
     const userAccount = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
     }>`
-      SELECT a.id as account_id
-      FROM accounts a
-      JOIN profiles p ON a.id = p.account_id
+      SELECT a.id as subscription_id
+      FROM user_subscription a
+      JOIN profiles p ON a.id = p.subscription_id
       WHERE a.user_id = ${auth.userID} AND p.is_owner = true
     `;
 
@@ -210,12 +210,12 @@ export const updateProfileSources = api(
 
     // Verify the profile belongs to the user's account
     const profile = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
       is_owner: boolean;
     }>`
-      SELECT p.account_id, p.is_owner
+      SELECT p.subscription_id, p.is_owner
       FROM profiles p
-      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
+      WHERE p.id = ${profileId} AND p.subscription_id = ${userAccount.subscription_id}
     `;
 
     if (!profile) {
@@ -234,7 +234,7 @@ export const updateProfileSources = api(
       const validSources = await userDB.queryRow<{ count: number }>`
         SELECT COUNT(*) as count
         FROM sources
-        WHERE id = ANY(${sourceIds}::UUID[]) AND account_id = ${profile.account_id}
+        WHERE id = ANY(${sourceIds}::UUID[]) AND subscription_id = ${profile.subscription_id}
       `;
 
       if (!validSources || validSources.count !== sourceIds.length) {
@@ -289,11 +289,11 @@ export const removeProfileSource = api(
 
     // First check if the current user is the account owner
     const userAccount = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
     }>`
-      SELECT a.id as account_id
-      FROM accounts a
-      JOIN profiles p ON a.id = p.account_id
+      SELECT a.id as subscription_id
+      FROM user_subscription a
+      JOIN profiles p ON a.id = p.subscription_id
       WHERE a.user_id = ${auth.userID} AND p.is_owner = true
     `;
 
@@ -305,12 +305,12 @@ export const removeProfileSource = api(
 
     // Verify the profile belongs to the user's account
     const profile = await userDB.queryRow<{
-      account_id: string;
+      subscription_id: string;
       is_owner: boolean;
     }>`
-      SELECT p.account_id, p.is_owner
+      SELECT p.subscription_id, p.is_owner
       FROM profiles p
-      WHERE p.id = ${profileId} AND p.account_id = ${userAccount.account_id}
+      WHERE p.id = ${profileId} AND p.subscription_id = ${userAccount.subscription_id}
     `;
 
     if (!profile) {
@@ -351,7 +351,7 @@ export const getProfileSourceAudit = api(
 
     // Get user's account
     const account = await userDB.queryRow<{ id: string }>`
-      SELECT id FROM accounts WHERE user_id = ${auth.userID}
+      SELECT id FROM user_subscription WHERE user_id = ${auth.userID}
     `;
 
     if (!account) {
@@ -375,7 +375,7 @@ export const getProfileSourceAudit = api(
       FROM profiles p
       LEFT JOIN profile_sources ps ON p.id = ps.profile_id
       LEFT JOIN sources s ON ps.source_id = s.id
-      WHERE p.account_id = ${account.id}
+      WHERE p.subscription_id = ${account.id}
       ORDER BY p.name, s.name
     `;
 

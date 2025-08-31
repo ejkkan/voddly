@@ -16,17 +16,29 @@ interface RatingsDisplayProps {
 }
 
 export function RatingsDisplay(props: RatingsDisplayProps) {
-  const {
-    tmdbRating,
-    tmdbVotes,
-    imdbRating,
-    imdbVotes,
-    rottenTomatoesRating,
-    metacriticRating,
-    traktRating,
-    traktVotes,
-    localRating,
-  } = props;
+  // Safely extract and convert props to numbers, filtering out invalid values
+  const tmdbRating =
+    typeof props.tmdbRating === 'number' ? props.tmdbRating : undefined;
+  const tmdbVotes =
+    typeof props.tmdbVotes === 'number' ? props.tmdbVotes : undefined;
+  const imdbRating =
+    typeof props.imdbRating === 'number' ? props.imdbRating : undefined;
+  const imdbVotes =
+    typeof props.imdbVotes === 'number' ? props.imdbVotes : undefined;
+  const rottenTomatoesRating =
+    typeof props.rottenTomatoesRating === 'number'
+      ? props.rottenTomatoesRating
+      : undefined;
+  const metacriticRating =
+    typeof props.metacriticRating === 'number'
+      ? props.metacriticRating
+      : undefined;
+  const traktRating =
+    typeof props.traktRating === 'number' ? props.traktRating : undefined;
+  const traktVotes =
+    typeof props.traktVotes === 'number' ? props.traktVotes : undefined;
+  const localRating =
+    typeof props.localRating === 'number' ? props.localRating : undefined;
 
   // Calculate Voddly rating as average of all available ratings
   const voddlyRating = useMemo(() => {

@@ -1,15 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useSourcesData } from '@/hooks/useSources';
 import { apiClient } from '@/lib/api-client';
 
 // Get all sources available to the account (for selection)
 export function useAccountSources() {
-  return useQuery({
-    queryKey: ['account-sources'],
-    queryFn: async () => {
-      return apiClient.user.getAccountSources();
-    },
-  });
+  // Use the centralized sources data instead of making a separate API call
+  const { data: sourcesData, isLoading, isError } = useSourcesData();
+
+  return {
+    data: { sources: sourcesData?.sources || [] },
+    isLoading,
+    isError,
+    sources: sourcesData?.sources || [],
+    accountId: sourcesData?.accountId,
+  };
 }
 
 // Get sources accessible to a specific profile

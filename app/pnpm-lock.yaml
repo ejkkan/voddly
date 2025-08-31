@@ -68,6 +68,9 @@ importers:
       expo-dev-client:
         specifier: ~5.2.4
         version: 5.2.4(expo@53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))
+      expo-device:
+        specifier: ^7.1.4
+        version: 7.1.4(expo@53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))
       expo-font:
         specifier: ~13.3.2
         version: 13.3.2(expo@53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react@19.0.0)
@@ -155,6 +158,9 @@ importers:
       react-native-mmkv:
         specifier: ~3.1.0
         version: 3.1.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      react-native-quick-crypto:
+        specifier: ^0.7.17
+        version: 0.7.17(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       react-native-reanimated:
         specifier: ~3.17.5
         version: 3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
@@ -951,6 +957,9 @@ packages:
   '@commitlint/types@19.8.1':
     resolution: {integrity: sha512-/yCrWGCoA1SVKOks25EGadP9Pnj0oAIHGpl2wH2M2Y46dPM2ueb8wyCVOD7O3WCTkaJ0IkKvzhl1JY7+uCT2Dw==}
     engines: {node: '>=v18'}
+
+  '@craftzdog/react-native-buffer@6.1.0':
+    resolution: {integrity: sha512-lJXdjZ7fTllLbzDrwg/FrJLjQ5sBcAgwcqgAB6OPpXTHdCenEhHZblQpfmBLLe7/S7m0yKXL3kN3jpwOEkpjGg==}
 
   '@dev-plugins/react-query@0.0.7':
     resolution: {integrity: sha512-A54YRUEwSHjEl4OrnP9QDwbgx4XOzCIreqYfCzPB0E4EV5U7ykCdxsm6gNhfy5EQfNvkqzrSRhO8GsR8fCfxdw==}
@@ -4008,6 +4017,11 @@ packages:
     peerDependencies:
       expo: '*'
 
+  expo-device@7.1.4:
+    resolution: {integrity: sha512-HS04IiE1Fy0FRjBLurr9e5A6yj3kbmQB+2jCZvbSGpsjBnCLdSk/LCii4f5VFhPIBWJLyYuN5QqJyEAw6BcS4Q==}
+    peerDependencies:
+      expo: '*'
+
   expo-file-system@18.1.11:
     resolution: {integrity: sha512-HJw/m0nVOKeqeRjPjGdvm+zBi5/NxcdPf8M8P3G2JFvH5Z8vBWqVDic2O58jnT1OFEy0XXzoH9UqFu7cHg9DTQ==}
     peerDependencies:
@@ -4684,6 +4698,10 @@ packages:
   irregular-plurals@1.4.0:
     resolution: {integrity: sha512-kniTIJmaZYiwa17eTtWIfm0K342seyugl6vuC8DiiyiRAJWAVlLkqGCI0Im0neo0TkXw+pRcKaBPRdcKHnQJ6Q==}
     engines: {node: '>=0.10.0'}
+
+  is-arguments@1.2.0:
+    resolution: {integrity: sha512-7bVbi0huj/wrIAOzb8U1aszg9kdi3KN/CyU19CTI7tAoZYEZoL9yCDXpbXN+uPsuWnP02cyug1gleqq+TU+YCA==}
+    engines: {node: '>= 0.4'}
 
   is-array-buffer@3.0.5:
     resolution: {integrity: sha512-DDfANUiiG2wC1qawP66qlTugJeL5HyzMpfr8lLK+jMQirGzNod0B12cFB/9q838Ru27sBwfw78/rdoU7RERz6A==}
@@ -6489,6 +6507,15 @@ packages:
       react: '*'
       react-native: '*'
 
+  react-native-quick-base64@2.2.1:
+    resolution: {integrity: sha512-rAECaDhq3v+P8IM10cLgUVvt3kPJq3v+Jznp7tQRLXk1LlV/VCepump3am0ObwHlE6EoXblm4cddPJoXAlO+CQ==}
+    peerDependencies:
+      react: '*'
+      react-native: '*'
+
+  react-native-quick-crypto@0.7.17:
+    resolution: {integrity: sha512-cJzp6oA/dM1lujt+Rwtn46Mgcs3w9F/0oQvNz1jcADc/AXktveAOUTzzKrDMxyg6YPziCYnoqMDzHBo6OLSU1g==}
+
   react-native-reanimated@3.17.5:
     resolution: {integrity: sha512-SxBK7wQfJ4UoWoJqQnmIC7ZjuNgVb9rcY5Xc67upXAFKftWg0rnkknTw6vgwnjRcvYThrjzUVti66XoZdDJGtw==}
     peerDependencies:
@@ -7466,6 +7493,10 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  ua-parser-js@0.7.41:
+    resolution: {integrity: sha512-O3oYyCMPYgNNHuO7Jjk3uacJWZF8loBgwrfd/5LE/HyZ3lUIOdniQ7DNXJcIgZbwioZxk0fLfI4EVnetdiX5jg==}
+    hasBin: true
+
   ua-parser-js@1.0.41:
     resolution: {integrity: sha512-LbBDqdIC5s8iROCUjMbW1f5dJQTEFB1+KO9ogbvlb3nm9n4YHa5p4KTvFPWvh2Hs8gZMBuiB1/8+pdfe/tDPug==}
     hasBin: true
@@ -7567,6 +7598,9 @@ packages:
 
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
+
+  util@0.12.5:
+    resolution: {integrity: sha512-kZf/K6hEIrWHI6XqOFUiiMa+79wE/D8Q+NCNAWclkyg3b4d2k7s0QGepNjiABc+aR3N1PAyHL7p6UcLY6LmrnA==}
 
   utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
@@ -8700,6 +8734,14 @@ snapshots:
     dependencies:
       '@types/conventional-commits-parser': 5.0.1
       chalk: 5.6.0
+
+  '@craftzdog/react-native-buffer@6.1.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      ieee754: 1.2.1
+      react-native-quick-base64: 2.2.1(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+    transitivePeerDependencies:
+      - react
+      - react-native
 
   '@dev-plugins/react-query@0.0.7(@tanstack/react-query@5.85.5(react@19.0.0))(expo@53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))':
     dependencies:
@@ -12550,6 +12592,11 @@ snapshots:
       expo: 53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       expo-dev-menu-interface: 1.10.0(expo@53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))
 
+  expo-device@7.1.4(expo@53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)):
+    dependencies:
+      expo: 53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      ua-parser-js: 0.7.41
+
   expo-file-system@18.1.11(expo@53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)):
     dependencies:
       expo: 53.0.22(@babel/core@7.28.3)(@expo/metro-runtime@5.0.4(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
@@ -13305,6 +13352,11 @@ snapshots:
       loose-envify: 1.4.0
 
   irregular-plurals@1.4.0: {}
+
+  is-arguments@1.2.0:
+    dependencies:
+      call-bound: 1.0.4
+      has-tostringtag: 1.0.2
 
   is-array-buffer@3.0.5:
     dependencies:
@@ -15408,6 +15460,22 @@ snapshots:
       react: 19.0.0
       react-native: 0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)
 
+  react-native-quick-base64@2.2.1(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0):
+    dependencies:
+      react: 19.0.0
+      react-native: 0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0)
+
+  react-native-quick-crypto@0.7.17(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0):
+    dependencies:
+      '@craftzdog/react-native-buffer': 6.1.0(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+      events: 3.3.0
+      readable-stream: 4.7.0
+      string_decoder: 1.3.0
+      util: 0.12.5
+    transitivePeerDependencies:
+      - react
+      - react-native
+
   react-native-reanimated@3.17.5(@babel/core@7.28.3)(react-native@0.79.5(@babel/core@7.28.3)(@react-native-community/cli@20.0.1(typescript@5.9.2))(@types/react@19.0.14)(react@19.0.0))(react@19.0.0):
     dependencies:
       '@babel/core': 7.28.3
@@ -16522,6 +16590,8 @@ snapshots:
 
   typescript@5.9.2: {}
 
+  ua-parser-js@0.7.41: {}
+
   ua-parser-js@1.0.41: {}
 
   uglify-js@3.19.3:
@@ -16632,6 +16702,14 @@ snapshots:
       pako: 1.0.11
 
   util-deprecate@1.0.2: {}
+
+  util@0.12.5:
+    dependencies:
+      inherits: 2.0.4
+      is-arguments: 1.2.0
+      is-generator-function: 1.1.0
+      is-typed-array: 1.1.15
+      which-typed-array: 1.1.19
 
   utils-merge@1.0.1: {}
 

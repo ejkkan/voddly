@@ -30,18 +30,30 @@ async function fetchUiSections(params: SectionsTimingParams) {
   );
 }
 
+/**
+ * Hook to fetch UI sections with optional enabled flag
+ *
+ * @example
+ * // Only fetch when on dashboard route
+ * const { data, isLoading } = useUiSections('movie', {
+ *   enabled: useIsDashboardRoute(),
+ *   limitPerCategory: 20
+ * });
+ */
 export function useUiSections(
   type: CatalogItemType,
   opts?: {
     limitPerCategory?: number;
     maxCategories?: number;
     categoryOffset?: number;
+    enabled?: boolean;
   }
 ) {
   const { accountId, isLoading: accountsLoading } = useActiveAccountId();
   const limitPerCategory = opts?.limitPerCategory ?? 20;
   const maxCategories = opts?.maxCategories ?? 10;
   const categoryOffset = opts?.categoryOffset ?? 0;
+  const enabled = opts?.enabled ?? true;
 
   return useQuery({
     queryKey: [
@@ -53,7 +65,7 @@ export function useUiSections(
       categoryOffset,
       accountId ?? null,
     ],
-    enabled: !accountsLoading,
+    enabled: enabled && !accountsLoading,
     queryFn: () =>
       fetchUiSections({
         type,
@@ -68,11 +80,22 @@ export function useUiSections(
   });
 }
 
-export function useUiPreview(type: CatalogItemType, limit = 10) {
+/**
+ * Hook to fetch UI preview with optional enabled flag
+ *
+ * @example
+ * // Only fetch when on movies route
+ * const { data, isLoading } = useUiPreview('movie', 10, useIsMoviesRoute());
+ */
+export function useUiPreview(
+  type: CatalogItemType,
+  limit = 10,
+  enabled = true
+) {
   const { accountId, isLoading: accountsLoading } = useActiveAccountId();
   return useQuery({
     queryKey: ['ui', 'preview', type, limit, accountId ?? null],
-    enabled: !accountsLoading,
+    enabled: enabled && !accountsLoading,
     queryFn: async () =>
       fetchPreviewByType(type, limit, accountId || undefined),
     staleTime: 300_000,
@@ -81,16 +104,26 @@ export function useUiPreview(type: CatalogItemType, limit = 10) {
   });
 }
 
+/**
+ * Hook to fetch more category items with optional enabled flag
+ *
+ * @example
+ * // Only fetch when on series route
+ * const { data, isLoading } = useFetchMoreCategoryItems(
+ *   'series', categoryId, currentLength, 25, useIsSeriesRoute()
+ * );
+ */
 // eslint-disable-next-line max-params
 export function useFetchMoreCategoryItems(
   type: CatalogItemType,
   categoryId: string,
   currentLength: number,
-  pageSize = 25
+  pageSize = 25,
+  enabled = true
 ) {
   const { accountId, isLoading: accountsLoading } = useActiveAccountId();
   return useQuery<UiCatalogItem[]>({
-    enabled: Boolean(categoryId) && !accountsLoading,
+    enabled: enabled && Boolean(categoryId) && !accountsLoading,
     queryKey: [
       'ui',
       'categoryItems',
