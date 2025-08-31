@@ -245,11 +245,11 @@ async function getBatchContentData(
   type: 'movie' | 'series'
 ) {
   if (tmdbIds.length === 0) return new Map<string, any>();
-  
+
   try {
     const db = await openDb();
     const placeholders = tmdbIds.map(() => '?').join(',');
-    
+
     const query = `
       SELECT
         ci.id,
@@ -260,7 +260,7 @@ async function getBatchContentData(
       FROM content_items ci
       WHERE ci.tmdb_id IN (${placeholders}) AND ci.type = ?
     `;
-    
+
     const results = await db.getAllAsync<{
       id: string;
       title: string;
@@ -268,7 +268,7 @@ async function getBatchContentData(
       tmdb_id: string;
       type: string;
     }>(query, [...tmdbIds, type]);
-    
+
     // Create a map for O(1) lookups
     const dataMap = new Map<string, any>();
     for (const item of results) {
@@ -276,7 +276,7 @@ async function getBatchContentData(
         dataMap.set(item.tmdb_id, item);
       }
     }
-    
+
     return dataMap;
   } catch (error) {
     console.error('Error in batch query:', error);
@@ -290,15 +290,15 @@ async function enhanceTrendsResponse(
   contentType: 'movie' | 'tv'
 ): Promise<TrendsFeedResponse> {
   const localType = contentType === 'tv' ? 'series' : 'movie';
-  
+
   // Collect all TMDB IDs that need to be looked up
   const tmdbIds = response.items
-    .filter(item => item.tmdb_id)
-    .map(item => String(item.tmdb_id));
-  
+    .filter((item) => item.tmdb_id)
+    .map((item) => String(item.tmdb_id));
+
   // Single batch query for all items
   const localDataMap = await getBatchContentData(tmdbIds, localType);
-  
+
   // Map the results back to items
   const enhancedItems = response.items.map((item) => {
     if (!item.tmdb_id) {
@@ -308,7 +308,7 @@ async function enhanceTrendsResponse(
         local_id: null,
       };
     }
-    
+
     const local = localDataMap.get(String(item.tmdb_id));
     return {
       ...item,

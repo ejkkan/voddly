@@ -6,23 +6,23 @@ import { Pressable, Text, View } from '@/components/ui';
 import {
   useCreateProfile,
   useProfiles,
-  useSwitchProfile,
 } from '@/hooks/ui/useProfiles';
+import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
 
 export function ProfileSelector() {
   const { data: profilesData, isLoading } = useProfiles();
+  const { currentProfile, switchProfile: switchToProfile } = useCurrentProfile();
   const createProfile = useCreateProfile();
-  const switchProfile = useSwitchProfile();
   const router = useRouter();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
   });
 
   const profiles = profilesData?.profiles || [];
-  const currentProfile = profiles.find((p) => p.is_owner) || profiles[0];
 
   const handleCreateProfile = async () => {
     if (!formData.name.trim()) return;
@@ -40,11 +40,19 @@ export function ProfileSelector() {
   };
 
   const handleSwitchProfile = async (profileId: string) => {
+    if (profileId === currentProfile?.id) {
+      setIsDropdownOpen(false);
+      return;
+    }
+    
     try {
-      await switchProfile.mutateAsync({ profileId });
+      setIsSwitching(true);
+      await switchToProfile(profileId);
       setIsDropdownOpen(false);
     } catch (error) {
       console.error('Failed to switch profile:', error);
+    } finally {
+      setIsSwitching(false);
     }
   };
 
@@ -101,19 +109,20 @@ export function ProfileSelector() {
               <Pressable
                 key={profile.id}
                 onPress={() => handleSwitchProfile(profile.id)}
+                disabled={isSwitching}
                 className={`border-b border-neutral-100 p-3 dark:border-neutral-700 ${
-                  profile.id === currentProfile.id
+                  profile.id === currentProfile?.id
                     ? 'bg-blue-50 dark:bg-blue-900/20'
-                    : ''
-                }`}
+                    : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
+                } ${isSwitching ? 'opacity-50' : ''}`}
               >
                 <View className="flex-row items-center justify-between">
                   <Text className="font-medium text-neutral-900 dark:text-neutral-50">
                     {profile.name}
                   </Text>
-                  {profile.id === currentProfile.id && (
+                  {profile.id === currentProfile?.id && (
                     <Text className="text-sm text-blue-600 dark:text-blue-400">
-                      Current
+                      {isSwitching ? 'Switching...' : 'Current'}
                     </Text>
                   )}
                 </View>

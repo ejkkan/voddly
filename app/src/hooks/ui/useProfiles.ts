@@ -78,16 +78,3 @@ export function useIsProfileOwner(profileId: string) {
   });
 }
 
-// Switch to a different profile
-export function useSwitchProfile() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (data: { profileId: string }) => {
-      return apiClient.user.switchProfile(data.profileId);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profiles'] });
-    },
-  });
-}

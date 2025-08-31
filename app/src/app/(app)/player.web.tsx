@@ -5,7 +5,9 @@ import { EnhancedSubtitleModal } from '@/components/subtitles/EnhancedSubtitleMo
 import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { WebPlayer } from '@/components/video/web-player';
 import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlaybackSource';
+import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
 import { type Subtitle, useSubtitles } from '@/hooks/useSubtitles';
+import { useWatchStateTracker } from '@/hooks/useWatchStateTracker';
 
 function PlayerContent({
   url,
@@ -22,6 +24,12 @@ function PlayerContent({
   selectedMode,
   selectedEmbeddedTrackIndex,
   selectedEmbeddedLanguage,
+  startTime,
+  onPlaybackStart,
+  onProgress,
+  onPlaybackEnd,
+  onPause,
+  onSeek,
 }: {
   url?: string;
   contentType?: 'movie' | 'series' | 'live';
@@ -37,6 +45,12 @@ function PlayerContent({
   selectedMode: 'none' | 'external' | 'embedded';
   selectedEmbeddedTrackIndex?: number;
   selectedEmbeddedLanguage?: string;
+  startTime?: number;
+  onPlaybackStart?: (current: number, duration?: number) => void;
+  onProgress?: (current: number, duration?: number) => void;
+  onPlaybackEnd?: (current: number, duration?: number) => void;
+  onPause?: (current: number, duration?: number) => void;
+  onSeek?: (current: number, duration?: number) => void;
 }) {
   const router = useRouter();
   return (
@@ -59,6 +73,12 @@ function PlayerContent({
           selectedMode={selectedMode}
           selectedEmbeddedTrackIndex={selectedEmbeddedTrackIndex}
           selectedEmbeddedLanguage={selectedEmbeddedLanguage}
+          startTime={startTime}
+          onPlaybackStart={onPlaybackStart}
+          onProgress={onProgress}
+          onPlaybackEnd={onPlaybackEnd}
+          onPause={onPause}
+          onSeek={onSeek}
         />
       )}
     </View>
@@ -110,6 +130,33 @@ export default function Player() {
   const movieId = params.movie as string;
   const tmdbId = params.tmdb_id ? Number(params.tmdb_id) : undefined;
   const title = params.title as string;
+  const contentId = (params.movie || params.series || params.live) as
+    | string
+    | undefined;
+  const { profileId } = useCurrentProfile();
+  
+  // Derive current embedded language for UI
+  const currentEmbeddedLanguage = React.useMemo(() => {
+    if (!formatInfo || selectedEmbeddedTrackIndex === undefined)
+      return undefined;
+    const track = formatInfo.subtitleTracks?.find(
+      (t: any) => t.index === selectedEmbeddedTrackIndex
+    );
+    return track?.language;
+  }, [formatInfo, selectedEmbeddedTrackIndex]);
+  
+  const { startTime, callbacks, preferences } = useWatchStateTracker({
+    profileId,
+    contentId,
+    contentType,
+    reportIntervalMs: 10_000,
+    playerPreferences: {
+      playbackSpeed: 1.0,
+      audioTrack: undefined,
+      subtitleTrack: selectedExternalSubtitle?.language_code || currentEmbeddedLanguage,
+      qualityPreference: undefined,
+    },
+  });
 
   // Fetch subtitles for the movie/series
   const {
@@ -129,16 +176,6 @@ export default function Player() {
 
   // Get the currently selected external subtitle for the player
   const currentSubtitle = selectedExternalSubtitle;
-
-  // Derive current embedded language for UI
-  const currentEmbeddedLanguage = React.useMemo(() => {
-    if (!formatInfo || selectedEmbeddedTrackIndex === undefined)
-      return undefined;
-    const track = formatInfo.subtitleTracks?.find(
-      (t: any) => t.index === selectedEmbeddedTrackIndex
-    );
-    return track?.language;
-  }, [formatInfo, selectedEmbeddedTrackIndex]);
 
   // Handle subtitle application
   const handleSubtitleApplied = React.useCallback((language: string) => {
@@ -169,6 +206,12 @@ export default function Player() {
       selectedMode={selectedMode}
       selectedEmbeddedTrackIndex={selectedEmbeddedTrackIndex}
       selectedEmbeddedLanguage={currentEmbeddedLanguage}
+      startTime={startTime}
+      onPlaybackStart={callbacks.onPlaybackStart}
+      onProgress={callbacks.onProgress}
+      onPlaybackEnd={callbacks.onPlaybackEnd}
+      onPause={callbacks.onPause}
+      onSeek={callbacks.onSeek}
     />
   );
 

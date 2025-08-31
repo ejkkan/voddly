@@ -5,6 +5,8 @@ import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
 import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
 import { useFavoriteManager, useUiPreview, useUiSections } from '@/hooks/ui';
+import { getLocalItemData } from '@/hooks/ui/useDashboardTrends';
+import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 
 type Section = {
@@ -21,12 +23,29 @@ type Section = {
 
 export default function TV() {
   const router = useRouter();
-  const { isFavorite, toggleFavorite } = useFavoriteManager();
+  const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
+  const { isInAnyPlaylist } = usePlaylistManager();
   const [sections, setSections] = useState<Section[]>([]);
   const [catOffset, setCatOffset] = useState(0);
   const [loadingCats, setLoadingCats] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const loadingRowsRef = useRef<Record<string, boolean>>({});
+
+  const handleLiveLongPress = async (id: string | number) => {
+    console.log('📺 Long pressed live/TV with ID:', id);
+    const liveData = await getLocalItemData(id, 'live');
+    if (liveData) {
+      console.log('📡 Local live data:', liveData);
+      try {
+        const payload = JSON.parse(liveData.original_payload_json);
+        console.log('🎭 Original live payload:', payload);
+      } catch {
+        console.log('📄 Raw live payload:', liveData.original_payload_json);
+      }
+    } else {
+      console.log('❌ No local live data found for ID:', id);
+    }
+  };
 
   const sectionsQuery = useUiSections('live', {
     limitPerCategory: 20,
@@ -154,6 +173,11 @@ export default function TV() {
           <CarouselRow
             title={item.title}
             data={item.data}
+            onViewAll={
+              item.categoryId
+                ? () => router.push(`/category/${item.categoryId}`)
+                : undefined
+            }
             onEndReached={() => handleLoadMoreRow(item.categoryId)}
             loadingMore={
               !!(item.categoryId && loadingRowsRef.current[item.categoryId])
@@ -165,10 +189,13 @@ export default function TV() {
                 posterUrl={row.imageUrl}
                 aspect={item.aspect || 'poster'}
                 onPress={(id) =>
-                  router.push(`/(app)/live/${encodeURIComponent(String(id))}`)
+                  router.push(`/(app)/tv/${encodeURIComponent(String(id))}`)
                 }
+                onLongPress={handleLiveLongPress}
                 isFavorite={isFavorite(row.id)}
                 onToggleFavorite={() => toggleFavorite(row.id, 'tv')}
+                hasProfile={hasProfile}
+                isInPlaylist={isInAnyPlaylist(row.id)}
               />
             )}
           />

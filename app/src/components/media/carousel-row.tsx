@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { FlatList, Text, View } from '@/components/ui';
+import { FlatList, Pressable, Text, View } from '@/components/ui';
+import { ArrowRight } from '@/components/ui/icons';
 
 type Item = {
   id: string | number;
@@ -15,6 +16,7 @@ type CarouselRowProps = {
   onEndReached?: () => void;
   loadingMore?: boolean;
   titleAccessory?: React.ReactNode;
+  onViewAll?: () => void;
 };
 
 export const CarouselRow = ({
@@ -24,6 +26,7 @@ export const CarouselRow = ({
   onEndReached,
   loadingMore,
   titleAccessory,
+  onViewAll,
 }: CarouselRowProps) => {
   return (
     <View className="mb-4">
@@ -32,6 +35,11 @@ export const CarouselRow = ({
           {title}
         </Text>
         {titleAccessory ? <View className="ml-2">{titleAccessory}</View> : null}
+        {onViewAll ? (
+          <Pressable onPress={onViewAll} className="ml-2 rounded-full p-1">
+            <ArrowRight color="#6b7280" />
+          </Pressable>
+        ) : null}
       </View>
       <FlatList
         horizontal

@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { View } from '@/components/ui';
 
 interface EpgProps {
@@ -18,13 +19,9 @@ interface EpgProps {
   children: React.ReactNode;
 }
 
-export function Epg({
-  width,
-  height,
-  children,
-}: EpgProps) {
+export function Epg({ width, height, children }: EpgProps) {
   return (
-    <View 
+    <View
       className="relative overflow-hidden bg-white dark:bg-black"
       style={{ width, height }}
     >

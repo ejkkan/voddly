@@ -1,6 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+
 import log from '@/lib/logging';
 
 interface SessionState {
@@ -27,13 +27,13 @@ class SecureSessionManager {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    
+
     try {
       // Load persisted session state
       const stored = await this.getSecureData(SESSION_KEY);
       if (stored) {
         this.sessionState = JSON.parse(stored);
-        
+
         // Check if passphrase has expired
         if (this.sessionState.lastVerified) {
           const elapsed = Date.now() - this.sessionState.lastVerified;
@@ -46,10 +46,10 @@ class SecureSessionManager {
         }
       }
       this.initialized = true;
-      log.info('[SecureSession] Initialized', { 
+      log.info('[SecureSession] Initialized', {
         hasPassphrase: !!this.sessionState.passphrase,
         deviceRegistered: this.sessionState.deviceRegistered,
-        accountId: this.sessionState.accountId
+        accountId: this.sessionState.accountId,
       });
     } catch (error) {
       log.error('[SecureSession] Initialization error', { error });
@@ -91,7 +91,10 @@ class SecureSessionManager {
       if (Object.keys(this.sessionState).length === 0) {
         await this.deleteSecureData(SESSION_KEY);
       } else {
-        await this.setSecureData(SESSION_KEY, JSON.stringify(this.sessionState));
+        await this.setSecureData(
+          SESSION_KEY,
+          JSON.stringify(this.sessionState)
+        );
       }
     } catch (error) {
       log.error('[SecureSession] Persist error', { error });
@@ -108,7 +111,7 @@ class SecureSessionManager {
 
   async getPassphrase(): Promise<string | undefined> {
     await this.initialize();
-    
+
     // Check if passphrase has expired
     if (this.sessionState.passphrase && this.sessionState.lastVerified) {
       const elapsed = Date.now() - this.sessionState.lastVerified;
@@ -120,18 +123,24 @@ class SecureSessionManager {
         return undefined;
       }
     }
-    
+
     return this.sessionState.passphrase;
   }
 
-  async setDeviceRegistered(registered: boolean, accountId?: string): Promise<void> {
+  async setDeviceRegistered(
+    registered: boolean,
+    accountId?: string
+  ): Promise<void> {
     await this.initialize();
     this.sessionState.deviceRegistered = registered;
     if (accountId) {
       this.sessionState.accountId = accountId;
     }
     await this.persist();
-    log.info('[SecureSession] Device registration status updated', { registered, accountId });
+    log.info('[SecureSession] Device registration status updated', {
+      registered,
+      accountId,
+    });
   }
 
   async isDeviceRegistered(): Promise<boolean> {

@@ -5,6 +5,7 @@ import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
 import { View } from '@/components/ui';
 import { useFavoriteManager } from '@/hooks/ui';
+import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { openDb } from '@/lib/db';
 import { useSourceCredentials } from '@/lib/source-credentials';
 
@@ -49,6 +50,7 @@ export function SeriesEpisodesCarousels(props: {
   const router = useRouter();
   const { prepareContentPlayback } = useSourceCredentials();
   const { isFavorite, toggleFavorite } = useFavoriteManager();
+  const { isInAnyPlaylist } = usePlaylistManager();
 
   useEffect(() => {
     let mounted = true;
@@ -98,21 +100,25 @@ export function SeriesEpisodesCarousels(props: {
           key={`season-${season}`}
           title={`Season ${season}`}
           data={eps.map((e) => ({
-            id: e.stream_id || `${seriesItemId}:${season}:${e.episode_number}`,
+            // Use the stable episode id for favorites
+            id: e.id,
             title: (e.title && e.title.trim().length > 0
               ? e.title
               : `Episode ${e.episode_number}`) as string,
             imageUrl: (seriesPosterUrl || seriesBackdropUrl || '') as string,
             sourceId,
+            // Carry stream id for playback
+            streamId:
+              e.stream_id || `${seriesItemId}:${season}:${e.episode_number}`,
           }))}
           renderItem={(item) => (
             <PosterCard
               id={item.id}
               title={item.title}
               posterUrl={item.imageUrl}
-              onPress={async (id) => {
+              onPress={async () => {
                 try {
-                  const streamId = String(id);
+                  const streamId = String((item as any).streamId);
                   await prepareContentPlayback({
                     sourceId,
                     contentId: streamId,
@@ -131,7 +137,8 @@ export function SeriesEpisodesCarousels(props: {
                 }
               }}
               isFavorite={isFavorite(item.id)}
-              onToggleFavorite={() => toggleFavorite(item.id, 'series')}
+              onToggleFavorite={() => toggleFavorite(item.id, 'episode')}
+              isInPlaylist={isInAnyPlaylist(item.id)}
             />
           )}
         />

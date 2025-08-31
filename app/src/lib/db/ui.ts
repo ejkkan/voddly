@@ -77,7 +77,7 @@ export async function fetchCategoriesWithPreviews(
   const db = await openDb();
   // Map item type to category.type stored during import
   const categoryType = type === 'movie' ? 'vod' : type;
-  
+
   // For large numbers of categories (like Live TV), use optimized single query
   if (maxCategories > 50 || limitPerCategory > 100) {
     // Get all data in one query using window functions (if supported) or subqueries
@@ -101,7 +101,7 @@ export async function fetchCategoriesWithPreviews(
       WHERE rn <= $limit
       ${maxCategories > 0 ? 'AND category_id IN (SELECT id FROM categories WHERE type = $catType ' + (accountId ? 'AND account_id = $accountId' : '') + ' ORDER BY name ASC LIMIT $maxCats OFFSET $catOffset)' : ''}
       ORDER BY category_name ASC, rn ASC`;
-    
+
     const params: any = {
       $catType: categoryType,
       $itemType: type,
@@ -112,26 +112,29 @@ export async function fetchCategoriesWithPreviews(
       params.$maxCats = maxCategories;
       params.$catOffset = categoryOffset || 0;
     }
-    
+
     const rows = await db.getAllAsync(query, params);
-    
+
     // Group by category
-    const categoryMap = new Map<string, { categoryId: string; name: string; items: UiCatalogItem[] }>();
-    
+    const categoryMap = new Map<
+      string,
+      { categoryId: string; name: string; items: UiCatalogItem[] }
+    >();
+
     for (const row of rows as any[]) {
       if (!categoryMap.has(row.category_id)) {
         categoryMap.set(row.category_id, {
           categoryId: row.category_id,
           name: row.category_name,
-          items: []
+          items: [],
         });
       }
       categoryMap.get(row.category_id)!.items.push(mapRowToUiItem(row));
     }
-    
+
     return Array.from(categoryMap.values());
   }
-  
+
   // Original implementation for smaller queries
   const baseQuery = `SELECT c.id, c.name
      FROM categories c
@@ -222,6 +225,31 @@ export async function fetchCategoryItems(
         }
   );
   return rows.map(mapRowToUiItem);
+}
+
+export async function fetchCategoryInfo(
+  categoryId: string,
+  accountId?: string
+): Promise<{ id: string; name: string; type: string } | null> {
+  const db = await openDb();
+  const row = await db.getFirstAsync(
+    `SELECT id, name, type FROM categories 
+     WHERE id = $categoryId ${accountId ? 'AND account_id = $accountId' : ''}`,
+    accountId
+      ? { $categoryId: categoryId, $accountId: accountId }
+      : { $categoryId: categoryId }
+  );
+
+  if (!row) return null;
+
+  // Map category type 'vod' back to 'movie' for consistency
+  const type = (row as any).type === 'vod' ? 'movie' : (row as any).type;
+
+  return {
+    id: (row as any).id,
+    name: (row as any).name,
+    type: type,
+  };
 }
 
 export async function fetchDashboardPreviews(

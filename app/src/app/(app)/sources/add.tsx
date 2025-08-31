@@ -57,19 +57,20 @@ export default function AddPlaylist() {
   const onSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
-    
+
     // Show loading toast immediately
     const toastId = `add-playlist-${Date.now()}`;
-    const displayName = mode === 'xtream' 
-      ? `${sourceName || 'IPTV Xtream'}` 
-      : `${sourceName || 'M3U Playlist'}`;
-    
+    const displayName =
+      mode === 'xtream'
+        ? `${sourceName || 'IPTV Xtream'}`
+        : `${sourceName || 'M3U Playlist'}`;
+
     toast.loading(`Adding ${displayName}...`, {
       id: toastId,
       duration: 999999, // Very long duration
       description: 'Connecting to source and downloading metadata',
     });
-    
+
     try {
       let sourceId: string;
       let accountId: string;
@@ -328,23 +329,24 @@ export default function AddPlaylist() {
       // Dismiss loading toast and show success
       toast.dismiss(toastId);
       notify.success(`${displayName} added successfully!`, {
-        description: mode === 'xtream' 
-          ? `Connected to ${serverUrl}`
-          : `Connected to M3U playlist`,
+        description:
+          mode === 'xtream'
+            ? `Connected to ${serverUrl}`
+            : `Connected to M3U playlist`,
         duration: 4000,
       });
-      
+
       router.replace('/(app)/playlists');
     } catch (e: any) {
       console.log('Add playlist failed', e);
-      
+
       // Dismiss loading toast and show error
       toast.dismiss(toastId);
       notify.error('Failed to add playlist', {
         description: e?.message || 'Please check your connection details',
         duration: 5000,
       });
-      
+
       setSubmitting(false);
     }
   };

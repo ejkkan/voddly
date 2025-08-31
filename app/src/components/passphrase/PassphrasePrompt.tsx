@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { secureSession } from '@/lib/secure-session';
+import {
+  Alert,
+  Modal,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import log from '@/lib/logging';
+import { secureSession } from '@/lib/secure-session';
 
 interface PassphrasePromptProps {
   visible: boolean;
@@ -21,7 +29,10 @@ export function PassphrasePrompt({
 
   const handleSubmit = async () => {
     if (!passphrase || passphrase.length < 6) {
-      Alert.alert('Invalid Passphrase', 'Passphrase must be at least 6 characters');
+      Alert.alert(
+        'Invalid Passphrase',
+        'Passphrase must be at least 6 characters'
+      );
       return;
     }
 
@@ -30,10 +41,10 @@ export function PassphrasePrompt({
       // Store the passphrase securely
       await secureSession.setPassphrase(passphrase);
       log.info('[PassphrasePrompt] Passphrase stored successfully');
-      
+
       // Clear the input
       setPassphrase('');
-      
+
       // Notify success
       onSuccess();
     } catch (error) {
@@ -61,7 +72,7 @@ export function PassphrasePrompt({
           <Text className="mb-2 text-xl font-bold text-neutral-900 dark:text-white">
             Passphrase Required
           </Text>
-          
+
           <Text className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
             {message}
           </Text>

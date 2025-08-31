@@ -24,7 +24,7 @@ export function useDeviceRegistration() {
       }
 
       const deviceInfo = getDeviceInfo();
-      
+
       // Check device status
       const result = await apiClient.user.checkDevice({
         accountId: session.data.accountId,
@@ -36,7 +36,8 @@ export function useDeviceRegistration() {
           // Device needs to be registered with passphrase
           setNeedsRegistration(true);
           notify.info('Device Registration Required', {
-            description: 'Please enter your passphrase to register this device.',
+            description:
+              'Please enter your passphrase to register this device.',
             duration: 5000,
           });
           // Navigate to passphrase setup

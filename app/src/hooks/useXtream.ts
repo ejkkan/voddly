@@ -26,14 +26,14 @@ export function useXtreamClient() {
         title: 'Decrypt Source',
         message: 'Enter your passphrase to access the source',
       });
-      
+
       // Create and cache the client
       const client = new XtreamClient({
         server: creds.server,
         username: creds.username,
         password: creds.password,
       });
-      
+
       clientCache.set(sourceId, client);
       return client;
     },

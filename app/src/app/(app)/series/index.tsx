@@ -6,6 +6,8 @@ import { PosterCard } from '@/components/media/poster-card';
 import { FlatList, Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { Heart } from '@/components/ui/icons';
 import { useFavoriteManager, useUiPreview, useUiSections } from '@/hooks/ui';
+import { getLocalItemData } from '@/hooks/ui/useDashboardTrends';
+import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 
 type Section = {
@@ -21,12 +23,29 @@ type Section = {
 
 export default function Series() {
   const router = useRouter();
-  const { isFavorite, toggleFavorite } = useFavoriteManager();
+  const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
+  const { isInAnyPlaylist } = usePlaylistManager();
   const [sections, setSections] = useState<Section[]>([]);
   const [catOffset, setCatOffset] = useState(0);
   const [loadingCats, setLoadingCats] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const loadingRowsRef = useRef<Record<string, boolean>>({});
+
+  const handleSeriesLongPress = async (id: string | number) => {
+    console.log('📺 Long pressed series with ID:', id);
+    const seriesData = await getLocalItemData(id, 'series');
+    if (seriesData) {
+      console.log('📺 Local series data:', seriesData);
+      try {
+        const payload = JSON.parse(seriesData.original_payload_json);
+        console.log('🎭 Original series payload:', payload);
+      } catch {
+        console.log('📄 Raw series payload:', seriesData.original_payload_json);
+      }
+    } else {
+      console.log('❌ No local series data found for ID:', id);
+    }
+  };
 
   const sectionsQuery = useUiSections('series', {
     limitPerCategory: 20,
@@ -170,6 +189,11 @@ export default function Series() {
                 </Pressable>
               ) : null
             }
+            onViewAll={
+              item.categoryId
+                ? () => router.push(`/category/${item.categoryId}`)
+                : undefined
+            }
             onEndReached={() => handleLoadMoreRow(item.categoryId)}
             loadingMore={
               !!(item.categoryId && loadingRowsRef.current[item.categoryId])
@@ -182,8 +206,11 @@ export default function Series() {
                 onPress={(id) =>
                   router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
                 }
+                onLongPress={handleSeriesLongPress}
                 isFavorite={isFavorite(row.id)}
                 onToggleFavorite={() => toggleFavorite(row.id, 'series')}
+                hasProfile={hasProfile}
+                isInPlaylist={isInAnyPlaylist(row.id)}
               />
             )}
           />

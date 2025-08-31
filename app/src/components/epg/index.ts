@@ -1,4 +1,4 @@
 export { Epg } from './Epg';
-export { Layout } from './Layout';
+export type { Channel, EpgConfig, Program } from './hooks/useEpg';
 export { useEpg } from './hooks/useEpg';
-export type { Channel, Program, EpgConfig } from './hooks/useEpg';
+export { Layout } from './Layout';

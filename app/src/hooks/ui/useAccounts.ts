@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';
 
-type SubscriptionResponse = Awaited<ReturnType<typeof apiClient.user.getSubscription>>;
+type SubscriptionResponse = Awaited<
+  ReturnType<typeof apiClient.user.getSubscription>
+>;
 
 // Centralized hook for subscription data - all other hooks should use this
 export function useSubscriptionData() {
@@ -40,7 +42,9 @@ export function useAccounts() {
   const { data, ...rest } = useSubscriptionData();
   // Transform to match old format
   return {
-    data: data?.subscription ? { accounts: [data.subscription] } : { accounts: [] },
+    data: data?.subscription
+      ? { accounts: [data.subscription] }
+      : { accounts: [] },
     ...rest,
   };
 }

@@ -32,6 +32,11 @@ export type WebPlayerProps = {
   selectedMode?: 'none' | 'external' | 'embedded';
   selectedEmbeddedTrackIndex?: number;
   selectedEmbeddedLanguage?: string;
+  // Watch-state callbacks (optional)
+  startTime?: number;
+  onPlaybackStart?: (currentTimeSec: number, durationSec?: number) => void;
+  onProgress?: (currentTimeSec: number, durationSec?: number) => void;
+  onPlaybackEnd?: (currentTimeSec: number, durationSec?: number) => void;
 };
 
 export function WebPlayer(props: WebPlayerProps) {
@@ -52,6 +57,10 @@ export function WebPlayer(props: WebPlayerProps) {
     selectedMode = 'none',
     selectedEmbeddedTrackIndex,
     selectedEmbeddedLanguage,
+    startTime = 0,
+    onPlaybackStart,
+    onProgress,
+    onPlaybackEnd,
   } = props;
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -346,7 +355,9 @@ export function WebPlayer(props: WebPlayerProps) {
         error: v.error,
         videoHeight: v.videoHeight,
         videoWidth: v.videoWidth,
-        canPlayType_m3u8: v.canPlayType ? v.canPlayType('application/vnd.apple.mpegurl') : 'N/A',
+        canPlayType_m3u8: v.canPlayType
+          ? v.canPlayType('application/vnd.apple.mpegurl')
+          : 'N/A',
       });
     } catch {}
   }, []);
@@ -367,6 +378,9 @@ export function WebPlayer(props: WebPlayerProps) {
       if (Math.abs(nowSec - last) >= 0.25 || nowSec < last) {
         lastTimeEmitRef.current = nowSec;
         setCurrentTime(nowSec);
+        try {
+          onProgress?.(nowSec, duration || video.duration || 0);
+        } catch {}
       }
       try {
         lastProgressMsRef.current = Date.now();
@@ -381,10 +395,15 @@ export function WebPlayer(props: WebPlayerProps) {
       setIsPlaying(true);
       setIsLoading(false);
       logVideoState('onPlay');
-      
+      try {
+        onPlaybackStart?.(video.currentTime || 0, video.duration || duration);
+      } catch {}
+
       // For live streams, ensure audio is enabled after playback starts
       if (type === 'live' && video.muted) {
-        console.log('[WebPlayer] Live stream playing but muted, attempting to unmute');
+        console.log(
+          '[WebPlayer] Live stream playing but muted, attempting to unmute'
+        );
         setTimeout(() => {
           try {
             video.muted = false;
@@ -528,7 +547,9 @@ export function WebPlayer(props: WebPlayerProps) {
           try {
             // For live streams, ensure audio is enabled
             if (type === 'live') {
-              console.log('[WebPlayer] Live stream detected, ensuring audio is enabled');
+              console.log(
+                '[WebPlayer] Live stream detected, ensuring audio is enabled'
+              );
               v.muted = false;
               v.volume = 1.0;
             } else {
@@ -537,14 +558,19 @@ export function WebPlayer(props: WebPlayerProps) {
             await v.play();
             console.log('[WebPlayer] Playback started with audio enabled');
           } catch (e) {
-            console.log('[WebPlayer] Failed to play with audio, trying muted:', e);
+            console.log(
+              '[WebPlayer] Failed to play with audio, trying muted:',
+              e
+            );
             try {
               v.muted = true;
               await v.play();
               // Try to unmute after playback starts for live streams
               if (type === 'live') {
                 setTimeout(() => {
-                  console.log('[WebPlayer] Attempting to unmute live stream after playback');
+                  console.log(
+                    '[WebPlayer] Attempting to unmute live stream after playback'
+                  );
                   v.muted = false;
                   v.volume = 1.0;
                   setIsMutedUi(false);
@@ -574,6 +600,12 @@ export function WebPlayer(props: WebPlayerProps) {
     };
     const onLoadedMeta = () => {
       logVideoState('onLoadedMetadata');
+      // Seek to provided start time if any
+      try {
+        if (startTime && startTime > 0) {
+          video.currentTime = startTime;
+        }
+      } catch {}
     };
     const onVisibility = () => {
       try {
@@ -600,10 +632,10 @@ export function WebPlayer(props: WebPlayerProps) {
           isHls &&
           typeof video.canPlayType === 'function' &&
           video.canPlayType('application/vnd.apple.mpegurl') !== '';
-        
+
         // For .ts streams, use direct playback (no Shaka needed)
         const useShaka = isManifest && !(isHls && canNativeHls) && !isMpegTs;
-        
+
         // Log stream type detection
         console.log('[WebPlayer] Stream type detection:', {
           url,
@@ -641,7 +673,7 @@ export function WebPlayer(props: WebPlayerProps) {
             setIsLoading(false);
           };
           player.addEventListener('error', onError as any);
-          
+
           // Add event listener for track changes
           player.addEventListener('adaptation', () => {
             console.log('[WebPlayer] Adaptation event - checking audio tracks');
@@ -658,7 +690,7 @@ export function WebPlayer(props: WebPlayerProps) {
               }
             }
           });
-          
+
           // Listen for loaded event to check audio
           player.addEventListener('loaded', () => {
             console.log('[WebPlayer] Shaka loaded event');
@@ -696,7 +728,7 @@ export function WebPlayer(props: WebPlayerProps) {
           ext === 'mov' ||
           ext === 'm4v' ||
           ext === 'mkv' ||
-          ext === 'ts';  // Added .ts as progressive format
+          ext === 'ts'; // Added .ts as progressive format
         console.log('[WebPlayer] init', {
           url,
           ext,
@@ -733,7 +765,7 @@ export function WebPlayer(props: WebPlayerProps) {
                   maxBandwidth: Infinity,
                 },
               });
-              
+
               // Set up audio configuration
               player.configure({
                 mediaSource: {
@@ -745,33 +777,40 @@ export function WebPlayer(props: WebPlayerProps) {
             }
           }
           await player.load(url);
-          
+
           // After loading, ensure audio is enabled for live streams
           if (type === 'live') {
             console.log('[WebPlayer] Checking audio configuration after load');
             const config = player.getConfiguration();
             console.log('[WebPlayer] Shaka configuration:', config);
-            
+
             // Get all available tracks
             const variantTracks = player.getVariantTracks();
             const audioTracks = player.getAudioTracks();
-            
+
             if (variantTracks && variantTracks.length > 0) {
               // Find a track with audio
-              const trackWithAudio = variantTracks.find((t: any) => t.audioCodec);
+              const trackWithAudio = variantTracks.find(
+                (t: any) => t.audioCodec
+              );
               if (trackWithAudio && !trackWithAudio.active) {
-                console.log('[WebPlayer] Selecting track with audio:', trackWithAudio);
+                console.log(
+                  '[WebPlayer] Selecting track with audio:',
+                  trackWithAudio
+                );
                 player.selectVariantTrack(trackWithAudio);
               }
             }
-            
+
             // Ensure player is not muted - try multiple times
             if (video) {
               // Immediately unmute
               video.muted = false;
               video.volume = 1.0;
-              console.log('[WebPlayer] Ensured video is unmuted after Shaka load');
-              
+              console.log(
+                '[WebPlayer] Ensured video is unmuted after Shaka load'
+              );
+
               // Try again after a short delay
               setTimeout(() => {
                 if (video && video.muted) {
@@ -781,7 +820,7 @@ export function WebPlayer(props: WebPlayerProps) {
                   setIsMutedUi(false);
                 }
               }, 100);
-              
+
               // And once more after playback likely started
               setTimeout(() => {
                 if (video) {
@@ -815,7 +854,9 @@ export function WebPlayer(props: WebPlayerProps) {
             try {
               // For live streams and MPEG-TS, try to play with audio first
               if (type === 'live' || ext === 'ts') {
-                console.log('[WebPlayer] Live/TS stream - attempting playback with audio');
+                console.log(
+                  '[WebPlayer] Live/TS stream - attempting playback with audio'
+                );
                 (video as any).muted = false;
                 (video as any).volume = 1.0;
                 // Set crossOrigin for better compatibility
@@ -832,7 +873,9 @@ export function WebPlayer(props: WebPlayerProps) {
                   void (video as HTMLVideoElement).play().then(() => {
                     // Try to unmute after playback starts
                     setTimeout(() => {
-                      console.log('[WebPlayer] Attempting to unmute after playback started');
+                      console.log(
+                        '[WebPlayer] Attempting to unmute after playback started'
+                      );
                       (video as any).muted = false;
                       (video as any).volume = 1.0;
                       setIsMutedUi(false);
@@ -901,7 +944,7 @@ export function WebPlayer(props: WebPlayerProps) {
               variantCount: variants.length,
               audioTrackCount: audioTracks.length,
             });
-            
+
             // Check if audio is available
             if (variants.length > 0) {
               const firstVariant = variants[0];
@@ -913,18 +956,26 @@ export function WebPlayer(props: WebPlayerProps) {
                 audioChannelsCount: firstVariant.audioChannelsCount,
                 audioSamplingRate: firstVariant.audioSamplingRate,
               });
-              
+
               // Try to select the first audio track explicitly
               if (firstVariant.audioId) {
                 try {
-                  player.selectAudioLanguage(firstVariant.audioLanguage || 'und');
-                  console.log('[WebPlayer] Selected audio language:', firstVariant.audioLanguage || 'und');
+                  player.selectAudioLanguage(
+                    firstVariant.audioLanguage || 'und'
+                  );
+                  console.log(
+                    '[WebPlayer] Selected audio language:',
+                    firstVariant.audioLanguage || 'und'
+                  );
                 } catch (e) {
-                  console.log('[WebPlayer] Failed to select audio language:', e);
+                  console.log(
+                    '[WebPlayer] Failed to select audio language:',
+                    e
+                  );
                 }
               }
             }
-            
+
             const langs = Array.from(
               new Set(
                 (variants as any[]).map((v) => v.audioLanguage).filter(Boolean)
@@ -975,6 +1026,9 @@ export function WebPlayer(props: WebPlayerProps) {
         video.removeEventListener('stalled', onStalled);
       } catch {}
       video.removeEventListener('canplay', onCanPlay);
+      try {
+        onPlaybackEnd?.(video.currentTime || 0, video.duration || duration);
+      } catch {}
       try {
         if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
         rafIdRef.current = null;
@@ -1083,12 +1137,13 @@ export function WebPlayer(props: WebPlayerProps) {
     try {
       const v = videoRef.current;
       if (!v) return;
-      
+
       // For live streams with Shaka, ensure we handle audio properly
       if (type === 'live' && playerRef.current) {
         // Resume audio context if needed (for browser autoplay policies)
         if (typeof window !== 'undefined' && (window as any).AudioContext) {
-          const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+          const audioContext = new ((window as any).AudioContext ||
+            (window as any).webkitAudioContext)();
           if (audioContext.state === 'suspended') {
             audioContext.resume().then(() => {
               console.log('[WebPlayer] Audio context resumed');
@@ -1096,11 +1151,14 @@ export function WebPlayer(props: WebPlayerProps) {
           }
         }
       }
-      
+
       v.muted = !v.muted;
       if (!v.muted && v.volume === 0) v.volume = 1;
       setIsMutedUi(!!v.muted || (v.volume ?? 0) === 0);
-      console.log('[WebPlayer] Toggled mute:', { muted: v.muted, volume: v.volume });
+      console.log('[WebPlayer] Toggled mute:', {
+        muted: v.muted,
+        volume: v.volume,
+      });
       logVideoState('After toggle mute');
     } catch {}
   }, [logVideoState, type]);
@@ -1166,23 +1224,23 @@ export function WebPlayer(props: WebPlayerProps) {
     if (!container) return;
     try {
       if (!document.fullscreenElement) {
-        const requestFullscreen = 
+        const requestFullscreen =
           container.requestFullscreen ||
           (container as any).webkitRequestFullscreen ||
           (container as any).mozRequestFullScreen ||
           (container as any).msRequestFullscreen;
-        
+
         if (requestFullscreen) {
           requestFullscreen.call(container);
           setIsFullscreen(true);
         }
       } else {
-        const exitFullscreen = 
+        const exitFullscreen =
           document.exitFullscreen ||
           (document as any).webkitExitFullscreen ||
           (document as any).mozCancelFullScreen ||
           (document as any).msExitFullscreen;
-        
+
         if (exitFullscreen) {
           exitFullscreen.call(document);
           setIsFullscreen(false);
@@ -1200,37 +1258,50 @@ export function WebPlayer(props: WebPlayerProps) {
 
     let isHoldingLeft = false;
     let isHoldingRight = false;
-    let fastForwardInterval: NodeJS.Timeout | null = null;
+    let fastForwardInterval: number | null = null;
 
     const startFastForward = (direction: 'forward' | 'backward') => {
       if (fastForwardInterval) return;
-      
-      fastForwardInterval = setInterval(() => {
+
+      fastForwardInterval = window.setInterval(() => {
         if (!video) return;
         const seekAmount = direction === 'forward' ? 2 : -2;
-        video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seekAmount));
+        video.currentTime = Math.max(
+          0,
+          Math.min(duration, video.currentTime + seekAmount)
+        );
       }, 100);
     };
 
     const stopFastForward = () => {
       if (fastForwardInterval) {
-        clearInterval(fastForwardInterval);
+        window.clearInterval(fastForwardInterval);
         fastForwardInterval = null;
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       // Prevent default behavior for media keys
-      if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'f', 'F'].includes(e.key)) {
+      if (
+        [
+          'Space',
+          'ArrowUp',
+          'ArrowDown',
+          'ArrowLeft',
+          'ArrowRight',
+          'f',
+          'F',
+        ].includes(e.key)
+      ) {
         e.preventDefault();
       }
 
-      switch(e.key) {
+      switch (e.key) {
         case ' ':
         case 'Spacebar':
           onTogglePlay();
           break;
-          
+
         case 'ArrowUp':
           if (video) {
             video.volume = Math.min(1, video.volume + 0.1);
@@ -1238,14 +1309,14 @@ export function WebPlayer(props: WebPlayerProps) {
             if (video.muted) video.muted = false;
           }
           break;
-          
+
         case 'ArrowDown':
           if (video) {
             video.volume = Math.max(0, video.volume - 0.1);
             setIsMutedUi(video.volume === 0);
           }
           break;
-          
+
         case 'ArrowLeft':
           if (!isHoldingLeft) {
             isHoldingLeft = true;
@@ -1258,7 +1329,7 @@ export function WebPlayer(props: WebPlayerProps) {
             }
           }
           break;
-          
+
         case 'ArrowRight':
           if (!isHoldingRight) {
             isHoldingRight = true;
@@ -1271,7 +1342,7 @@ export function WebPlayer(props: WebPlayerProps) {
             }
           }
           break;
-          
+
         case 'f':
         case 'F':
           onToggleFullscreen();
@@ -1280,12 +1351,12 @@ export function WebPlayer(props: WebPlayerProps) {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      switch(e.key) {
+      switch (e.key) {
         case 'ArrowLeft':
           isHoldingLeft = false;
           stopFastForward();
           break;
-          
+
         case 'ArrowRight':
           isHoldingRight = false;
           stopFastForward();
@@ -1334,24 +1405,38 @@ export function WebPlayer(props: WebPlayerProps) {
   ]);
 
   return (
-    <div ref={containerRef} className="flex-1 bg-black" style={{ display: 'flex', flex: 1, backgroundColor: 'black', position: 'relative' }}>
-      <Pressable 
-        className="flex-1" 
+    <div
+      ref={containerRef}
+      className="flex-1 bg-black"
+      style={{
+        display: 'flex',
+        flex: 1,
+        backgroundColor: 'black',
+        position: 'relative',
+      }}
+    >
+      <Pressable
+        className="flex-1"
         onPress={() => {
           setShowControls((v) => !v);
           // On any user interaction with live streams, ensure audio is enabled
           if (type === 'live' && videoRef.current && videoRef.current.muted) {
-            console.log('[WebPlayer] User interaction detected, enabling audio');
+            console.log(
+              '[WebPlayer] User interaction detected, enabling audio'
+            );
             videoRef.current.muted = false;
             videoRef.current.volume = 1.0;
             setIsMutedUi(false);
-            
+
             // Resume audio context if needed
             if (typeof window !== 'undefined' && (window as any).AudioContext) {
-              const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+              const audioContext = new ((window as any).AudioContext ||
+                (window as any).webkitAudioContext)();
               if (audioContext.state === 'suspended') {
                 audioContext.resume().then(() => {
-                  console.log('[WebPlayer] Audio context resumed via user interaction');
+                  console.log(
+                    '[WebPlayer] Audio context resumed via user interaction'
+                  );
                 });
               }
             }
@@ -1438,14 +1523,16 @@ export function WebPlayer(props: WebPlayerProps) {
           <ActivityIndicator color="#ffffff" />
         </View>
       ) : null}
-      
+
       {/* Audio muted indicator for live streams */}
       {type === 'live' && isMutedUi && isPlaying && !isLoading && (
-        <Pressable 
+        <Pressable
           className="absolute top-20 left-4 bg-red-600 px-3 py-2 rounded-lg flex-row items-center"
           onPress={onToggleMute}
         >
-          <Text className="text-white font-semibold">🔇 Audio Muted - Tap to unmute</Text>
+          <Text className="text-white font-semibold">
+            🔇 Audio Muted - Tap to unmute
+          </Text>
         </Pressable>
       )}
     </div>

@@ -6,7 +6,7 @@ import { apiClient } from '@/lib/api-client';
 
 export function useFavorites(
   profileId: string | undefined,
-  contentType?: 'movie' | 'series' | 'tv' | 'category' | 'channel'
+  contentType?: 'movie' | 'series' | 'tv' | 'category' | 'channel' | 'episode'
 ) {
   return useQuery({
     queryKey: ['favorites', profileId, contentType || 'all'],
@@ -24,7 +24,13 @@ export function useAddFavorite(profileId: string | undefined) {
   return useMutation({
     mutationFn: async (params: {
       contentId: string;
-      contentType: 'movie' | 'series' | 'tv' | 'category' | 'channel';
+      contentType:
+        | 'movie'
+        | 'series'
+        | 'tv'
+        | 'category'
+        | 'channel'
+        | 'episode';
     }) => {
       if (!profileId) throw new Error('Missing profileId');
       const { contentId, contentType } = params;

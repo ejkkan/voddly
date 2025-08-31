@@ -219,21 +219,23 @@ export async function resolveSourceInfoCached(
       debugLog('resolveSourceInfoCached:noAccounts');
       throw new Error('No accounts found. Please set up an account first.');
     }
-    
+
     for (const account of accountsData.accounts || []) {
       const list = sourcesData.sources || [];
-      
+
       // If no sources but we have keyData, it might be a configuration issue
       if (list.length === 0 && keyData) {
         debugLog('resolveSourceInfoCached:noSourcesButHasKeyData');
-        throw new Error('No sources configured for your account. Please add a source in settings.');
+        throw new Error(
+          'No sources configured for your account. Please add a source in settings.'
+        );
       }
-      
+
       // First try exact match
       let source = list.find(
         (s: any) => s.id === targetId || s.name === targetId
       );
-      
+
       // If no exact match and we have sources, try to be more flexible
       if (!source && list.length > 0) {
         // Check if targetId contains a colon (like "source1:movie:123")
@@ -242,13 +244,13 @@ export async function resolveSourceInfoCached(
           const prefix = targetId.split(':')[0];
           source = list.find((s: any) => s.id === prefix || s.name === prefix);
         }
-        
+
         // If still no match and there's only one source, use it
         if (!source && list.length === 1) {
           source = list[0];
         }
       }
-      
+
       if (source && keyData) {
         debugLog('resolveSourceInfoCached:foundSource', {
           sourceId: source.id,
@@ -275,75 +277,102 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
   console.log('[resolveSourceInfoDirect] Starting with targetId:', targetId);
   debugLog('resolveSourceInfo:start', { targetId });
   const subscriptions = await apiClient.user.getSubscriptions();
-  console.log('[resolveSourceInfoDirect] Subscriptions response:', subscriptions);
-  
+  console.log(
+    '[resolveSourceInfoDirect] Subscriptions response:',
+    subscriptions
+  );
+
   // Check if we have any subscriptions
-  if (!subscriptions.subscriptions || subscriptions.subscriptions.length === 0) {
+  if (
+    !subscriptions.subscriptions ||
+    subscriptions.subscriptions.length === 0
+  ) {
     debugLog('resolveSourceInfo:noSubscriptions');
-    throw new Error('No subscription found. Please set up a subscription first.');
+    throw new Error(
+      'No subscription found. Please set up a subscription first.'
+    );
   }
-  
+
   for (const account of subscriptions.subscriptions || []) {
     try {
       debugLog('resolveSourceInfo:checkingAccount', { accountId: account.id });
-      console.log('[resolveSourceInfoDirect] About to call apiClient.user.getSources()');
-      
+      console.log(
+        '[resolveSourceInfoDirect] About to call apiClient.user.getSources()'
+      );
+
       let sources, keyData;
       try {
         console.log('[resolveSourceInfoDirect] Calling getSources API...');
         const response = await apiClient.user.getSources({});
         sources = response.sources;
         console.log('[resolveSourceInfoDirect] getSources API call succeeded');
-        
+
         // Fetch keyData separately for security
-        console.log('[resolveSourceInfoDirect] Calling getSourceDecryptionKeys API...');
+        console.log(
+          '[resolveSourceInfoDirect] Calling getSourceDecryptionKeys API...'
+        );
         const keysResponse = await apiClient.user.getSourceDecryptionKeys({});
         keyData = keysResponse.keyData;
-        console.log('[resolveSourceInfoDirect] getSourceDecryptionKeys API call succeeded');
+        console.log(
+          '[resolveSourceInfoDirect] getSourceDecryptionKeys API call succeeded'
+        );
       } catch (apiError) {
         console.error('[resolveSourceInfoDirect] API call failed:', apiError);
         throw apiError;
       }
-      
+
       const list = sources || [];
-      console.log('[resolveSourceInfoDirect] Sources response:', { 
-        sources: list, 
+      console.log('[resolveSourceInfoDirect] Sources response:', {
+        sources: list,
         keyData: !!keyData,
-        sourceIds: list.map(s => s.id),
-        sourceNames: list.map(s => s.name)
+        sourceIds: list.map((s) => s.id),
+        sourceNames: list.map((s) => s.name),
       });
       debugLog('resolveSourceInfo:sourcesFetched', {
         count: list.length,
         hasKeyData: !!keyData,
       });
-      
+
       // If no sources but we have keyData, it might be a configuration issue
       if (list.length === 0 && keyData) {
         debugLog('resolveSourceInfo:noSourcesButHasKeyData');
-        throw new Error('No sources configured for your account. Please add a source in settings.');
+        throw new Error(
+          'No sources configured for your account. Please add a source in settings.'
+        );
       }
-      
+
       // First try exact match
       let source = list.find((s) => s.id === targetId || s.name === targetId);
-      console.log('[resolveSourceInfoDirect] Looking for targetId:', targetId, 'Found:', source);
-      
+      console.log(
+        '[resolveSourceInfoDirect] Looking for targetId:',
+        targetId,
+        'Found:',
+        source
+      );
+
       // If no exact match and we have sources, try to be more flexible
       if (!source && list.length > 0) {
         // Check if targetId contains a colon (like "source1:movie:123")
         // and try to match the prefix
         if (targetId.includes(':')) {
           const prefix = targetId.split(':')[0];
-          console.log('[resolveSourceInfoDirect] Trying prefix match with:', prefix);
+          console.log(
+            '[resolveSourceInfoDirect] Trying prefix match with:',
+            prefix
+          );
           source = list.find((s) => s.id === prefix || s.name === prefix);
         }
-        
+
         // If still no match and there's only one source, use it
         if (!source && list.length === 1) {
           source = list[0];
-          console.log('[resolveSourceInfoDirect] Using single available source:', source.id);
+          console.log(
+            '[resolveSourceInfoDirect] Using single available source:',
+            source.id
+          );
         }
       }
-      
+
       if (source && keyData) {
         debugLog('resolveSourceInfo:foundSource', { sourceId: source.id });
         console.log('[resolveSourceInfoDirect] Found source match:', source.id);
@@ -358,8 +387,10 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
           account: { id: account.id, name: account.name },
         };
       }
-      
-      console.log('[resolveSourceInfoDirect] No source found matching criteria');
+
+      console.log(
+        '[resolveSourceInfoDirect] No source found matching criteria'
+      );
     } catch (error) {
       console.error('[resolveSourceInfoDirect] Error fetching account:', error);
       debugLog('resolveSourceInfo:errorFetchingAccount', {
@@ -371,7 +402,9 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
   }
   debugLog('resolveSourceInfo:notFound');
   console.error('[resolveSourceInfoDirect] Source not found in any account');
-  throw new Error('Source not found in any account. Please check your source configuration.');
+  throw new Error(
+    'Source not found in any account. Please check your source configuration.'
+  );
 }
 
 async function deriveLightweightKey(

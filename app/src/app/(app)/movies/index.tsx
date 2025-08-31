@@ -8,8 +8,9 @@ import { PosterCard } from '@/components/media/poster-card';
 import { FlatList, Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { Heart } from '@/components/ui/icons';
 import { useUiSections, useFavoriteManager } from '@/hooks/ui';
+import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
-import { useIsMoviesRoute } from '@/hooks/ui/useRouteActive';
+import { getLocalItemData } from '@/hooks/ui/useDashboardTrends';
 
 type Section = {
   categoryId?: string;
@@ -24,24 +25,42 @@ type Section = {
 
 export default function VODs() {
   const router = useRouter();
-  const { isFavorite, toggleFavorite } = useFavoriteManager();
-  const isMovies = useIsMoviesRoute();
+  const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
+  const { isInAnyPlaylist } = usePlaylistManager();
   const [sections, setSections] = useState<Section[]>([]);
   const [catOffset, setCatOffset] = useState(0);
   const [loadingCats, setLoadingCats] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
   const loadingRowsRef = useRef<Record<string, boolean>>({});
 
+  const handleMovieLongPress = async (id: string | number) => {
+    console.log('🎬 Long pressed movie with ID:', id);
+    const movieData = await getLocalItemData(id, 'movie');
+
+    if (movieData) {
+      console.log('📽️ Local movie data:', JSON.stringify(movieData, null, 2));
+      try {
+        const payload = JSON.parse(movieData.original_payload_json);
+        console.log(
+          '🎭 Original movie payload:',
+          JSON.stringify(payload, null, 2)
+        );
+      } catch {
+        console.log('📄 Raw movie payload:', movieData.original_payload_json);
+      }
+    } else {
+      console.log('❌ No local movie data found for ID:', id);
+    }
+  };
+
   const sectionsQuery = useUiSections('movie', {
-    limitPerCategory: 2,
-    maxCategories: 4,
-    categoryOffset: 1,
-    enabled: isMovies, // Only run query when isMovies is true
+    limitPerCategory: 20,
+    maxCategories: 10,
+    categoryOffset: 0,
   });
 
   useEffect(() => {
-    // Only run this effect when isMovies is true
-    if (!isMovies || sectionsQuery.isPending || sectionsQuery.isError) return;
+    if (sectionsQuery.isPending || sectionsQuery.isError) return;
     const cats = sectionsQuery.data || [];
     const mapped: Section[] = cats.map((c) => ({
       categoryId: c.categoryId,
@@ -56,16 +75,10 @@ export default function VODs() {
     setSections(mapped);
     setCatOffset(mapped.length);
     setInitialLoaded(true);
-  }, [
-    isMovies,
-    sectionsQuery.isPending,
-    sectionsQuery.isError,
-    sectionsQuery.data,
-  ]);
+  }, [sectionsQuery.isPending, sectionsQuery.isError, sectionsQuery.data]);
 
   const loadMoreCategories = useCallback(async () => {
-    // Only run when isMovies is true
-    if (!isMovies || loadingCats || !initialLoaded) return;
+    if (loadingCats || !initialLoaded) return;
     setLoadingCats(true);
     try {
       const cats = await fetchCategoriesWithPreviews('movie', 20, 5, catOffset);
@@ -87,12 +100,11 @@ export default function VODs() {
     } finally {
       setLoadingCats(false);
     }
-  }, [isMovies, loadingCats, initialLoaded, catOffset]);
+  }, [loadingCats, initialLoaded, catOffset]);
 
   const handleLoadMoreRow = useCallback(
     async (categoryId?: string) => {
-      // Only run when isMovies is true
-      if (!isMovies || !categoryId) return;
+      if (!categoryId) return;
       if (loadingRowsRef.current[categoryId]) return;
       loadingRowsRef.current[categoryId] = true;
       try {
@@ -129,7 +141,7 @@ export default function VODs() {
         loadingRowsRef.current[categoryId] = false;
       }
     },
-    [isMovies, sections]
+    [sections]
   );
 
   return (
@@ -156,6 +168,11 @@ export default function VODs() {
                 </Pressable>
               ) : null
             }
+            onViewAll={
+              item.categoryId
+                ? () => router.push(`/category/${item.categoryId}`)
+                : undefined
+            }
             onEndReached={() => handleLoadMoreRow(item.categoryId)}
             loadingMore={
               !!(item.categoryId && loadingRowsRef.current[item.categoryId])
@@ -168,8 +185,11 @@ export default function VODs() {
                 onPress={(id) =>
                   router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
                 }
+                onLongPress={handleMovieLongPress}
                 isFavorite={isFavorite(row.id)}
                 onToggleFavorite={() => toggleFavorite(row.id, 'movie')}
+                hasProfile={hasProfile}
+                isInPlaylist={isInAnyPlaylist(row.id)}
               />
             )}
           />
@@ -179,7 +199,7 @@ export default function VODs() {
         ListHeaderComponent={
           <View className="px-6 py-4">
             <Text className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
-              Moviess
+              Movies
             </Text>
           </View>
         }

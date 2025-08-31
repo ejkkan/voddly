@@ -14,7 +14,7 @@ export function RouteFocusExample() {
   const isDashboard = routeName.startsWith('/(app)/dashboard');
   const isMovies = routeName.startsWith('/(app)/movies');
   const isSeries = routeName.startsWith('/(app)/series');
-  const isLive = routeName.startsWith('/(app)/live');
+  const isLive = routeName.startsWith('/(app)/tv');
 
   // Only render content when focused
   if (!isFocused) {

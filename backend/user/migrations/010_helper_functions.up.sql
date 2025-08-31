@@ -83,28 +83,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Function to clean up expired device sessions
-CREATE OR REPLACE FUNCTION cleanup_expired_sessions()
-RETURNS void AS $$
-BEGIN
-    -- End sessions that have been inactive for more than 30 days
-    UPDATE device_sessions
-    SET is_active = FALSE,
-        ended_at = CURRENT_TIMESTAMP
-    WHERE is_active = TRUE
-      AND last_activity_at < CURRENT_TIMESTAMP - INTERVAL '30 days';
-    
-    -- Mark devices as offline if no active sessions
-    UPDATE subscription_devices sd
-    SET is_online = FALSE
-    WHERE is_online = TRUE
-      AND NOT EXISTS (
-        SELECT 1 FROM device_sessions ds
-        WHERE ds.device_id = sd.id
-          AND ds.is_active = TRUE
-      );
-END;
-$$ LANGUAGE plpgsql;
 
 -- Function to get subscription device count
 CREATE OR REPLACE FUNCTION get_active_device_count(p_subscription_id UUID)
@@ -126,5 +104,4 @@ COMMENT ON FUNCTION get_profile_sources IS 'Get all sources accessible by a prof
 COMMENT ON FUNCTION can_profile_access_source IS 'Check if a profile has access to a specific source';
 COMMENT ON FUNCTION copy_profile_sources IS 'Copy source restrictions from one profile to another';
 COMMENT ON FUNCTION get_profile_stats IS 'Get statistics for a profile';
-COMMENT ON FUNCTION cleanup_expired_sessions IS 'Clean up inactive device sessions';
 COMMENT ON FUNCTION get_active_device_count IS 'Get count of active devices for a subscription';

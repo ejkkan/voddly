@@ -30,6 +30,9 @@ export function RNVideoPlayer({
   theme,
   autoPlay = true,
   startTime = 0,
+  onPlaybackStart,
+  onProgress,
+  onPlaybackEnd,
 }: RNVideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const {
@@ -95,8 +98,13 @@ export function RNVideoPlayer({
       if (startTime > 0) {
         videoRef.current?.seek(startTime);
       }
+
+      // Notify start when metadata loaded (duration known)
+      try {
+        onPlaybackStart?.(startTime || 0, data.duration);
+      } catch {}
     },
-    [setLoading, updatePlayerState, startTime]
+    [setLoading, updatePlayerState, startTime, onPlaybackStart]
   );
 
   // Handle progress updates
@@ -107,12 +115,18 @@ export function RNVideoPlayer({
         buffering:
           data.currentTime === playerState.currentTime && playerState.isPlaying,
       });
+
+      try {
+        onProgress?.(data.currentTime, playerState.duration);
+      } catch {}
     },
     [
       setProgress,
       updatePlayerState,
       playerState.currentTime,
       playerState.isPlaying,
+      playerState.duration,
+      onProgress,
     ]
   );
 
@@ -240,7 +254,12 @@ export function RNVideoPlayer({
             onLoad={handleLoad}
             onProgress={handleProgress}
             onError={handleError}
-            onEnd={() => setPlaying(false)}
+            onEnd={() => {
+              setPlaying(false);
+              try {
+                onPlaybackEnd?.(playerState.currentTime, playerState.duration);
+              } catch {}
+            }}
             onBuffer={({ isBuffering }) =>
               updatePlayerState({ buffering: isBuffering })
             }

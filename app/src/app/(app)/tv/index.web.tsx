@@ -128,7 +128,7 @@ export default function LiveTV() {
 
   const handleChannelClick = (channel: Channel) => {
     // Navigate to the channel detail/player
-    router.push(`/(app)/live/${encodeURIComponent(channel.uuid)}`);
+    router.push(`/(app)/tv/${encodeURIComponent(channel.uuid)}`);
   };
 
   const handleProgramClick = (program: Program) => {

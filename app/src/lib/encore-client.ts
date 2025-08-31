@@ -459,7 +459,6 @@ export namespace user {
 
         public async addPlaylistItem(profileId: string, playlistId: string, params: {
     contentId: string
-    sortOrder?: number
 }): Promise<{
     ok: true
 }> {
@@ -777,8 +776,14 @@ export namespace user {
         "content_type": string | null
         "last_position_seconds": number | null
         "total_duration_seconds": number | null
-        "is_favorite": boolean
+        "watch_count": number
+        "first_watched_at": string
         "last_watched_at": string
+        "completed_at": string | null
+        "playback_speed": number | null
+        "audio_track": string | null
+        "subtitle_track": string | null
+        "quality_preference": string | null
     } | null
 }> {
             // Now make the actual call to the API
@@ -789,8 +794,14 @@ export namespace user {
         "content_type": string | null
         "last_position_seconds": number | null
         "total_duration_seconds": number | null
-        "is_favorite": boolean
+        "watch_count": number
+        "first_watched_at": string
         "last_watched_at": string
+        "completed_at": string | null
+        "playback_speed": number | null
+        "audio_track": string | null
+        "subtitle_track": string | null
+        "quality_preference": string | null
     } | null
 }
         }
@@ -857,7 +868,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }> {
@@ -868,7 +879,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }
@@ -927,7 +938,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }> {
@@ -938,7 +949,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }
@@ -997,7 +1008,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     }[]
 }> {
@@ -1008,7 +1019,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     }[]
 }
@@ -1287,7 +1298,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }> {
@@ -1298,7 +1309,7 @@ export namespace user {
         "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
-        completed: boolean
+        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }
@@ -1371,11 +1382,11 @@ export namespace user {
         }
 
         public async listFavorites(profileId: string, params: {
-    contentType?: "movie" | "series" | "tv" | "category" | "channel"
+    contentType?: "movie" | "series" | "tv" | "category" | "channel" | "episode"
 }): Promise<{
     items: {
         "content_id": string
-        "content_type": "movie" | "series" | "tv" | "category" | "channel" | null
+        "content_type": "movie" | "series" | "tv" | "category" | "channel" | "episode" | null
         "added_at": string
     }[]
 }> {
@@ -1389,7 +1400,7 @@ export namespace user {
             return await resp.json() as {
     items: {
         "content_id": string
-        "content_type": "movie" | "series" | "tv" | "category" | "channel" | null
+        "content_type": "movie" | "series" | "tv" | "category" | "channel" | "episode" | null
         "added_at": string
     }[]
 }
@@ -1418,6 +1429,7 @@ export namespace user {
         id: string
         name: string
         "created_at": string
+        items: string[]
     }[]
 }> {
             // Now make the actual call to the API
@@ -1427,6 +1439,7 @@ export namespace user {
         id: string
         name: string
         "created_at": string
+        items: string[]
     }[]
 }
         }
@@ -1861,8 +1874,14 @@ export namespace endpoints {
             "content_type": string | null
             "last_position_seconds": number | null
             "total_duration_seconds": number | null
-            "is_favorite": boolean
+            "watch_count": number
+            "first_watched_at": string
             "last_watched_at": string
+            "completed_at": string | null
+            "playback_speed": number | null
+            "audio_track": string | null
+            "subtitle_track": string | null
+            "quality_preference": string | null
         }[]
     }
 
@@ -1872,7 +1891,7 @@ export namespace endpoints {
 
     export interface ModifyFavoriteRequest {
         contentId: string
-        contentType: "movie" | "series" | "tv" | "category" | "channel"
+        contentType: "movie" | "series" | "tv" | "category" | "channel" | "episode"
     }
 
     export interface OriginalSubtitleTrack {
@@ -2040,12 +2059,29 @@ export namespace endpoints {
 
     export interface UpdateWatchStateRequest {
         profileId: string
-        sourceId?: string
         contentId: string
         contentType?: string
         lastPositionSeconds?: number | null
         totalDurationSeconds?: number | null
-        isFavorite?: boolean | null
+        /**
+         * Player preferences
+         */
+        playbackSpeed?: number | null
+
+        audioTrack?: string | null
+        subtitleTrack?: string | null
+        qualityPreference?: string | null
+        /**
+         * Skip markers
+         */
+        skipIntroStart?: number | null
+
+        skipIntroEnd?: number | null
+        skipOutroStart?: number | null
+        /**
+         * Mark as completed
+         */
+        completed?: boolean
     }
 
     export interface UpgradeEncryptionRequest {

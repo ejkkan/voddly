@@ -6,12 +6,13 @@ import { PosterCard } from '@/components/media/poster-card';
 import { SafeAreaView, ScrollView, Text, View } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { useFavoriteManager } from '@/hooks/ui';
+import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { searchCatalog } from '@/lib/db/dao';
 
 type BasicItem = {
   id: string;
   source_id: string;
-  type: 'movie' | 'series' | 'live';
+  type: 'movie' | 'series' | 'tv';
   title: string;
   poster_url?: string | null;
   tmdb_id?: string | null;
@@ -19,7 +20,8 @@ type BasicItem = {
 
 export default function Search() {
   const router = useRouter();
-  const { isFavorite, toggleFavorite } = useFavoriteManager();
+  const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
+  const { isInAnyPlaylist } = usePlaylistManager();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{
     movies: BasicItem[];
@@ -88,7 +90,7 @@ export default function Search() {
       return;
     }
     if (item.type === 'live') {
-      router.push(`/(app)/live/${encodeURIComponent(String(item.id))}`);
+      router.push(`/(app)/tv/${encodeURIComponent(String(item.id))}`);
       return;
     }
   };
@@ -145,6 +147,8 @@ export default function Search() {
                   }
                   isFavorite={isFavorite(row.id)}
                   onToggleFavorite={() => toggleFavorite(row.id, 'movie')}
+                  hasProfile={hasProfile}
+                  isInPlaylist={isInAnyPlaylist(row.id)}
                 />
               )}
             />
@@ -178,6 +182,8 @@ export default function Search() {
                   }
                   isFavorite={isFavorite(row.id)}
                   onToggleFavorite={() => toggleFavorite(row.id, 'series')}
+                  hasProfile={hasProfile}
+                  isInPlaylist={isInAnyPlaylist(row.id)}
                 />
               )}
             />
@@ -209,6 +215,8 @@ export default function Search() {
                   }
                   isFavorite={isFavorite(row.id)}
                   onToggleFavorite={() => toggleFavorite(row.id, 'tv')}
+                  hasProfile={hasProfile}
+                  isInPlaylist={isInAnyPlaylist(row.id)}
                 />
               )}
             />
@@ -242,6 +250,8 @@ export default function Search() {
                   }
                   isFavorite={isFavorite(row.id)}
                   onToggleFavorite={() => toggleFavorite(row.id)}
+                  hasProfile={hasProfile}
+                  isInPlaylist={isInAnyPlaylist(row.id)}
                 />
               )}
             />

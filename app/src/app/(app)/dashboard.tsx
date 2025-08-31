@@ -1,4 +1,3 @@
-/* eslint-disable max-lines-per-function */
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 
@@ -14,6 +13,7 @@ import {
   getLocalItemData,
   useDashboardTrends,
 } from '@/hooks/ui/useDashboardTrends';
+import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { useIsDashboardRoute } from '@/hooks/ui/useRouteActive';
 
 import { CarouselRow } from '../../components/media/carousel-row';
@@ -22,6 +22,7 @@ import { PosterCard } from '../../components/media/poster-card';
 export default function Dashboard() {
   const router = useRouter();
   const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
+  const { isInAnyPlaylist } = usePlaylistManager();
   const [movies, setMovies] = useState<
     { id: string; title: string; imageUrl?: string | null; sourceId?: string }[]
   >([]);
@@ -31,6 +32,8 @@ export default function Dashboard() {
   const [live, setLive] = useState<
     { id: string; title: string; imageUrl?: string | null; sourceId?: string }[]
   >([]);
+  const isDashboard = useIsDashboardRoute();
+  console.log('isDashboard', isDashboard);
 
   // Long press handlers for each content type
   const handleMovieLongPress = async (id: string | number) => {
@@ -84,15 +87,13 @@ export default function Dashboard() {
         console.log('📄 Raw live payload:', liveData.original_payload_json);
       }
     } else {
-      console.log('❌ No local live data found for ID:', id);
+      console.log('❌ No local series data found for ID:', id);
     }
   };
 
-  // Track route focus to conditionally enable trends and content
-
-  const isDashboard = useIsDashboardRoute();
+  // Always fetch dashboard data and trends
   const dashboard = useDashboardPreviews(10);
-  const trends = useDashboardTrends(isDashboard);
+  const trends = useDashboardTrends();
 
   useEffect(() => {
     const res = dashboard.data as DashboardPreviewsResult | undefined;
@@ -173,6 +174,7 @@ export default function Dashboard() {
                           toggleFavorite(item.id, 'movie')
                         }
                         hasProfile={hasProfile}
+                        isInPlaylist={isInAnyPlaylist(item.id)}
                       />
                     )}
                   />
@@ -203,6 +205,7 @@ export default function Dashboard() {
                           toggleFavorite(item.id, 'series')
                         }
                         hasProfile={hasProfile}
+                        isInPlaylist={isInAnyPlaylist(item.id)}
                       />
                     )}
                   />
@@ -211,71 +214,64 @@ export default function Dashboard() {
             );
           })}
 
-          {/* Only render content sections when on dashboard route */}
-          {isDashboard && (
-            <>
-              <CarouselRow
-                title="Movies"
-                data={movies}
-                renderItem={(item) => (
-                  <PosterCard
-                    id={item.id}
-                    title={item.title}
-                    posterUrl={item.imageUrl}
-                    onPress={(id) =>
-                      router.push(
-                        `/(app)/movies/${encodeURIComponent(String(id))}`
-                      )
-                    }
-                    onLongPress={handleMovieLongPress}
-                    isFavorite={isFavorite(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id, 'movie')}
-                    hasProfile={hasProfile}
-                  />
-                )}
+          {/* Render content sections */}
+          <CarouselRow
+            title="Movies"
+            data={movies}
+            renderItem={(item) => (
+              <PosterCard
+                id={item.id}
+                title={item.title}
+                posterUrl={item.imageUrl}
+                onPress={(id) =>
+                  router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
+                }
+                onLongPress={handleMovieLongPress}
+                isFavorite={isFavorite(item.id)}
+                onToggleFavorite={() => toggleFavorite(item.id, 'movie')}
+                hasProfile={hasProfile}
+                isInPlaylist={isInAnyPlaylist(item.id)}
               />
-              <CarouselRow
-                title="Series"
-                data={series}
-                renderItem={(item) => (
-                  <PosterCard
-                    id={item.id}
-                    title={item.title}
-                    posterUrl={item.imageUrl}
-                    onPress={(id) =>
-                      router.push(
-                        `/(app)/series/${encodeURIComponent(String(id))}`
-                      )
-                    }
-                    onLongPress={handleSeriesLongPress}
-                    isFavorite={isFavorite(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id, 'series')}
-                    hasProfile={hasProfile}
-                  />
-                )}
+            )}
+          />
+          <CarouselRow
+            title="Series"
+            data={series}
+            renderItem={(item) => (
+              <PosterCard
+                id={item.id}
+                title={item.title}
+                posterUrl={item.imageUrl}
+                onPress={(id) =>
+                  router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
+                }
+                onLongPress={handleSeriesLongPress}
+                isFavorite={isFavorite(item.id)}
+                onToggleFavorite={() => toggleFavorite(item.id, 'series')}
+                hasProfile={hasProfile}
+                isInPlaylist={isInAnyPlaylist(item.id)}
               />
-              <CarouselRow
-                title="TV"
-                data={live}
-                renderItem={(item) => (
-                  <PosterCard
-                    id={item.id}
-                    title={item.title}
-                    posterUrl={item.imageUrl}
-                    onPress={(id) =>
-                      router.push(
-                        `/(app)/live/${encodeURIComponent(String(id))}`
-                      )
-                    }
-                    onLongPress={handleLiveLongPress}
-                    isFavorite={isFavorite(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id, 'tv')}
-                    hasProfile={hasProfile}
-                  />
-                )}
+            )}
+          />
+          <CarouselRow
+            title="TV"
+            data={live}
+            renderItem={(item) => (
+              <PosterCard
+                id={item.id}
+                title={item.title}
+                posterUrl={item.imageUrl}
+                onPress={(id) =>
+                  router.push(`/(app)/tv/${encodeURIComponent(String(id))}`)
+                }
+                onLongPress={handleLiveLongPress}
+                isFavorite={isFavorite(item.id)}
+                onToggleFavorite={() => toggleFavorite(item.id, 'tv')}
+                hasProfile={hasProfile}
+                isInPlaylist={isInAnyPlaylist(item.id)}
               />
-            </>
-          )}
+            )}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -2,9 +2,9 @@ import { Redirect, SplashScreen, Stack } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
 
 import { AppShell } from '@/components/navigation/app-shell';
+import { useDeviceAutoRegister } from '@/hooks/useDeviceAutoRegister';
 import { useIsFirstTime } from '@/lib';
 import { useSession } from '@/lib/auth/hooks';
-import { useDeviceAutoRegister } from '@/hooks/useDeviceAutoRegister';
 
 export const unstable_settings = {
   initialRouteName: 'dashboard',
@@ -13,7 +13,7 @@ export const unstable_settings = {
 export default function ProtectedLayout() {
   const { data: session, isLoading } = useSession();
   const [isFirstTime] = useIsFirstTime();
-  
+
   // Monitor and handle device auto-registration
   useDeviceAutoRegister();
 
@@ -54,7 +54,7 @@ export default function ProtectedLayout() {
         <Stack.Screen name="movies" />
         <Stack.Screen name="player" />
         <Stack.Screen name="series" />
-        <Stack.Screen name="live" />
+        <Stack.Screen name="tv" />
         <Stack.Screen name="playlists" />
         <Stack.Screen name="profiles" />
         <Stack.Screen name="settings" />

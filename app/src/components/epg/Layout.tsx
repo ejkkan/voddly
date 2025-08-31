@@ -394,10 +394,13 @@ export function Layout({
                 {/* Current time line across all channels */}
                 {(() => {
                   const now = new Date();
-                  const firstHour = timeline[0]?.time;
-                  if (!firstHour) return null;
+                  // Use the same reference point as useEpg hook for consistency
+                  const startTime = new Date(
+                    now.getTime() - 1 * 60 * 60 * 1000
+                  ); // 1 hour ago
+                  if (timeline.length === 0) return null;
                   const currentPos =
-                    ((now.getTime() - firstHour.getTime()) / (1000 * 60 * 60)) *
+                    ((now.getTime() - startTime.getTime()) / (1000 * 60 * 60)) *
                     (timeline[0]?.position.width || 300);
 
                   if (currentPos < 0 || currentPos > totalWidth) return null;

@@ -44,7 +44,7 @@ export default function PassphraseSetup() {
     try {
       // Store passphrase securely for future use
       await secureSession.setPassphrase(passphrase);
-      
+
       // Get device info for registration
       const deviceManager = DeviceManager.getInstance();
       const deviceInfo = await deviceManager.getDeviceInfo();
@@ -73,7 +73,10 @@ export default function PassphraseSetup() {
             });
             console.log('[PassphraseSetup] Device registered successfully');
             // Mark device as registered for this account
-            await secureSession.setDeviceRegistered(true, result.subscriptionId);
+            await secureSession.setDeviceRegistered(
+              true,
+              result.subscriptionId
+            );
           } catch (err) {
             console.log('[PassphraseSetup] Device registration failed:', err);
             // Continue anyway - device can be registered later
@@ -96,7 +99,9 @@ export default function PassphraseSetup() {
         } catch (error: any) {
           // If it fails, it might be because passphrase was already set
           if (error?.message?.includes('already')) {
-            console.log('[PassphraseSetup] Passphrase already set, trying to register device');
+            console.log(
+              '[PassphraseSetup] Passphrase already set, trying to register device'
+            );
             // Try to just register the device
             await apiClient.user.registerDevice({
               accountId: account.id,
@@ -125,7 +130,8 @@ export default function PassphraseSetup() {
       ) {
         try {
           // Check if user has an account again
-          const { subscription: account } = await apiClient.user.getSubscription();
+          const { subscription: account } =
+            await apiClient.user.getSubscription();
 
           if (!account) {
             // Use the existing createAccount with dummy data

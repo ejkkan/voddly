@@ -18,7 +18,14 @@ async function verifyProfile(profileId: string, userId: string): Promise<boolean
 
 export const listPlaylists = api(
   { expose: true, auth: true, method: 'GET', path: '/profiles/:profileId/playlists' },
-  async ({ profileId }: { profileId: string }): Promise<{ playlists: { id: string; name: string; created_at: string }[] }> => {
+  async ({ profileId }: { profileId: string }): Promise<{ 
+    playlists: { 
+      id: string; 
+      name: string; 
+      created_at: string;
+      items: string[];
+    }[] 
+  }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
     if (!(await verifyProfile(profileId, auth.userID))) throw APIError.permissionDenied('Profile not found or access denied');
@@ -29,8 +36,30 @@ export const listPlaylists = api(
       WHERE profile_id = ${profileId}
       ORDER BY created_at DESC
     `;
-    const playlists: { id: string; name: string; created_at: string }[] = [];
-    for await (const r of rows) playlists.push({ id: r.id, name: r.name, created_at: r.created_at.toISOString() });
+    
+    const playlists: { id: string; name: string; created_at: string; items: string[] }[] = [];
+    
+    for await (const r of rows) {
+      const itemRows = userDB.query<{ content_id: string }>`
+        SELECT content_id
+        FROM playlist_items
+        WHERE playlist_id = ${r.id}
+        ORDER BY position ASC
+      `;
+      
+      const items: string[] = [];
+      for await (const item of itemRows) {
+        items.push(item.content_id);
+      }
+      
+      playlists.push({ 
+        id: r.id, 
+        name: r.name, 
+        created_at: r.created_at.toISOString(),
+        items 
+      });
+    }
+    
     return { playlists };
   }
 );
@@ -88,15 +117,39 @@ export const listPlaylistItems = api(
 
 export const addPlaylistItem = api(
   { expose: true, auth: true, method: 'POST', path: '/profiles/:profileId/playlists/:playlistId/items' },
-  async ({ profileId, playlistId, contentId, sortOrder = 0 }: { profileId: string; playlistId: string; contentId: string; sortOrder?: number }): Promise<{ ok: true }> => {
+  async ({ profileId, playlistId, contentId }: { profileId: string; playlistId: string; contentId: string }): Promise<{ ok: true }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
     if (!(await verifyProfile(profileId, auth.userID))) throw APIError.permissionDenied('Profile not found or access denied');
 
+    // Extract content type from contentId format: {sourceId}:{contentType}:{sourceItemId}
+    const contentIdParts = contentId.split(':');
+    if (contentIdParts.length !== 3) {
+      throw APIError.invalidArgument('Invalid content ID format. Expected: {sourceId}:{contentType}:{sourceItemId}');
+    }
+    
+    const contentType = contentIdParts[1];
+    if (!['movie', 'episode', 'series', 'live'].includes(contentType)) {
+      throw APIError.invalidArgument(`Invalid content type: ${contentType}. Must be one of: movie, episode, series, live`);
+    }
+
+    const existing = await userDB.queryRow<{ id: string }>`
+      SELECT id FROM playlist_items
+      WHERE playlist_id = ${playlistId} AND content_id = ${contentId}
+    `;
+    
+    if (existing) {
+      return { ok: true };
+    }
+
+    const maxPos = await userDB.queryRow<{ max_position: number | null }>`
+      SELECT MAX(position) as max_position FROM playlist_items WHERE playlist_id = ${playlistId}
+    `;
+    const nextPosition = (maxPos?.max_position ?? -1) + 1;
+
     await userDB.exec`
-      INSERT INTO playlist_items (playlist_id, content_id, position, added_at)
-      VALUES (${playlistId}, ${contentId}, ${sortOrder}, CURRENT_TIMESTAMP)
-      ON CONFLICT (playlist_id, position) DO UPDATE SET content_id = EXCLUDED.content_id
+      INSERT INTO playlist_items (playlist_id, content_id, content_type, position, added_at)
+      VALUES (${playlistId}, ${contentId}, ${contentType}, ${nextPosition}, CURRENT_TIMESTAMP)
     `;
     return { ok: true };
   }

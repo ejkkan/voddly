@@ -5,7 +5,9 @@ import { SubtitleButton, SubtitleModal } from '@/components/subtitles';
 import { SafeAreaView, Text, View } from '@/components/ui';
 import { VideoPlayer } from '@/components/video';
 import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlaybackSource';
+import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
 import { useSubtitleForLanguage, useSubtitles } from '@/hooks/useSubtitles';
+import { useWatchStateTracker } from '@/hooks/useWatchStateTracker';
 
 export default function Player() {
   const router = useRouter();
@@ -23,6 +25,16 @@ export default function Player() {
   const movieId = params.movie as string;
   const tmdbId = params.tmdb_id ? Number(params.tmdb_id) : undefined;
   const title = params.title as string;
+  const contentId = (params.movie || params.series || params.live) as
+    | string
+    | undefined;
+  const { profileId } = useCurrentProfile();
+  const { startTime, callbacks, preferences, updatePreferences } = useWatchStateTracker({
+    profileId,
+    contentId,
+    contentType,
+    reportIntervalMs: 10_000,
+  });
 
   // Fetch subtitles for the movie
   const {
@@ -48,6 +60,13 @@ export default function Player() {
       },
       selectedSubtitleLanguage
     );
+
+  // Initialize subtitle language from saved preferences
+  React.useEffect(() => {
+    if (preferences?.subtitleTrack && !selectedSubtitleLanguage) {
+      setSelectedSubtitleLanguage(preferences.subtitleTrack);
+    }
+  }, [preferences?.subtitleTrack]);
 
   // Combine loaded subtitles with selected subtitle
   const allSubtitles = React.useMemo(() => {
@@ -103,6 +122,16 @@ export default function Player() {
           layout={layout}
           theme={theme}
           preferredPlayer="rn-video" // Force RN Video player to see compact theme
+          startTime={startTime}
+          onPlaybackStart={callbacks.onPlaybackStart}
+          onProgress={callbacks.onProgress}
+          onPlaybackEnd={callbacks.onPlaybackEnd}
+          onPause={callbacks.onPause}
+          onSeek={callbacks.onSeek}
+          initialPlaybackSpeed={preferences?.playbackSpeed}
+          initialAudioTrack={preferences?.audioTrack}
+          initialSubtitleTrack={preferences?.subtitleTrack}
+          initialQuality={preferences?.qualityPreference}
         />
 
         {/* Subtitle Button - positioned over the video */}
@@ -121,8 +150,16 @@ export default function Player() {
           subtitles={allSubtitles}
           isLoading={subtitlesLoading || selectedSubtitleLoading}
           onSubtitleSelect={(subtitle) => {
+            console.log('[Player] Subtitle selected:', subtitle.language_code);
             // Apply the selected subtitle to the video
             setSelectedSubtitleLanguage(subtitle.language_code);
+            // Update watch state with the new subtitle preference
+            if (updatePreferences) {
+              console.log('[Player] Calling updatePreferences with subtitle:', subtitle.language_code);
+              updatePreferences({ subtitleTrack: subtitle.language_code });
+            } else {
+              console.log('[Player] updatePreferences is not available');
+            }
             // The subtitle content will be automatically applied by the video player
             // through the useSubtitleForLanguage hook
           }}

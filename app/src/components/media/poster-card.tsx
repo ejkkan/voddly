@@ -1,43 +1,57 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { Image, Pressable, Text, View } from '@/components/ui';
-import { Heart } from '@/components/ui/icons';
+import { Heart, Playlist } from '@/components/ui/icons';
+
+import { PlaylistModal } from './PlaylistModal';
 
 type PosterCardProps = {
   id: string | number;
   title: string;
   posterUrl?: string | null;
-  sourceId?: string;
+  _sourceId?: string;
   onPress?: (id: string | number) => void;
   onLongPress?: (id: string | number) => void;
   aspect?: 'poster' | 'backdrop';
   isFavorite?: boolean;
   onToggleFavorite?: (id: string | number) => void;
   showFavoriteButton?: boolean;
+  showPlaylistButton?: boolean;
   hasProfile?: boolean;
-  contentType?: 'movie' | 'series' | 'tv' | 'category';
+  _contentType?: 'movie' | 'series' | 'tv' | 'category';
+  isInPlaylist?: boolean;
 };
 
 export const PosterCard = ({
   id,
   title,
   posterUrl,
-  sourceId,
+  _sourceId,
   onPress,
   onLongPress,
   aspect = 'poster',
   isFavorite = false,
   onToggleFavorite,
   showFavoriteButton = true,
+  showPlaylistButton = true,
   hasProfile = true,
-  contentType = 'movie',
+  _contentType = 'movie',
+  isInPlaylist = false,
 }: PosterCardProps) => {
   const isPoster = aspect === 'poster';
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
 
   const handleFavoritePress = (e: any) => {
     e.stopPropagation();
     if (hasProfile && onToggleFavorite) {
       onToggleFavorite(id);
+    }
+  };
+
+  const handlePlaylistPress = (e: any) => {
+    e.stopPropagation();
+    if (hasProfile) {
+      setShowPlaylistModal(true);
     }
   };
 
@@ -72,23 +86,44 @@ export const PosterCard = ({
           </View>
         )}
 
-        {/* Favorite Heart Icon */}
-        {showFavoriteButton && onToggleFavorite && (
-          <Pressable
-            onPress={handleFavoritePress}
-            className={`absolute right-2 top-2 rounded-full p-1 ${
-              hasProfile
-                ? 'bg-black/50 backdrop-blur-sm'
-                : 'bg-black/30 opacity-50 backdrop-blur-sm'
-            }`}
-            disabled={!hasProfile}
-          >
-            <Heart
-              filled={isFavorite}
-              color={isFavorite ? '#ef4444' : '#ffffff'}
-            />
-          </Pressable>
-        )}
+        {/* Action Buttons Container */}
+        <View className="absolute right-2 top-2 flex-row gap-2">
+          {/* Playlist Icon */}
+          {showPlaylistButton && (
+            <Pressable
+              onPress={handlePlaylistPress}
+              className={`rounded-full p-1 ${
+                hasProfile
+                  ? 'bg-black/50 backdrop-blur-sm'
+                  : 'bg-black/30 opacity-50 backdrop-blur-sm'
+              }`}
+              disabled={!hasProfile}
+            >
+              <Playlist
+                filled={isInPlaylist}
+                color={isInPlaylist ? '#007AFF' : '#ffffff'}
+              />
+            </Pressable>
+          )}
+
+          {/* Favorite Heart Icon */}
+          {showFavoriteButton && onToggleFavorite && (
+            <Pressable
+              onPress={handleFavoritePress}
+              className={`rounded-full p-1 ${
+                hasProfile
+                  ? 'bg-black/50 backdrop-blur-sm'
+                  : 'bg-black/30 opacity-50 backdrop-blur-sm'
+              }`}
+              disabled={!hasProfile}
+            >
+              <Heart
+                filled={isFavorite}
+                color={isFavorite ? '#ef4444' : '#ffffff'}
+              />
+            </Pressable>
+          )}
+        </View>
       </View>
       <Text
         numberOfLines={1}
@@ -96,6 +131,14 @@ export const PosterCard = ({
       >
         {title}
       </Text>
+
+      {/* Playlist Modal */}
+      <PlaylistModal
+        visible={showPlaylistModal}
+        onClose={() => setShowPlaylistModal(false)}
+        contentId={String(id)}
+        contentTitle={title}
+      />
     </Pressable>
   );
 };

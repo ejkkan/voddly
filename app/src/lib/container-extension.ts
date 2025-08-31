@@ -99,7 +99,7 @@ export async function getContainerInfoForSeries(
 }
 
 /**
- * Read live/TV container info. 
+ * Read live/TV container info.
  * For live streams, the source_item_id is the actual stream_id to use for playback.
  * Browsers typically need HLS (.m3u8) format for live streaming.
  */
@@ -112,7 +112,7 @@ export async function getContainerInfoForLive(
   return {
     containerExtension: 'm3u8',
     // Most live streams use h264/aac
-    videoCodec: 'h264', 
+    videoCodec: 'h264',
     audioCodec: 'aac',
     // For live streams, the source_item_id IS the stream_id
     playbackContentId: sourceItemId,

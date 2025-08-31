@@ -4,3 +4,4 @@ export * from './useCurrentProfile';
 export * from './useDashboard';
 export * from './useDashboardTrends';
 export * from './useFavoriteManager';
+export * from './usePlaylistManager';

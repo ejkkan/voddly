@@ -1,19 +1,33 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useState,
+} from 'react';
+
 import { PassphrasePrompt } from '@/components/passphrase/PassphrasePrompt';
-import { secureSession } from '@/lib/secure-session';
 import log from '@/lib/logging';
+import { secureSession } from '@/lib/secure-session';
 
 interface PassphrasePromptContextType {
   promptForPassphrase: (message?: string) => Promise<boolean>;
   isPromptVisible: boolean;
 }
 
-const PassphrasePromptContext = createContext<PassphrasePromptContextType | null>(null);
+const PassphrasePromptContext =
+  createContext<PassphrasePromptContextType | null>(null);
 
-export function PassphrasePromptProvider({ children }: { children: ReactNode }) {
+export function PassphrasePromptProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const [isVisible, setIsVisible] = useState(false);
   const [message, setMessage] = useState<string>('');
-  const [promiseResolve, setPromiseResolve] = useState<((value: boolean) => void) | null>(null);
+  const [promiseResolve, setPromiseResolve] = useState<
+    ((value: boolean) => void) | null
+  >(null);
 
   const promptForPassphrase = useCallback((msg?: string): Promise<boolean> => {
     return new Promise(async (resolve) => {
@@ -49,7 +63,9 @@ export function PassphrasePromptProvider({ children }: { children: ReactNode }) 
   }, [promiseResolve]);
 
   return (
-    <PassphrasePromptContext.Provider value={{ promptForPassphrase, isPromptVisible: isVisible }}>
+    <PassphrasePromptContext.Provider
+      value={{ promptForPassphrase, isPromptVisible: isVisible }}
+    >
       {children}
       <PassphrasePrompt
         visible={isVisible}
@@ -64,7 +80,9 @@ export function PassphrasePromptProvider({ children }: { children: ReactNode }) 
 export function usePassphrasePrompt() {
   const context = useContext(PassphrasePromptContext);
   if (!context) {
-    throw new Error('usePassphrasePrompt must be used within PassphrasePromptProvider');
+    throw new Error(
+      'usePassphrasePrompt must be used within PassphrasePromptProvider'
+    );
   }
   return context;
 }

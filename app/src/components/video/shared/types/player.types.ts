@@ -23,6 +23,10 @@ export interface BasePlayerProps {
   type?: 'movie' | 'series' | 'live';
   autoPlay?: boolean;
   startTime?: number;
+  // Watch-state callbacks (optional)
+  onPlaybackStart?: (currentTimeSec: number, durationSec?: number) => void;
+  onProgress?: (currentTimeSec: number, durationSec?: number) => void;
+  onPlaybackEnd?: (currentTimeSec: number, durationSec?: number) => void;
   // Layout & Theme
   layout?: 'netflix' | 'minimal';
   theme?: 'default' | 'compact';

@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 
 import { useAccountsData } from '@/hooks/ui/useAccounts';
 import { useSourcesData } from '@/hooks/useSources';
-import { SourceCredentialsManager } from '@/lib/source-credentials';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
+import { SourceCredentialsManager } from '@/lib/source-credentials';
 
 // Hook that provides cached source credentials without making duplicate API calls
 export function useSourceCredentialsCached() {

@@ -4,12 +4,21 @@ import { getAuthData } from '~encore/auth';
 
 interface UpdateWatchStateRequest {
   profileId: string;
-  sourceId?: string; // Optional for backward compatibility
-  contentId: string;
+  contentId: string; // Format: {uuid}:{type}:{id}
   contentType?: string;
   lastPositionSeconds?: number | null;
   totalDurationSeconds?: number | null;
-  isFavorite?: boolean | null;
+  // Player preferences
+  playbackSpeed?: number | null;
+  audioTrack?: string | null;
+  subtitleTrack?: string | null;
+  qualityPreference?: string | null;
+  // Skip markers
+  skipIntroStart?: number | null;
+  skipIntroEnd?: number | null;
+  skipOutroStart?: number | null;
+  // Mark as completed
+  completed?: boolean;
 }
 
 interface GetWatchStateResponse {
@@ -18,8 +27,14 @@ interface GetWatchStateResponse {
     content_type: string | null;
     last_position_seconds: number | null;
     total_duration_seconds: number | null;
-    is_favorite: boolean;
+    watch_count: number;
+    first_watched_at: string;
     last_watched_at: string;
+    completed_at: string | null;
+    playback_speed: number | null;
+    audio_track: string | null;
+    subtitle_track: string | null;
+    quality_preference: string | null;
   }>;
 }
 
@@ -47,12 +62,18 @@ export const updateWatchState = api(
   },
   async ({
     profileId,
-    sourceId,
     contentId,
     contentType,
     lastPositionSeconds,
     totalDurationSeconds,
-    isFavorite,
+    playbackSpeed,
+    audioTrack,
+    subtitleTrack,
+    qualityPreference,
+    skipIntroStart,
+    skipIntroEnd,
+    skipOutroStart,
+    completed,
   }: UpdateWatchStateRequest): Promise<{ ok: true }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
@@ -67,24 +88,47 @@ export const updateWatchState = api(
       throw APIError.permissionDenied('Profile not found or access denied');
     }
 
+    // Prepare values with proper types
+    const playbackSpeedValue = playbackSpeed !== undefined && playbackSpeed !== null 
+      ? Number(playbackSpeed) 
+      : null;
+    
     await userDB.exec`
       INSERT INTO profile_watch_state (
-        profile_id, source_id, content_id, content_type,
-        last_position_seconds, total_duration_seconds, 
-        is_favorite, last_watched_at
+        profile_id, content_id, content_type,
+        last_position_seconds, total_duration_seconds,
+        watch_count, first_watched_at, last_watched_at,
+        completed_at, playback_speed, audio_track,
+        subtitle_track, quality_preference,
+        skip_intro_start, skip_intro_end, skip_outro_start
       ) VALUES (
-        ${profileId}, ${sourceId || null}, ${contentId}, ${contentType || null},
-        ${lastPositionSeconds ?? null}, ${totalDurationSeconds ?? null},
-        ${isFavorite ?? false}, CURRENT_TIMESTAMP
+        ${profileId}, ${contentId}, ${contentType || null},
+        ${lastPositionSeconds ?? 0}, ${totalDurationSeconds ?? null},
+        1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+        ${completed ? new Date() : null},
+        ${playbackSpeedValue}, 
+        ${audioTrack ?? null},
+        ${subtitleTrack ?? null}, ${qualityPreference ?? null},
+        ${skipIntroStart ?? null}, ${skipIntroEnd ?? null}, ${skipOutroStart ?? null}
       )
       ON CONFLICT (profile_id, content_id)
       DO UPDATE SET 
-        source_id = COALESCE(EXCLUDED.source_id, profile_watch_state.source_id),
         content_type = COALESCE(EXCLUDED.content_type, profile_watch_state.content_type),
         last_position_seconds = COALESCE(EXCLUDED.last_position_seconds, profile_watch_state.last_position_seconds),
         total_duration_seconds = COALESCE(EXCLUDED.total_duration_seconds, profile_watch_state.total_duration_seconds),
-        is_favorite = COALESCE(EXCLUDED.is_favorite, profile_watch_state.is_favorite),
-        last_watched_at = CURRENT_TIMESTAMP
+        watch_count = profile_watch_state.watch_count + 1,
+        last_watched_at = CURRENT_TIMESTAMP,
+        completed_at = CASE 
+          WHEN ${completed} = TRUE THEN CURRENT_TIMESTAMP 
+          ELSE profile_watch_state.completed_at 
+        END,
+        playback_speed = COALESCE(EXCLUDED.playback_speed, profile_watch_state.playback_speed),
+        audio_track = COALESCE(EXCLUDED.audio_track, profile_watch_state.audio_track),
+        subtitle_track = COALESCE(EXCLUDED.subtitle_track, profile_watch_state.subtitle_track),
+        quality_preference = COALESCE(EXCLUDED.quality_preference, profile_watch_state.quality_preference),
+        skip_intro_start = COALESCE(EXCLUDED.skip_intro_start, profile_watch_state.skip_intro_start),
+        skip_intro_end = COALESCE(EXCLUDED.skip_intro_end, profile_watch_state.skip_intro_end),
+        skip_outro_start = COALESCE(EXCLUDED.skip_outro_start, profile_watch_state.skip_outro_start)
     `;
 
     return { ok: true };
@@ -118,16 +162,28 @@ export const getWatchState = api(
       content_type: string | null;
       last_position_seconds: number | null;
       total_duration_seconds: number | null;
-      is_favorite: boolean;
+      watch_count: number;
+      first_watched_at: Date;
       last_watched_at: Date;
+      completed_at: Date | null;
+      playback_speed: number | null;
+      audio_track: string | null;
+      subtitle_track: string | null;
+      quality_preference: string | null;
     }>`
       SELECT 
         content_id, 
         content_type, 
         last_position_seconds, 
-        total_duration_seconds, 
-        is_favorite, 
-        last_watched_at
+        total_duration_seconds,
+        watch_count,
+        first_watched_at,
+        last_watched_at,
+        completed_at,
+        playback_speed,
+        audio_track,
+        subtitle_track,
+        quality_preference
       FROM profile_watch_state
       WHERE profile_id = ${profileId}
       ORDER BY last_watched_at DESC
@@ -137,7 +193,9 @@ export const getWatchState = api(
     for await (const row of rows) {
       states.push({
         ...row,
+        first_watched_at: row.first_watched_at.toISOString(),
         last_watched_at: row.last_watched_at.toISOString(),
+        completed_at: row.completed_at ? row.completed_at.toISOString() : null,
       });
     }
 
@@ -165,8 +223,14 @@ export const getContentWatchState = api(
       content_type: string | null;
       last_position_seconds: number | null;
       total_duration_seconds: number | null;
-      is_favorite: boolean;
+      watch_count: number;
+      first_watched_at: string;
       last_watched_at: string;
+      completed_at: string | null;
+      playback_speed: number | null;
+      audio_track: string | null;
+      subtitle_track: string | null;
+      quality_preference: string | null;
     } | null;
   }> => {
     const auth = getAuthData();
@@ -183,16 +247,28 @@ export const getContentWatchState = api(
       content_type: string | null;
       last_position_seconds: number | null;
       total_duration_seconds: number | null;
-      is_favorite: boolean;
+      watch_count: number;
+      first_watched_at: Date;
       last_watched_at: Date;
+      completed_at: Date | null;
+      playback_speed: number | null;
+      audio_track: string | null;
+      subtitle_track: string | null;
+      quality_preference: string | null;
     }>`
       SELECT 
         content_id, 
         content_type, 
         last_position_seconds, 
-        total_duration_seconds, 
-        is_favorite, 
-        last_watched_at
+        total_duration_seconds,
+        watch_count,
+        first_watched_at,
+        last_watched_at,
+        completed_at,
+        playback_speed,
+        audio_track,
+        subtitle_track,
+        quality_preference
       FROM profile_watch_state
       WHERE profile_id = ${profileId} AND content_id = ${contentId}
     `;
@@ -204,7 +280,9 @@ export const getContentWatchState = api(
     return {
       state: {
         ...state,
+        first_watched_at: state.first_watched_at.toISOString(),
         last_watched_at: state.last_watched_at.toISOString(),
+        completed_at: state.completed_at ? state.completed_at.toISOString() : null,
       },
     };
   }
@@ -289,7 +367,7 @@ export const getWatchStateByUid = api(
       content_id: string;
       last_position_seconds: number;
       total_duration_seconds: number | null;
-      completed: boolean;
+      completed_at: string | null;
       last_watched_at: string | null;
     } | null;
   }> => {
@@ -305,10 +383,10 @@ export const getWatchStateByUid = api(
       content_id: string;
       last_position_seconds: number;
       total_duration_seconds: number | null;
-      completed: boolean;
+      completed_at: Date | null;
       last_watched_at: Date | null;
     }>`
-      SELECT content_id, last_position_seconds, total_duration_seconds, completed, last_watched_at
+      SELECT content_id, last_position_seconds, total_duration_seconds, completed_at, last_watched_at
       FROM profile_watch_state
       WHERE profile_id = ${profileId} AND content_id = ${contentUid}
     `;
@@ -320,7 +398,7 @@ export const getWatchStateByUid = api(
         content_id: row.content_id,
         last_position_seconds: row.last_position_seconds,
         total_duration_seconds: row.total_duration_seconds,
-        completed: !!row.completed,
+        completed_at: row.completed_at ? row.completed_at.toISOString() : null,
         last_watched_at: row.last_watched_at ? row.last_watched_at.toISOString() : null,
       },
     };
@@ -341,7 +419,7 @@ export const getMovieWatchStateByTmdb = api(
   }: {
     profileId: string;
     tmdbId: string;
-  }): Promise<{ state: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null } | null }> => {
+  }): Promise<{ state: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed_at: string | null; last_watched_at: string | null } | null }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
@@ -374,7 +452,7 @@ export const getEpisodeWatchStateByTmdb = api(
     parentTmdbId: string;
     seasonNumber: string;
     episodeNumber: string;
-  }): Promise<{ state: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null } | null }> => {
+  }): Promise<{ state: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed_at: string | null; last_watched_at: string | null } | null }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
@@ -406,7 +484,7 @@ export const getSeasonWatchStatesByTmdb = api(
     profileId: string;
     parentTmdbId: string;
     seasonNumber: string;
-  }): Promise<{ items: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] }> => {
+  }): Promise<{ items: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed_at: string | null; last_watched_at: string | null }[] }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
@@ -420,22 +498,22 @@ export const getSeasonWatchStatesByTmdb = api(
       content_id: string;
       last_position_seconds: number;
       total_duration_seconds: number | null;
-      completed: boolean;
+      completed_at: Date | null;
       last_watched_at: Date | null;
     }>`
-      SELECT content_id, last_position_seconds, total_duration_seconds, completed, last_watched_at
+      SELECT content_id, last_position_seconds, total_duration_seconds, completed_at, last_watched_at
       FROM profile_watch_state
       WHERE profile_id = ${profileId} AND content_id LIKE ${prefix + '%'}
       ORDER BY last_watched_at DESC NULLS LAST
     `;
 
-    const items: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] = [];
+    const items: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed_at: string | null; last_watched_at: string | null }[] = [];
     for await (const r of rows) {
       items.push({
         content_id: r.content_id,
         last_position_seconds: r.last_position_seconds,
         total_duration_seconds: r.total_duration_seconds,
-        completed: !!r.completed,
+        completed_at: r.completed_at ? r.completed_at.toISOString() : null,
         last_watched_at: r.last_watched_at ? r.last_watched_at.toISOString() : null,
       });
     }

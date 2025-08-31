@@ -1,6 +1,6 @@
 declare module 'react-native-vector-icons/MaterialIcons' {
-  import { ComponentType } from 'react';
-  import { TextStyle } from 'react-native';
+  import { type ComponentType } from 'react';
+  import { type TextStyle } from 'react-native';
   export interface IconProps {
     name: string;
     size?: number;

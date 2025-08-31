@@ -5,7 +5,7 @@ import { getAuthData } from '~encore/auth';
 interface ModifyFavoriteRequest {
   profileId: string;
   contentId: string;
-  contentType: 'movie' | 'series' | 'tv' | 'category' | 'channel';
+  contentType: 'movie' | 'series' | 'tv' | 'category' | 'channel' | 'episode';
 }
 
 export const addFavorite = api(
@@ -32,7 +32,11 @@ export const addFavorite = api(
     if (!owns)
       throw APIError.permissionDenied('Profile not found or access denied');
 
-    if (!['movie', 'series', 'tv', 'category', 'channel'].includes(contentType)) {
+    if (
+      !['movie', 'series', 'tv', 'category', 'channel', 'episode'].includes(
+        contentType
+      )
+    ) {
       throw APIError.invalidArgument('Invalid content type');
     }
 
@@ -93,11 +97,24 @@ export const listFavorites = api(
     contentType,
   }: {
     profileId: string;
-    contentType?: 'movie' | 'series' | 'tv' | 'category' | 'channel';
+    contentType?:
+      | 'movie'
+      | 'series'
+      | 'tv'
+      | 'category'
+      | 'channel'
+      | 'episode';
   }): Promise<{
     items: {
       content_id: string;
-      content_type: 'movie' | 'series' | 'tv' | 'category' | 'channel' | null;
+      content_type:
+        | 'movie'
+        | 'series'
+        | 'tv'
+        | 'category'
+        | 'channel'
+        | 'episode'
+        | null;
       added_at: string;
     }[];
   }> => {
@@ -117,7 +134,14 @@ export const listFavorites = api(
     if (contentType) {
       rows = await userDB.query<{
         content_id: string;
-        content_type: 'movie' | 'series' | 'tv' | 'category' | 'channel' | null;
+        content_type:
+          | 'movie'
+          | 'series'
+          | 'tv'
+          | 'category'
+          | 'channel'
+          | 'episode'
+          | null;
         added_at: Date;
       }>`
         SELECT content_id, content_type, added_at
@@ -128,7 +152,14 @@ export const listFavorites = api(
     } else {
       rows = await userDB.query<{
         content_id: string;
-        content_type: 'movie' | 'series' | 'tv' | 'category' | 'channel' | null;
+        content_type:
+          | 'movie'
+          | 'series'
+          | 'tv'
+          | 'category'
+          | 'channel'
+          | 'episode'
+          | null;
         added_at: Date;
       }>`
         SELECT content_id, content_type, added_at
@@ -140,7 +171,14 @@ export const listFavorites = api(
 
     const items: {
       content_id: string;
-      content_type: 'movie' | 'series' | 'tv' | 'category' | 'channel' | null;
+      content_type:
+        | 'movie'
+        | 'series'
+        | 'tv'
+        | 'category'
+        | 'channel'
+        | 'episode'
+        | null;
       added_at: string;
     }[] = [];
     for await (const r of rows) {

@@ -25,7 +25,13 @@ export function useFavoriteManager() {
 
   const toggleFavorite = async (
     contentId: string | number,
-    contentType: 'movie' | 'series' | 'tv' | 'category' | 'channel' = 'movie'
+    contentType:
+      | 'movie'
+      | 'series'
+      | 'tv'
+      | 'category'
+      | 'channel'
+      | 'episode' = 'movie'
   ) => {
     if (!profileId) {
       console.warn('Cannot toggle favorite: no profile ID available');

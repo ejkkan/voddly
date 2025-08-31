@@ -161,7 +161,7 @@ export function useEpg({
     // Position "now" at about 1/3 of the viewport width for better visibility
     const scrollTo = currentTimePosition - (width - sidebarWidth) / 3;
     setScrollX(Math.max(0, scrollTo));
-    
+
     // Handle unified variant
     if (variant === 'unified' && scrollRefs.current.main) {
       scrollRefs.current.main.scrollTo({
@@ -187,7 +187,7 @@ export function useEpg({
   const onScrollLeft = useCallback(() => {
     const newScroll = Math.max(0, scrollX - hourWidth * 3);
     setScrollX(newScroll);
-    
+
     // Handle unified variant
     if (variant === 'unified' && scrollRefs.current.main) {
       scrollRefs.current.main.scrollTo({ x: newScroll, animated: true });
@@ -200,7 +200,7 @@ export function useEpg({
     const maxScroll = timeline.length * hourWidth - (width - sidebarWidth);
     const newScroll = Math.min(maxScroll, scrollX + hourWidth * 3);
     setScrollX(newScroll);
-    
+
     // Handle unified variant
     if (variant === 'unified' && scrollRefs.current.main) {
       scrollRefs.current.main.scrollTo({ x: newScroll, animated: true });
