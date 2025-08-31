@@ -10,15 +10,19 @@ CREATE TABLE subscription_encryption (
     -- Master key (encrypted with passphrase-derived key)
     master_key_wrapped TEXT NOT NULL,
     
+    -- Server-side encryption for additional protection
+    server_wrapped_key TEXT,
+    server_iv TEXT,
+    
     -- Key derivation parameters
     salt TEXT NOT NULL,
     iv TEXT NOT NULL,
     
     -- KDF settings (for passphrase key derivation)
-    kdf_algorithm VARCHAR(50) DEFAULT 'argon2id',
-    kdf_iterations INTEGER DEFAULT 3,
-    kdf_memory INTEGER DEFAULT 65536,  -- 64MB
-    kdf_parallelism INTEGER DEFAULT 4,
+    kdf_algorithm VARCHAR(50) DEFAULT 'pbkdf2',
+    kdf_iterations INTEGER DEFAULT 500000,
+    kdf_memory INTEGER DEFAULT 65536,  -- 64MB (for future Argon2 support)
+    kdf_parallelism INTEGER DEFAULT 4,  -- (for future Argon2 support)
     
     -- Enhanced encryption support
     encryption_version INTEGER DEFAULT 2,
@@ -40,8 +44,8 @@ CREATE TABLE source_credentials (
     source_id UUID PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
     
     -- Encrypted credentials
-    credentials_encrypted TEXT NOT NULL, -- JSON with server, username, password
-    credentials_iv TEXT NOT NULL,
+    encrypted_config TEXT NOT NULL, -- JSON with server, username, password
+    config_iv TEXT NOT NULL,
     
     -- Metadata
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -56,18 +60,22 @@ CREATE INDEX idx_source_credentials_source ON source_credentials(source_id);
 CREATE TRIGGER update_subscription_encryption_updated_at 
     BEFORE UPDATE ON subscription_encryption 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 CREATE TRIGGER update_source_credentials_updated_at 
     BEFORE UPDATE ON source_credentials 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 -- Comments
 COMMENT ON TABLE subscription_encryption IS 'Encryption keys for each subscription';
-COMMENT ON COLUMN subscription_encryption.master_key_wrapped IS 'Master key encrypted with Argon2id-derived key from passphrase';
-COMMENT ON COLUMN subscription_encryption.kdf_algorithm IS 'Key derivation function algorithm (argon2id)';
-COMMENT ON COLUMN subscription_encryption.kdf_memory IS 'Memory parameter for Argon2 in KB';
+COMMENT ON COLUMN subscription_encryption.master_key_wrapped IS 'Master key encrypted with PBKDF2-derived key from passphrase';
+COMMENT ON COLUMN subscription_encryption.server_wrapped_key IS 'Master key double-wrapped with server secret for additional protection';
+COMMENT ON COLUMN subscription_encryption.server_iv IS 'Initialization vector for server-side encryption';
+COMMENT ON COLUMN subscription_encryption.kdf_algorithm IS 'Key derivation function algorithm (pbkdf2)';
+COMMENT ON COLUMN subscription_encryption.kdf_iterations IS 'Number of PBKDF2 iterations (500000 for enhanced security)';
+COMMENT ON COLUMN subscription_encryption.kdf_memory IS 'Memory parameter for future Argon2 support in KB';
+COMMENT ON COLUMN subscription_encryption.kdf_parallelism IS 'Parallelism parameter for future Argon2 support';
 
 COMMENT ON TABLE source_credentials IS 'Encrypted credentials for media sources';
-COMMENT ON COLUMN source_credentials.credentials_encrypted IS 'AES-256-GCM encrypted JSON with credentials';
+COMMENT ON COLUMN source_credentials.encrypted_config IS 'AES-256-GCM encrypted JSON with credentials';

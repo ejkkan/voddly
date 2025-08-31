@@ -163,12 +163,11 @@ export default function Series() {
                 id={row.id}
                 title={row.title}
                 posterUrl={row.imageUrl}
-                sourceId={(row as any).sourceId}
                 onPress={(id) =>
                   router.push(`/(app)/series/${encodeURIComponent(String(id))}`)
                 }
                 isFavorite={isFavorite(row.id)}
-                onToggleFavorite={() => toggleFavorite(row.id)}
+                onToggleFavorite={() => toggleFavorite(row.id, 'series')}
               />
             )}
           />

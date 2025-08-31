@@ -19,24 +19,27 @@ export function useFavoriteManager() {
   const isFavorite = (contentId: string | number) => {
     if (!profileId || !favoritesData?.items) return false;
     return favoritesData.items.some(
-      (item) => item.content_uid === String(contentId)
+      (item) => item.content_id === String(contentId)
     );
   };
 
-  const toggleFavorite = async (contentId: string | number) => {
+  const toggleFavorite = async (
+    contentId: string | number,
+    contentType: 'movie' | 'series' | 'tv' | 'category' | 'channel' = 'movie'
+  ) => {
     if (!profileId) {
       console.warn('Cannot toggle favorite: no profile ID available');
       return;
     }
 
-    const contentUid = String(contentId);
+    const contentIdStr = String(contentId);
     const currentlyFavorite = isFavorite(contentId);
 
     try {
       if (currentlyFavorite) {
-        await removeFavorite.mutateAsync(contentUid);
+        await removeFavorite.mutateAsync(contentIdStr);
       } else {
-        await addFavorite.mutateAsync(contentUid);
+        await addFavorite.mutateAsync({ contentId: contentIdStr, contentType });
       }
     } catch (error) {
       console.error('Failed to toggle favorite:', error);

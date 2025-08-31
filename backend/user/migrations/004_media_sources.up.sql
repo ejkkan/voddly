@@ -10,7 +10,7 @@ CREATE TABLE sources (
     
     -- Source identification
     name VARCHAR(255) NOT NULL,
-    source_type VARCHAR(50) NOT NULL CHECK (source_type IN ('xtream', 'm3u', 'stalker', 'webdav')),
+    provider_type VARCHAR(50) NOT NULL CHECK (provider_type IN ('xtream', 'm3u', 'stalker', 'webdav')),
     
     -- Connection details (stored encrypted in source_credentials table)
     -- server_url, username, password are stored in source_credentials
@@ -48,7 +48,7 @@ CREATE TABLE profile_sources (
 CREATE INDEX idx_sources_subscription ON sources(subscription_id);
 CREATE INDEX idx_sources_active ON sources(is_active) WHERE is_active = TRUE;
 CREATE INDEX idx_sources_sync_status ON sources(sync_status);
-CREATE INDEX idx_sources_type ON sources(source_type);
+CREATE INDEX idx_sources_type ON sources(provider_type);
 
 -- Indexes for profile_sources
 CREATE INDEX idx_profile_sources_profile ON profile_sources(profile_id);
@@ -58,11 +58,11 @@ CREATE INDEX idx_profile_sources_source ON profile_sources(source_id);
 CREATE TRIGGER update_sources_updated_at 
     BEFORE UPDATE ON sources 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 -- Comments
 COMMENT ON TABLE sources IS 'Media sources (IPTV, etc.) attached to a subscription';
-COMMENT ON COLUMN sources.source_type IS 'Type of source: xtream, m3u, stalker, webdav';
+COMMENT ON COLUMN sources.provider_type IS 'Type of source: xtream, m3u, stalker, webdav';
 COMMENT ON COLUMN sources.sync_status IS 'Current sync status: pending, syncing, success, error';
 
 COMMENT ON TABLE profile_sources IS 'Source restrictions per profile for parental controls';

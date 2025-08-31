@@ -185,7 +185,17 @@ export const handler = authHandler<AuthParams, AuthData>(async (params) => {
       passphrase,
     };
   } catch (error) {
-    log.error('Auth handler error', { error });
+    log.error('Auth handler error', { 
+      error,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : undefined
+    });
+    
+    // If it's already an APIError, re-throw it
+    if (error && typeof error === 'object' && 'code' in error) {
+      throw error;
+    }
+    
     throw APIError.unauthenticated('Invalid session');
   }
 });

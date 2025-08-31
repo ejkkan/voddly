@@ -217,13 +217,20 @@ export namespace metadata {
         images?: any
         cast?: any[]
         crew?: any[]
-        keywords?: any
+        /**
+         * Enrichment fields
+         */
+        ratings?: any
+
+        awards?: string
+        rated?: string
+        "box_office"?: string
+        "box_office_amount"?: number
         /**
          * Cache management
          */
-        "raw_response"?: any
-
         "fetched_at"?: string
+
         "updated_at"?: string
     }
 
@@ -235,7 +242,6 @@ export namespace metadata {
         "content_type": ContentType
         "season_number"?: number
         "episode_number"?: number
-        "force_refresh"?: boolean
         "append_to_response"?: string
     }
 
@@ -246,9 +252,26 @@ export namespace metadata {
 
         constructor(baseClient: BaseClient) {
             this.baseClient = baseClient
+            this.getContent = this.getContent.bind(this)
             this.getMetadata = this.getMetadata.bind(this)
             this.getMetadataSubtitlesByTmdb = this.getMetadataSubtitlesByTmdb.bind(this)
             this.getTrendsFromDB = this.getTrendsFromDB.bind(this)
+        }
+
+        /**
+         * Simplified endpoint - just pass TMDB ID or title, get everything we have
+         */
+        public async getContent(params: endpoints.GetContentParams): Promise<endpoints.GetContentResponse> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                "content_type": params["content_type"] === undefined ? undefined : String(params["content_type"]),
+                title:          params.title,
+                "tmdb_id":      params["tmdb_id"] === undefined ? undefined : String(params["tmdb_id"]),
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/content`, undefined, {query})
+            return await resp.json() as endpoints.GetContentResponse
         }
 
         /**
@@ -260,7 +283,6 @@ export namespace metadata {
                 "append_to_response": params["append_to_response"],
                 "content_type":       String(params["content_type"]),
                 "episode_number":     params["episode_number"] === undefined ? undefined : String(params["episode_number"]),
-                "force_refresh":      params["force_refresh"] === undefined ? undefined : String(params["force_refresh"]),
                 provider:             String(params.provider),
                 "provider_id":        params["provider_id"],
                 "season_number":      params["season_number"] === undefined ? undefined : String(params["season_number"]),
@@ -436,7 +458,7 @@ export namespace user {
         }
 
         public async addPlaylistItem(profileId: string, playlistId: string, params: {
-    contentUid: string
+    contentId: string
     sortOrder?: number
 }): Promise<{
     ok: true
@@ -832,11 +854,10 @@ export namespace user {
          */
         public async getEpisodeWatchStateByTmdb(profileId: string, parentTmdbId: string, seasonNumber: string, episodeNumber: string): Promise<{
     state: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
-        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }> {
@@ -844,11 +865,10 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/watch-state/episode/${encodeURIComponent(parentTmdbId)}/${encodeURIComponent(seasonNumber)}/${encodeURIComponent(episodeNumber)}`)
             return await resp.json() as {
     state: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
-        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }
@@ -904,11 +924,10 @@ export namespace user {
          */
         public async getMovieWatchStateByTmdb(profileId: string, tmdbId: string): Promise<{
     state: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
-        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }> {
@@ -916,19 +935,18 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/watch-state/movie/${encodeURIComponent(tmdbId)}`)
             return await resp.json() as {
     state: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
-        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }
         }
 
-        public async getPlayerBundle(profileId: string, contentUid: string): Promise<endpoints.PlayerBundleResponse> {
+        public async getPlayerBundle(profileId: string, contentId: string): Promise<endpoints.PlayerBundleResponse> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("GET", `/player/${encodeURIComponent(profileId)}/${encodeURIComponent(contentUid)}`)
+            const resp = await this.baseClient.callTypedAPI("GET", `/player/${encodeURIComponent(profileId)}/${encodeURIComponent(contentId)}`)
             return await resp.json() as endpoints.PlayerBundleResponse
         }
 
@@ -976,7 +994,7 @@ export namespace user {
          */
         public async getSeasonWatchStatesByTmdb(profileId: string, parentTmdbId: string, seasonNumber: string): Promise<{
     items: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
@@ -987,33 +1005,13 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/watch-state/season/${encodeURIComponent(parentTmdbId)}/${encodeURIComponent(seasonNumber)}`)
             return await resp.json() as {
     items: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
         "last_watched_at": string | null
     }[]
 }
-        }
-
-        /**
-         * Get sources for subscription with device validation
-         */
-        public async getSources(params: {
-    deviceId?: string
-}): Promise<{
-    sources: endpoints.SourceRow[]
-}> {
-            // Convert our params into the objects we need for the request
-            const query = makeRecord<string, string | string[]>({
-                deviceId: params.deviceId,
-            })
-
-            // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("GET", `/subscription/sources`, undefined, {query})
-            return await resp.json() as {
-    sources: endpoints.SourceRow[]
-    }
         }
 
         /**
@@ -1047,7 +1045,27 @@ export namespace user {
         "server_wrapped_key"?: string
         "server_iv"?: string
     } | null
-    }
+}
+        }
+
+        /**
+         * Get sources for subscription (without sensitive key data)
+         */
+        public async getSources(params: {
+    deviceId?: string
+}): Promise<{
+    sources: endpoints.SourceRow[]
+}> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                deviceId: params.deviceId,
+            })
+
+            // Now make the actual call to the API
+            const resp = await this.baseClient.callTypedAPI("GET", `/subscription/sources`, undefined, {query})
+            return await resp.json() as {
+    sources: endpoints.SourceRow[]
+}
         }
 
         /**
@@ -1266,11 +1284,10 @@ export namespace user {
          */
         public async getWatchStateByUid(profileId: string, contentUid: string): Promise<{
     state: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
-        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }> {
@@ -1278,11 +1295,10 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/watch-state/by-uid/${encodeURIComponent(contentUid)}`)
             return await resp.json() as {
     state: {
-        "content_uid": string
+        "content_id": string
         "last_position_seconds": number
         "total_duration_seconds": number | null
         completed: boolean
-        "completed_at": string | null
         "last_watched_at": string | null
     } | null
 }
@@ -1354,17 +1370,26 @@ export namespace user {
 }
         }
 
-        public async listFavorites(profileId: string): Promise<{
+        public async listFavorites(profileId: string, params: {
+    contentType?: "movie" | "series" | "tv" | "category" | "channel"
+}): Promise<{
     items: {
-        "content_uid": string
+        "content_id": string
+        "content_type": "movie" | "series" | "tv" | "category" | "channel" | null
         "added_at": string
     }[]
 }> {
+            // Convert our params into the objects we need for the request
+            const query = makeRecord<string, string | string[]>({
+                contentType: params.contentType === undefined ? undefined : String(params.contentType),
+            })
+
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/favorites`)
+            const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/favorites`, undefined, {query})
             return await resp.json() as {
     items: {
-        "content_uid": string
+        "content_id": string
+        "content_type": "movie" | "series" | "tv" | "category" | "channel" | null
         "added_at": string
     }[]
 }
@@ -1372,7 +1397,7 @@ export namespace user {
 
         public async listPlaylistItems(profileId: string, playlistId: string): Promise<{
     items: {
-        "content_uid": string
+        "content_id": string
         "sort_order": number
         "added_at": string
     }[]
@@ -1381,7 +1406,7 @@ export namespace user {
             const resp = await this.baseClient.callTypedAPI("GET", `/profiles/${encodeURIComponent(profileId)}/playlists/${encodeURIComponent(playlistId)}/items`)
             return await resp.json() as {
     items: {
-        "content_uid": string
+        "content_id": string
         "sort_order": number
         "added_at": string
     }[]
@@ -1431,21 +1456,21 @@ export namespace user {
 }
         }
 
-        public async removeFavorite(profileId: string, contentUid: string): Promise<{
+        public async removeFavorite(profileId: string, contentId: string): Promise<{
     ok: true
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/favorites/${encodeURIComponent(contentUid)}`)
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/favorites/${encodeURIComponent(contentId)}`)
             return await resp.json() as {
     ok: true
 }
         }
 
-        public async removePlaylistItem(profileId: string, playlistId: string, contentUid: string): Promise<{
+        public async removePlaylistItem(profileId: string, playlistId: string, contentId: string): Promise<{
     ok: true
 }> {
             // Now make the actual call to the API
-            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/playlists/${encodeURIComponent(playlistId)}/items/${encodeURIComponent(contentUid)}`)
+            const resp = await this.baseClient.callTypedAPI("DELETE", `/profiles/${encodeURIComponent(profileId)}/playlists/${encodeURIComponent(playlistId)}/items/${encodeURIComponent(contentId)}`)
             return await resp.json() as {
     ok: true
 }
@@ -1803,6 +1828,17 @@ export namespace endpoints {
         error?: string
     }
 
+    export interface GetContentParams {
+        "tmdb_id"?: number
+        title?: string
+        "content_type"?: "movie" | "tv"
+    }
+
+    export interface GetContentResponse {
+        metadata: metadata.ContentMetadata | null
+        enrichment: any
+    }
+
     export interface GetDeviceKeyRequest {
         accountId: string
         deviceId: string
@@ -1835,7 +1871,8 @@ export namespace endpoints {
     }
 
     export interface ModifyFavoriteRequest {
-        contentUid: string
+        contentId: string
+        contentType: "movie" | "series" | "tv" | "category" | "channel"
     }
 
     export interface OriginalSubtitleTrack {
@@ -1850,12 +1887,11 @@ export namespace endpoints {
     }
 
     export interface PlayerBundleResponse {
-        "content_uid": string
+        "content_id": string
         "watch_state": {
             "last_position_seconds": number
             "total_duration_seconds": number | null
             completed: boolean
-            "completed_at": string | null
             "last_watched_at": string | null
         } | null
     }

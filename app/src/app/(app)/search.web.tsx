@@ -144,7 +144,7 @@ export default function Search() {
                     )
                   }
                   isFavorite={isFavorite(row.id)}
-                  onToggleFavorite={() => toggleFavorite(row.id)}
+                  onToggleFavorite={() => toggleFavorite(row.id, 'movie')}
                 />
               )}
             />
@@ -177,7 +177,7 @@ export default function Search() {
                     )
                   }
                   isFavorite={isFavorite(row.id)}
-                  onToggleFavorite={() => toggleFavorite(row.id)}
+                  onToggleFavorite={() => toggleFavorite(row.id, 'series')}
                 />
               )}
             />
@@ -187,7 +187,7 @@ export default function Search() {
         {results.live.length > 0 ? (
           <View className="mt-2">
             <CarouselRow
-              title="Live"
+              title="TV"
               data={results.live.map(
                 (i) =>
                   ({
@@ -208,7 +208,7 @@ export default function Search() {
                     )
                   }
                   isFavorite={isFavorite(row.id)}
-                  onToggleFavorite={() => toggleFavorite(row.id)}
+                  onToggleFavorite={() => toggleFavorite(row.id, 'tv')}
                 />
               )}
             />

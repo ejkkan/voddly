@@ -12,6 +12,15 @@ CREATE TABLE subscription_devices (
     device_id VARCHAR(255) NOT NULL,
     device_name VARCHAR(255),
     device_type VARCHAR(50) CHECK (device_type IN ('mobile', 'tablet', 'tv', 'web', 'desktop')),
+    device_model VARCHAR(255),
+    
+    -- Device-specific encryption
+    master_key_wrapped TEXT,
+    salt TEXT,
+    iv TEXT,
+    kdf_iterations INTEGER DEFAULT 500000,
+    server_wrapped_key TEXT,
+    server_iv TEXT,
     
     -- Device details
     platform VARCHAR(100),
@@ -24,6 +33,7 @@ CREATE TABLE subscription_devices (
     is_active BOOLEAN DEFAULT TRUE,
     is_trusted BOOLEAN DEFAULT FALSE,
     last_active_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_used TIMESTAMP,
     is_online BOOLEAN DEFAULT FALSE,
     
     -- Timestamps
@@ -67,7 +77,7 @@ CREATE INDEX idx_device_sessions_active ON device_sessions(is_active) WHERE is_a
 CREATE TRIGGER update_subscription_devices_updated_at 
     BEFORE UPDATE ON subscription_devices 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 -- Function to check device limits
 CREATE OR REPLACE FUNCTION check_device_limit()
@@ -115,6 +125,12 @@ CREATE TRIGGER enforce_device_limit
 -- Comments
 COMMENT ON TABLE subscription_devices IS 'Registered devices per subscription';
 COMMENT ON COLUMN subscription_devices.device_id IS 'Unique device identifier (fingerprint)';
+COMMENT ON COLUMN subscription_devices.master_key_wrapped IS 'Device-specific wrapped master key';
+COMMENT ON COLUMN subscription_devices.salt IS 'Salt for device-specific key derivation';
+COMMENT ON COLUMN subscription_devices.iv IS 'Initialization vector for device encryption';
+COMMENT ON COLUMN subscription_devices.kdf_iterations IS 'Number of iterations for key derivation';
+COMMENT ON COLUMN subscription_devices.server_wrapped_key IS 'Server-wrapped device key for additional protection';
+COMMENT ON COLUMN subscription_devices.server_iv IS 'Server encryption initialization vector';
 COMMENT ON COLUMN subscription_devices.is_trusted IS 'Whether the device is trusted (skip 2FA, etc.)';
 
 COMMENT ON TABLE device_sessions IS 'Active sessions per device';

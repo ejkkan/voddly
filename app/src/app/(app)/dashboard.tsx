@@ -180,7 +180,9 @@ export default function Dashboard() {
                         }
                         onLongPress={handleMovieLongPress}
                         isFavorite={isFavorite(item.id)}
-                        onToggleFavorite={() => toggleFavorite(item.id)}
+                        onToggleFavorite={() =>
+                          toggleFavorite(item.id, 'movie')
+                        }
                         hasProfile={hasProfile}
                       />
                     )}
@@ -208,7 +210,9 @@ export default function Dashboard() {
                         }
                         onLongPress={handleSeriesLongPress}
                         isFavorite={isFavorite(item.id)}
-                        onToggleFavorite={() => toggleFavorite(item.id)}
+                        onToggleFavorite={() =>
+                          toggleFavorite(item.id, 'series')
+                        }
                         hasProfile={hasProfile}
                       />
                     )}
@@ -236,7 +240,7 @@ export default function Dashboard() {
                     }
                     onLongPress={handleMovieLongPress}
                     isFavorite={isFavorite(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id, 'movie')}
                     hasProfile={hasProfile}
                   />
                 )}
@@ -256,13 +260,13 @@ export default function Dashboard() {
                     }
                     onLongPress={handleSeriesLongPress}
                     isFavorite={isFavorite(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id, 'series')}
                     hasProfile={hasProfile}
                   />
                 )}
               />
               <CarouselRow
-                title="Live"
+                title="TV"
                 data={live}
                 renderItem={(item) => (
                   <PosterCard
@@ -276,7 +280,7 @@ export default function Dashboard() {
                     }
                     onLongPress={handleLiveLongPress}
                     isFavorite={isFavorite(item.id)}
-                    onToggleFavorite={() => toggleFavorite(item.id)}
+                    onToggleFavorite={() => toggleFavorite(item.id, 'tv')}
                     hasProfile={hasProfile}
                   />
                 )}

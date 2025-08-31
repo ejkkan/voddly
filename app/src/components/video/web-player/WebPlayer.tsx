@@ -339,6 +339,14 @@ export function WebPlayer(props: WebPlayerProps) {
         audioTracks: v.audioTracks ? v.audioTracks.length : undefined,
         webkitAudioDecodedByteCount: v.webkitAudioDecodedByteCount,
         mozHasAudio: v.mozHasAudio,
+        // Additional audio debugging info
+        paused: v.paused,
+        currentTime: v.currentTime,
+        duration: v.duration,
+        error: v.error,
+        videoHeight: v.videoHeight,
+        videoWidth: v.videoWidth,
+        canPlayType_m3u8: v.canPlayType ? v.canPlayType('application/vnd.apple.mpegurl') : 'N/A',
       });
     } catch {}
   }, []);
@@ -373,6 +381,21 @@ export function WebPlayer(props: WebPlayerProps) {
       setIsPlaying(true);
       setIsLoading(false);
       logVideoState('onPlay');
+      
+      // For live streams, ensure audio is enabled after playback starts
+      if (type === 'live' && video.muted) {
+        console.log('[WebPlayer] Live stream playing but muted, attempting to unmute');
+        setTimeout(() => {
+          try {
+            video.muted = false;
+            video.volume = 1.0;
+            setIsMutedUi(false);
+            console.log('[WebPlayer] Successfully unmuted live stream');
+          } catch (e) {
+            console.log('[WebPlayer] Failed to unmute live stream:', e);
+          }
+        }, 500);
+      }
     };
     const onPause = () => {
       setIsPlaying(false);
@@ -503,12 +526,30 @@ export function WebPlayer(props: WebPlayerProps) {
       try {
         pendingPlayRef.current = (async () => {
           try {
-            v.muted = false;
+            // For live streams, ensure audio is enabled
+            if (type === 'live') {
+              console.log('[WebPlayer] Live stream detected, ensuring audio is enabled');
+              v.muted = false;
+              v.volume = 1.0;
+            } else {
+              v.muted = false;
+            }
             await v.play();
-          } catch {
+            console.log('[WebPlayer] Playback started with audio enabled');
+          } catch (e) {
+            console.log('[WebPlayer] Failed to play with audio, trying muted:', e);
             try {
               v.muted = true;
               await v.play();
+              // Try to unmute after playback starts for live streams
+              if (type === 'live') {
+                setTimeout(() => {
+                  console.log('[WebPlayer] Attempting to unmute live stream after playback');
+                  v.muted = false;
+                  v.volume = 1.0;
+                  setIsMutedUi(false);
+                }, 100);
+              }
             } catch {}
           }
         })();
@@ -554,11 +595,26 @@ export function WebPlayer(props: WebPlayerProps) {
         const ext = (urlPath.split('.').pop() || '').toLowerCase();
         const isManifest = ext === 'm3u8' || ext === 'mpd';
         const isHls = ext === 'm3u8';
+        const isMpegTs = ext === 'ts';
         const canNativeHls =
           isHls &&
           typeof video.canPlayType === 'function' &&
           video.canPlayType('application/vnd.apple.mpegurl') !== '';
-        const useShaka = isManifest && !(isHls && canNativeHls);
+        
+        // For .ts streams, use direct playback (no Shaka needed)
+        const useShaka = isManifest && !(isHls && canNativeHls) && !isMpegTs;
+        
+        // Log stream type detection
+        console.log('[WebPlayer] Stream type detection:', {
+          url,
+          ext,
+          isManifest,
+          isHls,
+          isMpegTs,
+          canNativeHls,
+          useShaka,
+          contentType: type,
+        });
 
         if (useShaka) {
           if (!ShakaNS) {
@@ -585,6 +641,36 @@ export function WebPlayer(props: WebPlayerProps) {
             setIsLoading(false);
           };
           player.addEventListener('error', onError as any);
+          
+          // Add event listener for track changes
+          player.addEventListener('adaptation', () => {
+            console.log('[WebPlayer] Adaptation event - checking audio tracks');
+            const tracks = player.getVariantTracks();
+            if (tracks && tracks.length > 0) {
+              const activeTrack = tracks.find((t: any) => t.active);
+              if (activeTrack) {
+                console.log('[WebPlayer] Active track:', {
+                  audioCodec: activeTrack.audioCodec,
+                  audioChannelsCount: activeTrack.audioChannelsCount,
+                  audioSamplingRate: activeTrack.audioSamplingRate,
+                  audioLanguage: activeTrack.audioLanguage,
+                });
+              }
+            }
+          });
+          
+          // Listen for loaded event to check audio
+          player.addEventListener('loaded', () => {
+            console.log('[WebPlayer] Shaka loaded event');
+            const audioTracks = player.getAudioTracks();
+            const variantTracks = player.getVariantTracks();
+            console.log('[WebPlayer] Available audio after load:', {
+              audioTracks,
+              variantTracks,
+              audioTrackCount: audioTracks?.length,
+              variantTrackCount: variantTracks?.length,
+            });
+          });
         }
 
         video.addEventListener('timeupdate', onTime);
@@ -609,16 +695,105 @@ export function WebPlayer(props: WebPlayerProps) {
           ext === 'webm' ||
           ext === 'mov' ||
           ext === 'm4v' ||
-          ext === 'mkv';
+          ext === 'mkv' ||
+          ext === 'ts';  // Added .ts as progressive format
         console.log('[WebPlayer] init', {
           url,
           ext,
           isManifest,
           isProgressive,
+          isMpegTs,
         });
 
         if (useShaka && player) {
+          // Configure Shaka for better audio handling
+          if (type === 'live') {
+            try {
+              player.configure({
+                streaming: {
+                  rebufferingGoal: 2,
+                  bufferingGoal: 10,
+                  autoLowLatencyMode: false,
+                },
+                manifest: {
+                  defaultPresentationDelay: 10,
+                  hls: {
+                    ignoreTextStreamFailures: true,
+                    useFullSegmentsForStartTime: true,
+                  },
+                },
+                // Ensure all audio tracks are enabled
+                preferredAudioLanguage: 'und', // 'und' for undefined/any language
+                restrictions: {
+                  minPixels: 0,
+                  maxPixels: Infinity,
+                  minFrameRate: 0,
+                  maxFrameRate: Infinity,
+                  minBandwidth: 0,
+                  maxBandwidth: Infinity,
+                },
+              });
+              
+              // Set up audio configuration
+              player.configure({
+                mediaSource: {
+                  forceTransmux: true, // Force transmuxing for better compatibility
+                },
+              });
+            } catch (e) {
+              console.log('[WebPlayer] Shaka config error:', e);
+            }
+          }
           await player.load(url);
+          
+          // After loading, ensure audio is enabled for live streams
+          if (type === 'live') {
+            console.log('[WebPlayer] Checking audio configuration after load');
+            const config = player.getConfiguration();
+            console.log('[WebPlayer] Shaka configuration:', config);
+            
+            // Get all available tracks
+            const variantTracks = player.getVariantTracks();
+            const audioTracks = player.getAudioTracks();
+            
+            if (variantTracks && variantTracks.length > 0) {
+              // Find a track with audio
+              const trackWithAudio = variantTracks.find((t: any) => t.audioCodec);
+              if (trackWithAudio && !trackWithAudio.active) {
+                console.log('[WebPlayer] Selecting track with audio:', trackWithAudio);
+                player.selectVariantTrack(trackWithAudio);
+              }
+            }
+            
+            // Ensure player is not muted - try multiple times
+            if (video) {
+              // Immediately unmute
+              video.muted = false;
+              video.volume = 1.0;
+              console.log('[WebPlayer] Ensured video is unmuted after Shaka load');
+              
+              // Try again after a short delay
+              setTimeout(() => {
+                if (video && video.muted) {
+                  console.log('[WebPlayer] Video still muted, forcing unmute');
+                  video.muted = false;
+                  video.volume = 1.0;
+                  setIsMutedUi(false);
+                }
+              }, 100);
+              
+              // And once more after playback likely started
+              setTimeout(() => {
+                if (video) {
+                  video.muted = false;
+                  video.volume = 1.0;
+                  setIsMutedUi(false);
+                  console.log('[WebPlayer] Final unmute attempt');
+                  logVideoState('After final unmute');
+                }
+              }, 1000);
+            }
+          }
         } else {
           while (video.firstChild) video.removeChild(video.firstChild);
           try {
@@ -626,6 +801,10 @@ export function WebPlayer(props: WebPlayerProps) {
           } catch {}
           try {
             (video as any).preload = 'auto';
+            // For live streams, ensure audio codec support
+            if (type === 'live') {
+              (video as any).crossOrigin = 'anonymous';
+            }
           } catch {}
           (video as HTMLVideoElement).src = url;
           progressiveFallbackTriedRef.current = false;
@@ -634,8 +813,33 @@ export function WebPlayer(props: WebPlayerProps) {
           logVideoState('after set src and load');
           rafIdRef.current = requestAnimationFrame(() => {
             try {
-              (video as any).muted = true;
-              void (video as HTMLVideoElement).play();
+              // For live streams and MPEG-TS, try to play with audio first
+              if (type === 'live' || ext === 'ts') {
+                console.log('[WebPlayer] Live/TS stream - attempting playback with audio');
+                (video as any).muted = false;
+                (video as any).volume = 1.0;
+                // Set crossOrigin for better compatibility
+                (video as any).crossOrigin = 'anonymous';
+              } else {
+                (video as any).muted = true;
+              }
+              void (video as HTMLVideoElement).play().catch((e) => {
+                console.log('[WebPlayer] Initial play failed:', e);
+                // Fallback to muted if unmuted playback fails
+                if (type === 'live' || ext === 'ts') {
+                  console.log('[WebPlayer] Falling back to muted playback');
+                  (video as any).muted = true;
+                  void (video as HTMLVideoElement).play().then(() => {
+                    // Try to unmute after playback starts
+                    setTimeout(() => {
+                      console.log('[WebPlayer] Attempting to unmute after playback started');
+                      (video as any).muted = false;
+                      (video as any).volume = 1.0;
+                      setIsMutedUi(false);
+                    }, 500);
+                  });
+                }
+              });
             } catch {}
           });
           try {
@@ -690,6 +894,37 @@ export function WebPlayer(props: WebPlayerProps) {
         try {
           if (player && isManifest) {
             const variants = player.getVariantTracks?.() || [];
+            const audioTracks = player.getAudioTracks?.() || [];
+            console.log('[WebPlayer] Audio tracks info:', {
+              variants,
+              audioTracks,
+              variantCount: variants.length,
+              audioTrackCount: audioTracks.length,
+            });
+            
+            // Check if audio is available
+            if (variants.length > 0) {
+              const firstVariant = variants[0];
+              console.log('[WebPlayer] First variant details:', {
+                audioId: firstVariant.audioId,
+                audioCodec: firstVariant.audioCodec,
+                audioLanguage: firstVariant.audioLanguage,
+                audioRoles: firstVariant.audioRoles,
+                audioChannelsCount: firstVariant.audioChannelsCount,
+                audioSamplingRate: firstVariant.audioSamplingRate,
+              });
+              
+              // Try to select the first audio track explicitly
+              if (firstVariant.audioId) {
+                try {
+                  player.selectAudioLanguage(firstVariant.audioLanguage || 'und');
+                  console.log('[WebPlayer] Selected audio language:', firstVariant.audioLanguage || 'und');
+                } catch (e) {
+                  console.log('[WebPlayer] Failed to select audio language:', e);
+                }
+              }
+            }
+            
             const langs = Array.from(
               new Set(
                 (variants as any[]).map((v) => v.audioLanguage).filter(Boolean)
@@ -701,7 +936,9 @@ export function WebPlayer(props: WebPlayerProps) {
             setAudioLanguages([]);
             setSelectedAudioLang(undefined);
           }
-        } catch {}
+        } catch (e) {
+          console.log('[WebPlayer] Error getting audio tracks:', e);
+        }
 
         try {
           if (player && isManifest) {
@@ -846,11 +1083,27 @@ export function WebPlayer(props: WebPlayerProps) {
     try {
       const v = videoRef.current;
       if (!v) return;
+      
+      // For live streams with Shaka, ensure we handle audio properly
+      if (type === 'live' && playerRef.current) {
+        // Resume audio context if needed (for browser autoplay policies)
+        if (typeof window !== 'undefined' && (window as any).AudioContext) {
+          const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+          if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+              console.log('[WebPlayer] Audio context resumed');
+            });
+          }
+        }
+      }
+      
       v.muted = !v.muted;
       if (!v.muted && v.volume === 0) v.volume = 1;
       setIsMutedUi(!!v.muted || (v.volume ?? 0) === 0);
+      console.log('[WebPlayer] Toggled mute:', { muted: v.muted, volume: v.volume });
+      logVideoState('After toggle mute');
     } catch {}
-  }, []);
+  }, [logVideoState, type]);
 
   const onCycleAudioLanguage = React.useCallback(() => {
     if (!playerRef.current || audioLanguages.length === 0) return;
@@ -1082,14 +1335,36 @@ export function WebPlayer(props: WebPlayerProps) {
 
   return (
     <div ref={containerRef} className="flex-1 bg-black" style={{ display: 'flex', flex: 1, backgroundColor: 'black', position: 'relative' }}>
-      <Pressable className="flex-1" onPress={() => setShowControls((v) => !v)}>
+      <Pressable 
+        className="flex-1" 
+        onPress={() => {
+          setShowControls((v) => !v);
+          // On any user interaction with live streams, ensure audio is enabled
+          if (type === 'live' && videoRef.current && videoRef.current.muted) {
+            console.log('[WebPlayer] User interaction detected, enabling audio');
+            videoRef.current.muted = false;
+            videoRef.current.volume = 1.0;
+            setIsMutedUi(false);
+            
+            // Resume audio context if needed
+            if (typeof window !== 'undefined' && (window as any).AudioContext) {
+              const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+              if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                  console.log('[WebPlayer] Audio context resumed via user interaction');
+                });
+              }
+            }
+          }
+        }}
+      >
         <video
           key={url}
           ref={videoRef}
           className="h-full w-full object-contain"
           playsInline
           autoPlay
-          muted
+          muted={type !== 'live'} // Don't mute live streams by default
           preload="auto"
         />
       </Pressable>
@@ -1163,6 +1438,16 @@ export function WebPlayer(props: WebPlayerProps) {
           <ActivityIndicator color="#ffffff" />
         </View>
       ) : null}
+      
+      {/* Audio muted indicator for live streams */}
+      {type === 'live' && isMutedUi && isPlaying && !isLoading && (
+        <Pressable 
+          className="absolute top-20 left-4 bg-red-600 px-3 py-2 rounded-lg flex-row items-center"
+          onPress={onToggleMute}
+        >
+          <Text className="text-white font-semibold">🔇 Audio Muted - Tap to unmute</Text>
+        </Pressable>
+      )}
     </div>
   );
 }

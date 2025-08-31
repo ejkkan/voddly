@@ -68,7 +68,9 @@ export function constructStreamUrl(params: StreamUrlParams): {
     finalExtension = inferContainerExtension(videoCodec, audioCodec);
     source = 'inferred';
   } else {
-    finalExtension = 'mkv';
+    // Default extension based on content type
+    // Live TV streams typically use .m3u8 (HLS) format for browser playback
+    finalExtension = contentType === 'live' ? 'm3u8' : 'mkv';
     source = 'default';
   }
 

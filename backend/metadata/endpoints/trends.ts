@@ -34,31 +34,29 @@ export interface TrendsResponse {
   count: number;
 }
 
-// No freshness window - always return cached data
-
 function makeKey(feed: TrendFeed, contentType: TrendsContentType): string {
   return `trakt:${feed}:${contentType}`;
 }
 
-async function getCached(key: string): Promise<TrendsResponse | null> {
+async function getTrends(key: string): Promise<TrendsResponse | null> {
   const row = await metadataDB.queryRow<{
     key: string;
     run_at: Date;
     items: any;
-  }>`SELECT key, run_at, items FROM trends_cache WHERE key = ${key}`;
-  log.info('getCached', { key, hasRow: !!row });
+  }>`SELECT key, run_at, items FROM trends WHERE key = ${key}`;
+  log.info('getTrends', { key, hasRow: !!row });
   if (!row) return null;
 
   // Handle date parsing more robustly
   const runAtDate =
     row.run_at instanceof Date ? row.run_at : new Date(row.run_at);
 
-  // Simply parse and return the data, no freshness check
+  // Parse and return the data
   const parsedItems = Array.isArray(row.items)
     ? row.items
     : JSON.parse(String(row.items || '[]'));
 
-  log.info('getCached:returning_data', { key, item_count: parsedItems.length });
+  log.info('getTrends:returning_data', { key, item_count: parsedItems.length });
 
   return {
     key: row.key,
@@ -68,9 +66,9 @@ async function getCached(key: string): Promise<TrendsResponse | null> {
   };
 }
 
-async function setCached(key: string, items: TrendItem[]): Promise<void> {
+async function storeTrends(key: string, items: TrendItem[]): Promise<void> {
   await metadataDB.exec`
-    INSERT INTO trends_cache (key, run_at, items)
+    INSERT INTO trends (key, run_at, items)
     VALUES (${key}, CURRENT_TIMESTAMP, ${JSON.stringify(items)})
     ON CONFLICT (key) DO UPDATE SET run_at = EXCLUDED.run_at, items = EXCLUDED.items
   `;
@@ -253,16 +251,16 @@ export const getTrendsFromDB = api(
     if (content_type !== 'movie' && content_type !== 'tv')
       throw APIError.invalidArgument('invalid content_type');
     const key = makeKey(feed, content_type);
-    const cached = await getCached(key);
-    if (cached) {
-      log.info('getTrendsFromDB:cache_hit', { key, count: cached.count });
+    const stored = await getTrends(key);
+    if (stored) {
+      log.info('getTrendsFromDB:found', { key, count: stored.count });
       return limit && limit > 0
         ? {
-            ...cached,
-            items: cached.items.slice(0, limit),
-            count: Math.min(cached.count, limit),
+            ...stored,
+            items: stored.items.slice(0, limit),
+            count: Math.min(stored.count, limit),
           }
-        : cached;
+        : stored;
     }
     log.info('getTrendsFromDB:no_data', { key });
     return {
@@ -274,7 +272,7 @@ export const getTrendsFromDB = api(
   }
 );
 
-// Update endpoint: fetch from Trakt and write cache
+// Update endpoint: fetch from Trakt and store in database
 export const updateTrends = api(
   {
     expose: false,
@@ -299,7 +297,7 @@ export const updateTrends = api(
     const items = await fetchFromTrakt(feed, content_type, limit ?? 100);
     if (!items || items.length === 0) {
       log.warn('updateTrends:empty_from_trakt', { key });
-      const current = await getCached(key);
+      const current = await getTrends(key);
       return (
         current || {
           key,
@@ -309,7 +307,7 @@ export const updateTrends = api(
         }
       );
     }
-    await setCached(key, items);
+    await storeTrends(key, items);
     log.info('updateTrends:written', { key, count: items.length });
     return {
       key,
@@ -334,7 +332,7 @@ export async function refreshTrendsKey(
   log.info('refreshTrendsKey:fetched', { key, count: items.length, ms: dt });
   if (items.length === 0) {
     log.warn('refreshTrendsKey:empty_result_skip_write', { key, ms: dt });
-    const current = await getCached(key);
+    const current = await getTrends(key);
     return (
       current || {
         key,
@@ -345,7 +343,7 @@ export async function refreshTrendsKey(
     );
   }
   log.info('refreshTrendsKey:writing', { key, count: items.length, ms: dt });
-  await setCached(key, items);
+  await storeTrends(key, items);
   log.info('refreshTrendsKey:written', { key, count: items.length, ms: dt });
   return {
     key,

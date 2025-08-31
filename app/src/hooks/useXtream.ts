@@ -8,20 +8,34 @@ import { XtreamClient } from '@/lib/xtream-client';
 
 type ContentType = 'live' | 'movie' | 'series';
 
+// Cache for XtreamClient instances to avoid repeated decryption
+const clientCache = new Map<string, XtreamClient>();
+
 export function useXtreamClient() {
   const { getCredentials } = useSourceCredentials();
 
   return {
     getClient: async (sourceId: string) => {
+      // Check if client is already cached
+      if (clientCache.has(sourceId)) {
+        return clientCache.get(sourceId)!;
+      }
+
+      // Get credentials (this will prompt for decrypt only once per session)
       const creds = await getCredentials(sourceId, {
         title: 'Decrypt Source',
         message: 'Enter your passphrase to access the source',
       });
-      return new XtreamClient({
+      
+      // Create and cache the client
+      const client = new XtreamClient({
         server: creds.server,
         username: creds.username,
         password: creds.password,
       });
+      
+      clientCache.set(sourceId, client);
+      return client;
     },
   } as const;
 }

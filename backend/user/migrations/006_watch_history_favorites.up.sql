@@ -34,15 +34,9 @@ CREATE TABLE profile_watch_state (
 CREATE TABLE profile_favorites (
     profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     content_id TEXT NOT NULL,
-    content_type VARCHAR(20) NOT NULL CHECK (content_type IN ('movie', 'series', 'live')),
+    content_type VARCHAR(20) NOT NULL CHECK (content_type IN ('movie', 'series', 'tv', 'category', 'channel')),
     source_id UUID REFERENCES sources(id) ON DELETE CASCADE,
-    
-    -- Metadata
-    title TEXT,
-    poster_url TEXT,
-    backdrop_url TEXT,
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
     PRIMARY KEY (profile_id, content_id)
 );
 

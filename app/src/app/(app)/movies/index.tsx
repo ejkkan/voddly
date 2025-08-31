@@ -149,12 +149,11 @@ export default function VODs() {
                 id={row.id}
                 title={row.title}
                 posterUrl={row.imageUrl}
-                sourceId={(row as any).sourceId}
                 onPress={(id) =>
                   router.push(`/(app)/movies/${encodeURIComponent(String(id))}`)
                 }
                 isFavorite={isFavorite(row.id)}
-                onToggleFavorite={() => toggleFavorite(row.id)}
+                onToggleFavorite={() => toggleFavorite(row.id, 'movie')}
               />
             )}
           />

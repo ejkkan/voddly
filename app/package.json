@@ -87,6 +87,7 @@
     "lodash.memoize": "^4.1.2",
     "moti": "^0.29.0",
     "nativewind": "^4.1.21",
+    "planby": "^2.0.0",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-error-boundary": "^4.0.13",

@@ -25,7 +25,7 @@ type ItemRow = {
   rating?: number | null;
 };
 
-export default function LiveDetails() {
+export default function TVDetails() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [item, setItem] = useState<ItemRow | null>(null);
@@ -91,8 +91,8 @@ export default function LiveDetails() {
         contentId: channelId,
         contentType: 'live',
         options: {
-          title: 'Play Channel',
-          message: 'Enter your passphrase to play the channel',
+          title: 'Watch TV',
+          message: 'Enter your passphrase to watch TV',
         },
       });
       router.push({
@@ -153,7 +153,7 @@ export default function LiveDetails() {
                   className="rounded-xl bg-neutral-900 px-4 py-2"
                   onPress={handlePlay}
                 >
-                  <Text className="text-white">Start Watching</Text>
+                  <Text className="text-white">Watch TV</Text>
                 </Pressable>
                 <Pressable
                   className="rounded-xl border border-neutral-300 px-4 py-2 dark:border-neutral-700"
@@ -192,7 +192,10 @@ export default function LiveDetails() {
                         `SELECT * FROM live_ext WHERE item_id = $id`,
                         { $id: String(item.id) }
                       );
-                      console.log('[Live DB]', { base, liveExt });
+                      console.log(
+                        '[Live DB]',
+                        JSON.stringify({ base, liveExt }, null, 2)
+                      );
                     } catch (e) {
                       console.log('Log DB (live) failed', e);
                     }

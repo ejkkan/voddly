@@ -19,7 +19,7 @@ type Section = {
   aspect?: 'poster' | 'backdrop';
 };
 
-export default function Live() {
+export default function TV() {
   const router = useRouter();
   const { isFavorite, toggleFavorite } = useFavoriteManager();
   const [sections, setSections] = useState<Section[]>([]);
@@ -163,13 +163,12 @@ export default function Live() {
                 id={row.id}
                 title={row.title}
                 posterUrl={row.imageUrl}
-                sourceId={(row as any).sourceId}
                 aspect={item.aspect || 'poster'}
                 onPress={(id) =>
                   router.push(`/(app)/live/${encodeURIComponent(String(id))}`)
                 }
                 isFavorite={isFavorite(row.id)}
-                onToggleFavorite={() => toggleFavorite(row.id)}
+                onToggleFavorite={() => toggleFavorite(row.id, 'tv')}
               />
             )}
           />
@@ -179,7 +178,7 @@ export default function Live() {
         ListHeaderComponent={
           <View className="px-6 py-4">
             <Text className="text-2xl font-bold text-neutral-900 dark:text-neutral-50">
-              Live
+              TV
             </Text>
           </View>
         }

@@ -99,11 +99,20 @@ CREATE INDEX idx_verification_value ON "verification" ("value");
 CREATE INDEX idx_verification_expiresAt ON "verification" ("expiresAt");
 CREATE INDEX idx_verification_identifier_value ON "verification" ("identifier", "value");
 
--- Create function to update updatedAt timestamp
+-- Create function to update updatedAt timestamp (for camelCase columns)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW."updatedAt" = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- Create function to update updated_at timestamp (for snake_case columns)
+CREATE OR REPLACE FUNCTION update_updated_at_column_snake()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ language 'plpgsql';

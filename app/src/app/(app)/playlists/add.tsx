@@ -14,6 +14,7 @@ import { apiClient } from '@/lib/api-client';
 import { useSession } from '@/lib/auth/hooks';
 import { MobileCatalogStorage } from '@/lib/catalog-storage';
 import { passphraseCache } from '@/lib/passphrase-cache';
+import { notify, toast } from '@/lib/toast';
 import { XtreamClient } from '@/lib/xtream-client';
 
 export default function AddPlaylist() {
@@ -56,6 +57,19 @@ export default function AddPlaylist() {
   const onSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
+    
+    // Show loading toast immediately
+    const toastId = `add-playlist-${Date.now()}`;
+    const displayName = mode === 'xtream' 
+      ? `${sourceName || 'IPTV Xtream'}` 
+      : `${sourceName || 'M3U Playlist'}`;
+    
+    toast.loading(`Adding ${displayName}...`, {
+      id: toastId,
+      duration: 999999, // Very long duration
+      description: 'Connecting to source and downloading metadata',
+    });
+    
     try {
       let sourceId: string;
       let accountId: string;
@@ -311,9 +325,26 @@ export default function AddPlaylist() {
           m3uUrl
         );
       }
+      // Dismiss loading toast and show success
+      toast.dismiss(toastId);
+      notify.success(`${displayName} added successfully!`, {
+        description: mode === 'xtream' 
+          ? `Connected to ${serverUrl}`
+          : `Connected to M3U playlist`,
+        duration: 4000,
+      });
+      
       router.replace('/(app)/playlists');
-    } catch (e) {
+    } catch (e: any) {
       console.log('Add playlist failed', e);
+      
+      // Dismiss loading toast and show error
+      toast.dismiss(toastId);
+      notify.error('Failed to add playlist', {
+        description: e?.message || 'Please check your connection details',
+        duration: 5000,
+      });
+      
       setSubmitting(false);
     }
   };
@@ -411,15 +442,6 @@ export default function AddPlaylist() {
           </Pressable>
         </View>
       </ScrollView>
-      {submitting && (
-        <View className="absolute inset-0 items-center justify-center bg-black/40">
-          <View className="rounded-xl bg-white px-6 py-4 dark:bg-neutral-900">
-            <Text className="text-neutral-900 dark:text-neutral-50">
-              Connecting to source and downloading metadata…
-            </Text>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }

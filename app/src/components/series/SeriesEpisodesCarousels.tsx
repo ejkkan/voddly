@@ -131,7 +131,7 @@ export function SeriesEpisodesCarousels(props: {
                 }
               }}
               isFavorite={isFavorite(item.id)}
-              onToggleFavorite={() => toggleFavorite(item.id)}
+              onToggleFavorite={() => toggleFavorite(item.id, 'series')}
             />
           )}
         />

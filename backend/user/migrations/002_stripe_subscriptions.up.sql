@@ -43,4 +43,4 @@ CREATE INDEX idx_subscription_status ON "subscription" ("status");
 CREATE TRIGGER update_subscription_updated_at 
     BEFORE UPDATE ON "subscription" 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();

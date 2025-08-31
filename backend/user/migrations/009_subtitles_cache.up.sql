@@ -86,12 +86,12 @@ WHERE content IS NOT NULL;
 CREATE TRIGGER update_user_subtitles_updated_at 
     BEFORE UPDATE ON user_subtitles 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 CREATE TRIGGER update_profile_subtitle_preferences_updated_at 
     BEFORE UPDATE ON profile_subtitle_preferences 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 -- Comments
 COMMENT ON TABLE user_subtitles IS 'Cached subtitles from various providers';

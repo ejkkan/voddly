@@ -7,6 +7,7 @@ type PosterCardProps = {
   id: string | number;
   title: string;
   posterUrl?: string | null;
+  sourceId?: string;
   onPress?: (id: string | number) => void;
   onLongPress?: (id: string | number) => void;
   aspect?: 'poster' | 'backdrop';
@@ -14,12 +15,14 @@ type PosterCardProps = {
   onToggleFavorite?: (id: string | number) => void;
   showFavoriteButton?: boolean;
   hasProfile?: boolean;
+  contentType?: 'movie' | 'series' | 'tv' | 'category';
 };
 
 export const PosterCard = ({
   id,
   title,
   posterUrl,
+  sourceId,
   onPress,
   onLongPress,
   aspect = 'poster',
@@ -27,6 +30,7 @@ export const PosterCard = ({
   onToggleFavorite,
   showFavoriteButton = true,
   hasProfile = true,
+  contentType = 'movie',
 }: PosterCardProps) => {
   const isPoster = aspect === 'poster';
 

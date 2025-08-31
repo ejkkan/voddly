@@ -60,7 +60,7 @@ CREATE INDEX idx_playlist_items_source ON playlist_items(source_id);
 CREATE TRIGGER update_profile_playlists_updated_at 
     BEFORE UPDATE ON profile_playlists 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 -- Function to update playlist item count
 CREATE OR REPLACE FUNCTION update_playlist_item_count()

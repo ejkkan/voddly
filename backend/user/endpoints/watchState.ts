@@ -286,11 +286,10 @@ export const getWatchStateByUid = api(
     contentUid: string;
   }): Promise<{
     state: {
-      content_uid: string;
+      content_id: string;
       last_position_seconds: number;
       total_duration_seconds: number | null;
       completed: boolean;
-      completed_at: string | null;
       last_watched_at: string | null;
     } | null;
   }> => {
@@ -303,27 +302,25 @@ export const getWatchStateByUid = api(
     }
 
     const row = await userDB.queryRow<{
-      content_uid: string;
+      content_id: string;
       last_position_seconds: number;
       total_duration_seconds: number | null;
       completed: boolean;
-      completed_at: Date | null;
       last_watched_at: Date | null;
     }>`
-      SELECT content_uid, last_position_seconds, total_duration_seconds, completed, completed_at, last_watched_at
+      SELECT content_id, last_position_seconds, total_duration_seconds, completed, last_watched_at
       FROM profile_watch_state
-      WHERE profile_id = ${profileId} AND content_uid = ${contentUid}
+      WHERE profile_id = ${profileId} AND content_id = ${contentUid}
     `;
 
     if (!row) return { state: null };
 
     return {
       state: {
-        content_uid: row.content_uid,
+        content_id: row.content_id,
         last_position_seconds: row.last_position_seconds,
         total_duration_seconds: row.total_duration_seconds,
         completed: !!row.completed,
-        completed_at: row.completed_at ? row.completed_at.toISOString() : null,
         last_watched_at: row.last_watched_at ? row.last_watched_at.toISOString() : null,
       },
     };
@@ -344,7 +341,7 @@ export const getMovieWatchStateByTmdb = api(
   }: {
     profileId: string;
     tmdbId: string;
-  }): Promise<{ state: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; completed_at: string | null; last_watched_at: string | null } | null }> => {
+  }): Promise<{ state: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null } | null }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
@@ -377,7 +374,7 @@ export const getEpisodeWatchStateByTmdb = api(
     parentTmdbId: string;
     seasonNumber: string;
     episodeNumber: string;
-  }): Promise<{ state: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; completed_at: string | null; last_watched_at: string | null } | null }> => {
+  }): Promise<{ state: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null } | null }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
@@ -409,7 +406,7 @@ export const getSeasonWatchStatesByTmdb = api(
     profileId: string;
     parentTmdbId: string;
     seasonNumber: string;
-  }): Promise<{ items: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] }> => {
+  }): Promise<{ items: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
 
@@ -420,22 +417,22 @@ export const getSeasonWatchStatesByTmdb = api(
 
     const prefix = `tmdb:tv:${parentTmdbId}:s${String(Number(seasonNumber)).padStart(2, '0')}:`;
     const rows = userDB.query<{
-      content_uid: string;
+      content_id: string;
       last_position_seconds: number;
       total_duration_seconds: number | null;
       completed: boolean;
       last_watched_at: Date | null;
     }>`
-      SELECT content_uid, last_position_seconds, total_duration_seconds, completed, last_watched_at
+      SELECT content_id, last_position_seconds, total_duration_seconds, completed, last_watched_at
       FROM profile_watch_state
-      WHERE profile_id = ${profileId} AND content_uid LIKE ${prefix + '%'}
+      WHERE profile_id = ${profileId} AND content_id LIKE ${prefix + '%'}
       ORDER BY last_watched_at DESC NULLS LAST
     `;
 
-    const items: { content_uid: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] = [];
+    const items: { content_id: string; last_position_seconds: number; total_duration_seconds: number | null; completed: boolean; last_watched_at: string | null }[] = [];
     for await (const r of rows) {
       items.push({
-        content_uid: r.content_uid,
+        content_id: r.content_id,
         last_position_seconds: r.last_position_seconds,
         total_duration_seconds: r.total_duration_seconds,
         completed: !!r.completed,

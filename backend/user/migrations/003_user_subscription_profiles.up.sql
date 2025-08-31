@@ -51,12 +51,12 @@ CREATE INDEX idx_profiles_owner ON profiles(subscription_id, is_owner) WHERE is_
 CREATE TRIGGER update_user_subscription_updated_at 
     BEFORE UPDATE ON user_subscription 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 CREATE TRIGGER update_profiles_updated_at 
     BEFORE UPDATE ON profiles 
     FOR EACH ROW 
-    EXECUTE FUNCTION update_updated_at_column();
+    EXECUTE FUNCTION update_updated_at_column_snake();
 
 -- Comments
 COMMENT ON TABLE user_subscription IS 'User subscription information - 1:1 with users';

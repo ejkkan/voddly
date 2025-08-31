@@ -69,49 +69,49 @@ export const deletePlaylist = api(
 
 export const listPlaylistItems = api(
   { expose: true, auth: true, method: 'GET', path: '/profiles/:profileId/playlists/:playlistId/items' },
-  async ({ profileId, playlistId }: { profileId: string; playlistId: string }): Promise<{ items: { content_uid: string; sort_order: number; added_at: string }[] }> => {
+  async ({ profileId, playlistId }: { profileId: string; playlistId: string }): Promise<{ items: { content_id: string; sort_order: number; added_at: string }[] }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
     if (!(await verifyProfile(profileId, auth.userID))) throw APIError.permissionDenied('Profile not found or access denied');
 
-    const rows = userDB.query<{ content_uid: string; sort_order: number; added_at: Date }>`
-      SELECT content_uid, sort_order, added_at
-      FROM profile_playlist_items
+    const rows = userDB.query<{ content_id: string; position: number; added_at: Date }>`
+      SELECT content_id, position, added_at
+      FROM playlist_items
       WHERE playlist_id = ${playlistId}
-      ORDER BY sort_order ASC, added_at DESC
+      ORDER BY position ASC, added_at DESC
     `;
-    const items: { content_uid: string; sort_order: number; added_at: string }[] = [];
-    for await (const r of rows) items.push({ content_uid: r.content_uid, sort_order: r.sort_order, added_at: r.added_at.toISOString() });
+    const items: { content_id: string; sort_order: number; added_at: string }[] = [];
+    for await (const r of rows) items.push({ content_id: r.content_id, sort_order: r.position, added_at: r.added_at.toISOString() });
     return { items };
   }
 );
 
 export const addPlaylistItem = api(
   { expose: true, auth: true, method: 'POST', path: '/profiles/:profileId/playlists/:playlistId/items' },
-  async ({ profileId, playlistId, contentUid, sortOrder = 0 }: { profileId: string; playlistId: string; contentUid: string; sortOrder?: number }): Promise<{ ok: true }> => {
+  async ({ profileId, playlistId, contentId, sortOrder = 0 }: { profileId: string; playlistId: string; contentId: string; sortOrder?: number }): Promise<{ ok: true }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
     if (!(await verifyProfile(profileId, auth.userID))) throw APIError.permissionDenied('Profile not found or access denied');
 
     await userDB.exec`
-      INSERT INTO profile_playlist_items (playlist_id, content_uid, sort_order, added_at)
-      VALUES (${playlistId}, ${contentUid}, ${sortOrder}, CURRENT_TIMESTAMP)
-      ON CONFLICT (playlist_id, content_uid) DO UPDATE SET sort_order = EXCLUDED.sort_order
+      INSERT INTO playlist_items (playlist_id, content_id, position, added_at)
+      VALUES (${playlistId}, ${contentId}, ${sortOrder}, CURRENT_TIMESTAMP)
+      ON CONFLICT (playlist_id, position) DO UPDATE SET content_id = EXCLUDED.content_id
     `;
     return { ok: true };
   }
 );
 
 export const removePlaylistItem = api(
-  { expose: true, auth: true, method: 'DELETE', path: '/profiles/:profileId/playlists/:playlistId/items/:contentUid' },
-  async ({ profileId, playlistId, contentUid }: { profileId: string; playlistId: string; contentUid: string }): Promise<{ ok: true }> => {
+  { expose: true, auth: true, method: 'DELETE', path: '/profiles/:profileId/playlists/:playlistId/items/:contentId' },
+  async ({ profileId, playlistId, contentId }: { profileId: string; playlistId: string; contentId: string }): Promise<{ ok: true }> => {
     const auth = getAuthData();
     if (!auth?.userID) throw APIError.unauthenticated('Unauthorized');
     if (!(await verifyProfile(profileId, auth.userID))) throw APIError.permissionDenied('Profile not found or access denied');
 
     await userDB.exec`
-      DELETE FROM profile_playlist_items
-      WHERE playlist_id = ${playlistId} AND content_uid = ${contentUid}
+      DELETE FROM playlist_items
+      WHERE playlist_id = ${playlistId} AND content_id = ${contentId}
     `;
     return { ok: true };
   }

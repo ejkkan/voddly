@@ -198,12 +198,21 @@ export const createSubscription = api(
       // Create first source
       await userDB.exec`
         INSERT INTO sources (
-          id, subscription_id, name, provider_type, encrypted_config, config_iv
+          id, subscription_id, name, provider_type
         ) VALUES (
           ${sourceId},
           ${subscriptionId},
           ${sourceName},
-          ${providerType},
+          ${providerType}
+        )
+      `;
+      
+      // Store encrypted credentials separately
+      await userDB.exec`
+        INSERT INTO source_credentials (
+          source_id, encrypted_config, config_iv
+        ) VALUES (
+          ${sourceId},
           ${encryptedConfig.toString('base64')},
           ${sourceIv.toString('base64')}
         )
@@ -732,16 +741,17 @@ export const getSources = api(
 
     const rows = userDB.query<SourceRow>`
       SELECT 
-        id, 
-        name, 
-        provider_type, 
-        encrypted_config, 
-        config_iv,
-        is_active,
-        created_at
-      FROM sources
-      WHERE subscription_id = ${subscription.id} AND is_active = true
-      ORDER BY created_at DESC
+        s.id, 
+        s.name, 
+        s.provider_type, 
+        sc.encrypted_config, 
+        sc.config_iv,
+        s.is_active,
+        s.created_at
+      FROM sources s
+      LEFT JOIN source_credentials sc ON s.id = sc.source_id
+      WHERE s.subscription_id = ${subscription.id} AND s.is_active = true
+      ORDER BY s.created_at DESC
     `;
 
     const sources: SourceRow[] = [];
@@ -873,12 +883,21 @@ export const addSource = api(
     try {
       await userDB.exec`
         INSERT INTO sources (
-          id, subscription_id, name, provider_type, encrypted_config, config_iv
+          id, subscription_id, name, provider_type
         ) VALUES (
           ${sourceId},
           ${subscription.id},
           ${name},
-          ${providerType},
+          ${providerType}
+        )
+      `;
+      
+      // Store encrypted credentials separately
+      await userDB.exec`
+        INSERT INTO source_credentials (
+          source_id, encrypted_config, config_iv
+        ) VALUES (
+          ${sourceId},
           ${encryptedConfig.toString('base64')},
           ${sourceIv.toString('base64')}
         )
@@ -953,12 +972,13 @@ export const decryptSource = api(
       iv: string;
     }>`
       SELECT 
-        s.encrypted_config,
-        s.config_iv,
+        sc.encrypted_config,
+        sc.config_iv,
         ae.master_key_wrapped,
         ae.salt,
         ae.iv
       FROM sources s
+      LEFT JOIN source_credentials sc ON s.id = sc.source_id
       JOIN user_subscription a ON s.subscription_id = a.id
       JOIN subscription_encryption ae ON ae.subscription_id = a.id
       WHERE s.id = ${sourceId} AND a.user_id = ${auth.userID}

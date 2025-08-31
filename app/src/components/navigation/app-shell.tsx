@@ -25,7 +25,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Search', href: '/(app)/search' },
   { label: 'Series', href: '/(app)/series' },
   { label: 'Movies', href: '/(app)/movies' },
-  { label: 'Live', href: '/(app)/live' },
+  { label: 'TV', href: '/(app)/live' },
   { label: 'Playlists', href: '/(app)/playlists' },
   { label: 'Profiles', href: '/(app)/profiles' },
   { label: 'Settings', href: '/(app)/settings' },

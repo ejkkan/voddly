@@ -76,7 +76,7 @@ export const refreshTrendsEndpoint = api(
 );
 
 export const cronJob = new CronJob('refresh-trends', {
-  title: 'Refresh Trakt trends cache',
+  title: 'Refresh Trakt trends data',
   schedule: '0 */6 * * *', // Run every 6 hours
   endpoint: refreshTrendsEndpoint,
 });

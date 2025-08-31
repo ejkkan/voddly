@@ -99,6 +99,27 @@ export async function getContainerInfoForSeries(
 }
 
 /**
+ * Read live/TV container info. 
+ * For live streams, the source_item_id is the actual stream_id to use for playback.
+ * Browsers typically need HLS (.m3u8) format for live streaming.
+ */
+export async function getContainerInfoForLive(
+  sourceId: string,
+  sourceItemId: string | number
+): Promise<ContainerInfo> {
+  // For browser playback, we must use HLS format (.m3u8)
+  // as most IPTV services provide HLS streams
+  return {
+    containerExtension: 'm3u8',
+    // Most live streams use h264/aac
+    videoCodec: 'h264', 
+    audioCodec: 'aac',
+    // For live streams, the source_item_id IS the stream_id
+    playbackContentId: sourceItemId,
+  };
+}
+
+/**
  * Convenience wrapper to fetch per-type container info.
  */
 export async function getContainerInfoForContent(
@@ -109,5 +130,6 @@ export async function getContainerInfoForContent(
   if (type === 'movie') return getContainerInfoForMovie(sourceId, sourceItemId);
   if (type === 'series')
     return getContainerInfoForSeries(sourceId, sourceItemId);
+  if (type === 'live') return getContainerInfoForLive(sourceId, sourceItemId);
   return {};
 }
