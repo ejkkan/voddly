@@ -1,24 +1,34 @@
-import { useWindowDimensions } from 'react-native';
+import { useState, useEffect } from 'react';
+import { Dimensions } from 'react-native';
 
-export enum ScreenOrientationType {
-  portrait = 'portrait',
-  landscape = 'landscape',
-}
-
-export type ScreenDimensionsResult = {
+interface ScreenDimensions {
   width: number;
   height: number;
-  scale: number;
-  orientation: string;
-};
+  orientation: 'portrait' | 'landscape';
+}
 
-export function useScreenDimensions(): ScreenDimensionsResult {
-  const { width, height } = useWindowDimensions();
-  const scale = width > height ? width / 1000 : height / 1000;
-  return {
-    width,
-    height,
-    scale,
-    orientation: width > height ? 'landscape' : 'portrait',
-  };
+export function useScreenDimensions(): ScreenDimensions {
+  const [dimensions, setDimensions] = useState<ScreenDimensions>(() => {
+    const { width, height } = Dimensions.get('screen');
+    return {
+      width,
+      height,
+      orientation: width > height ? 'landscape' : 'portrait',
+    };
+  });
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ screen }) => {
+      const { width, height } = screen;
+      setDimensions({
+        width,
+        height,
+        orientation: width > height ? 'landscape' : 'portrait',
+      });
+    });
+
+    return () => subscription?.remove();
+  }, []);
+
+  return dimensions;
 }

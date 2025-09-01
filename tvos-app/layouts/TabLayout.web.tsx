@@ -50,6 +50,9 @@ export default function TabLayout() {
         <TabTrigger name="video-rn" href="/(tabs)/video-rn" asChild>
           <CustomTabButton>RN Video</CustomTabButton>
         </TabTrigger>
+        <TabTrigger name="passphrase" href="/(tabs)/passphrase" asChild>
+          <CustomTabButton>Passphrase</CustomTabButton>
+        </TabTrigger>
       </TabList>
       <TabSlot />
     </Tabs>

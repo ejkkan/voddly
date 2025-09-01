@@ -74,6 +74,16 @@ export default function TabLayout() {
               : null,
         }}
       />
+      <Tabs.Screen
+        name="passphrase"
+        options={{
+          title: 'Passphrase',
+          tabBarIcon: () =>
+            Platform.OS === 'android'
+              ? require('@/assets/bar_icons/home.png')
+              : null,
+        }}
+      />
     </Tabs>
   );
 }
