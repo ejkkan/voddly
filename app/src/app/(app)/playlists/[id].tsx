@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from '@/components/ui';
-import { ArrowLeft, Edit, Trash2 } from '@/components/ui/icons';
+import { ArrowLeft, Trash2 } from '@/components/ui/icons';
 import { useFavoriteManager } from '@/hooks/ui';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { openDb } from '@/lib/db';

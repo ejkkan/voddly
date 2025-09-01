@@ -14,6 +14,11 @@ if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');
 }
 
+// Add json support for Lottie animations
+if (!config.resolver.assetExts.includes('json')) {
+  config.resolver.assetExts.push('json');
+}
+
 // Add COEP and COOP headers to support SharedArrayBuffer in web (required by expo-sqlite wasm)
 config.server = config.server || {};
 config.server.rewriteRequestUrl = (url) => {

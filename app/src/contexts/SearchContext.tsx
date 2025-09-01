@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 
 interface SearchContextType {
   searchQuery: string;
@@ -39,7 +39,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <SearchContext.Provider 
+    <SearchContext.Provider
       value={{
         searchQuery,
         isSearchOpen,

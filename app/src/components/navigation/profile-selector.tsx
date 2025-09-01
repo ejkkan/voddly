@@ -3,15 +3,13 @@ import React, { useState } from 'react';
 import { TextInput } from 'react-native';
 
 import { Pressable, Text, View } from '@/components/ui';
-import {
-  useCreateProfile,
-  useProfiles,
-} from '@/hooks/ui/useProfiles';
 import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
+import { useCreateProfile, useProfiles } from '@/hooks/ui/useProfiles';
 
 export function ProfileSelector() {
   const { data: profilesData, isLoading } = useProfiles();
-  const { currentProfile, switchProfile: switchToProfile } = useCurrentProfile();
+  const { currentProfile, switchProfile: switchToProfile } =
+    useCurrentProfile();
   const createProfile = useCreateProfile();
   const router = useRouter();
 
@@ -44,7 +42,7 @@ export function ProfileSelector() {
       setIsDropdownOpen(false);
       return;
     }
-    
+
     try {
       setIsSwitching(true);
       await switchToProfile(profileId);

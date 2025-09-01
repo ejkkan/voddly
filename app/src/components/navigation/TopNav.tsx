@@ -1,15 +1,9 @@
 import { BackdropFilter, Blur, Canvas, rect } from '@shopify/react-native-skia';
 import { Link, usePathname } from 'expo-router';
-import { Home, Film, Monitor, Search, X } from 'lucide-react-native';
+import { Film, Home, Monitor, Search, X } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import { Platform, TextInput } from 'react-native';
-import Animated, { 
-  useAnimatedStyle, 
-  withTiming, 
-  interpolate,
-  Extrapolation,
-} from 'react-native-reanimated';
 
 import { Pressable, Text, View } from '@/components/ui';
 import { useSearch } from '@/contexts/SearchContext';
@@ -19,8 +13,13 @@ import { CONTENT_NAV_ITEMS } from './navigation-types';
 
 export function TopNav() {
   const pathname = usePathname();
-  const { searchQuery, setSearchQuery, setSearchQueryNoOverlay, isSearchOpen, closeSearch } =
-    useSearch();
+  const {
+    searchQuery,
+    setSearchQuery,
+    setSearchQueryNoOverlay,
+    isSearchOpen,
+    closeSearch,
+  } = useSearch();
   const { isAtTop, scrollY } = useScrollPosition();
 
   console.log('TopNav render - isAtTop:', isAtTop, 'scrollY:', scrollY);
@@ -39,18 +38,25 @@ export function TopNav() {
       }}
     >
       <View
-        className="rounded-full overflow-hidden"
+        className="overflow-hidden rounded-full"
         style={{
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
           backdropFilter: Platform.OS === 'web' ? 'blur(20px)' : undefined,
-          WebkitBackdropFilter: Platform.OS === 'web' ? 'blur(20px)' : undefined,
+          WebkitBackdropFilter:
+            Platform.OS === 'web' ? 'blur(20px)' : undefined,
           borderWidth: 1,
           borderColor: 'rgba(255, 255, 255, 0.1)',
         }}
       >
         {Platform.OS !== 'web' && (
           <Canvas
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
           >
             <BackdropFilter
               filter={<Blur blur={20} />}
@@ -141,7 +147,7 @@ function TopNavIsland({
               pathname === item.href ||
               (item.href === '/(app)/dashboard' && pathname === '/(app)');
             const IconComponent = getNavIcon(item.href);
-            
+
             return (
               <Link key={item.href} href={item.href} asChild>
                 <Pressable
@@ -150,9 +156,9 @@ function TopNavIsland({
                     (active ? 'bg-white/20' : 'hover:bg-white/10')
                   }
                 >
-                  <IconComponent 
-                    size={18} 
-                    color={active ? '#ffffff' : '#9ca3af'} 
+                  <IconComponent
+                    size={18}
+                    color={active ? '#ffffff' : '#9ca3af'}
                   />
                   <MotiView
                     animate={{
@@ -213,9 +219,12 @@ function TopNavIsland({
             damping: 15,
             stiffness: 300,
           }}
-          className="flex-row items-center rounded-full bg-white/10 px-4 py-2.5 overflow-hidden"
+          className="flex-row items-center overflow-hidden rounded-full bg-white/10 px-4 py-2.5"
         >
-          <Pressable onPress={handleSearchPress} className="flex-row items-center flex-1 justify-center">
+          <Pressable
+            onPress={handleSearchPress}
+            className="flex-1 flex-row items-center justify-center"
+          >
             <Search size={18} color="#9ca3af" />
             <MotiView
               animate={{
@@ -232,7 +241,9 @@ function TopNavIsland({
                 marginLeft: isAtTop ? 8 : 0,
               }}
             >
-              <Text className="text-sm text-gray-400 whitespace-nowrap">Search</Text>
+              <Text className="whitespace-nowrap text-sm text-gray-400">
+                Search
+              </Text>
             </MotiView>
           </Pressable>
         </MotiView>
@@ -259,10 +270,12 @@ function TopNavIsland({
             placeholder="Search movies, series, TV..."
             placeholderTextColor="#9ca3af"
             className="ml-3 flex-1 text-white"
-            style={{ 
-              outlineStyle: 'none',
-              fontSize: 16,
-            } as any}
+            style={
+              {
+                outlineStyle: 'none',
+                fontSize: 16,
+              } as any
+            }
             autoFocus
           />
           <Pressable onPress={handleSearchClose} className="ml-6">

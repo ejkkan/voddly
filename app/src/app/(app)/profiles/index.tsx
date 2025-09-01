@@ -3,13 +3,13 @@ import { TextInput } from 'react-native';
 
 import ProfileSourceManager from '@/components/profiles/ProfileSourceManager';
 import { Pressable, Text, View } from '@/components/ui';
+import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
 import {
   useCreateProfile,
   useDeleteProfile,
   useProfiles,
   useUpdateProfile,
 } from '@/hooks/ui/useProfiles';
-import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
 
 export default function ProfilesPage() {
   const { data: profilesData, isLoading, refetch } = useProfiles();
@@ -193,7 +193,7 @@ export default function ProfilesPage() {
                   <Pressable
                     onPress={() => handleSwitchProfile(profile.id)}
                     disabled={switchingProfileId === profile.id}
-                    className="rounded-md bg-purple-100 px-3 py-2 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 disabled:opacity-50"
+                    className="rounded-md bg-purple-100 px-3 py-2 hover:bg-purple-200 disabled:opacity-50 dark:bg-purple-900 dark:hover:bg-purple-800"
                   >
                     <Text className="text-sm font-medium text-purple-700 dark:text-purple-300">
                       {switchingProfileId === profile.id

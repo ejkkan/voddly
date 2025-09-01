@@ -246,7 +246,7 @@ export default function MovieDetails() {
         {/* Dark overlay */}
         <View className="absolute inset-0 bg-black/40" />
       </View>
-      
+
       <SafeAreaView className="flex-1">
         <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
           {loading ? (
@@ -258,9 +258,7 @@ export default function MovieDetails() {
             </View>
           ) : !item ? (
             <View className="flex-1 items-center justify-center py-20">
-              <Text className="text-xl text-white">
-                Movie not found
-              </Text>
+              <Text className="text-xl text-white">Movie not found</Text>
               <Pressable
                 className="mt-4 rounded-lg bg-white/20 px-6 py-3 backdrop-blur-sm"
                 onPress={() => router.back()}
@@ -273,32 +271,34 @@ export default function MovieDetails() {
               {/* Top Navigation */}
               <View className="absolute left-4 top-4 z-20">
                 <Pressable
-                  className="h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20"
+                  className="size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-md"
                   onPress={() => router.back()}
                 >
                   <ArrowLeft size={20} color="white" />
                 </Pressable>
               </View>
-              
+
               {/* Carousel Navigation - Top Right */}
               {backdropImages.length > 1 && (
                 <View className="absolute right-4 top-4 z-20 flex-row gap-2">
                   <Pressable
-                    className="h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20"
+                    className="size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-md"
                     onPress={() => {
-                      const newIndex = currentBackdropIndex === 0 
-                        ? backdropImages.length - 1 
-                        : currentBackdropIndex - 1;
+                      const newIndex =
+                        currentBackdropIndex === 0
+                          ? backdropImages.length - 1
+                          : currentBackdropIndex - 1;
                       setCurrentBackdropIndex(newIndex);
                     }}
                   >
                     <ArrowLeft size={18} color="white" />
                   </Pressable>
-                  
+
                   <Pressable
-                    className="h-12 w-12 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20"
+                    className="size-12 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-md"
                     onPress={() => {
-                      const newIndex = (currentBackdropIndex + 1) % backdropImages.length;
+                      const newIndex =
+                        (currentBackdropIndex + 1) % backdropImages.length;
                       setCurrentBackdropIndex(newIndex);
                     }}
                   >
@@ -306,80 +306,100 @@ export default function MovieDetails() {
                   </Pressable>
                 </View>
               )}
-              
+
               {/* Main Content Area */}
               <View className="flex-1 px-6 pt-20">
                 {/* Title Section */}
                 <View className="mb-8">
-                  <Text className="text-6xl font-bold text-white mb-4" style={{ fontFamily: isTablet ? 'System' : undefined }}>
+                  <Text
+                    className="mb-4 text-6xl font-bold text-white"
+                    style={{ fontFamily: isTablet ? 'System' : undefined }}
+                  >
                     {(displayData?.title || item.title)?.toUpperCase()}
                   </Text>
-                  
+
                   {/* Meta Tags Row */}
-                  <View className="flex-row flex-wrap gap-3 mb-6">
+                  <View className="mb-6 flex-row flex-wrap gap-3">
                     {(displayData?.releaseDate || item.release_date) && (
-                      <View className="rounded-xl bg-white/15 px-4 py-2 backdrop-blur-md border border-white/20">
-                        <Text className="text-white font-medium">
-                          {String(displayData?.releaseDate || item.release_date).slice(0, 4)}
+                      <View className="rounded-xl border border-white/20 bg-white/15 px-4 py-2 backdrop-blur-md">
+                        <Text className="font-medium text-white">
+                          {String(
+                            displayData?.releaseDate || item.release_date
+                          ).slice(0, 4)}
                         </Text>
                       </View>
                     )}
                     {displayData?.runtime && (
-                      <View className="rounded-xl bg-white/15 px-4 py-2 backdrop-blur-md border border-white/20">
-                        <Text className="text-white font-medium">
-                          {Math.floor(displayData.runtime / 60)}h {displayData.runtime % 60}m
+                      <View className="rounded-xl border border-white/20 bg-white/15 px-4 py-2 backdrop-blur-md">
+                        <Text className="font-medium text-white">
+                          {Math.floor(displayData.runtime / 60)}h{' '}
+                          {displayData.runtime % 60}m
                         </Text>
                       </View>
                     )}
-                    <View className="rounded-xl bg-white/15 px-4 py-2 backdrop-blur-md border border-white/20">
-                      <Text className="text-white font-medium">HD</Text>
+                    <View className="rounded-xl border border-white/20 bg-white/15 px-4 py-2 backdrop-blur-md">
+                      <Text className="font-medium text-white">HD</Text>
                     </View>
-                    {displayData?.genres && displayData.genres.slice(0, 3).map((genre) => (
-                      <View key={genre.id} className="rounded-xl bg-white/15 px-4 py-2 backdrop-blur-md border border-white/20">
-                        <Text className="text-white font-medium">{genre.name}</Text>
-                      </View>
-                    ))}
+                    {displayData?.genres &&
+                      displayData.genres.slice(0, 3).map((genre) => (
+                        <View
+                          key={genre.id}
+                          className="rounded-xl border border-white/20 bg-white/15 px-4 py-2 backdrop-blur-md"
+                        >
+                          <Text className="font-medium text-white">
+                            {genre.name}
+                          </Text>
+                        </View>
+                      ))}
                   </View>
-                  
+
                   {/* Description */}
                   {(displayData?.overview || item.description) && (
-                    <Text className="text-white/90 text-lg leading-relaxed mb-8 max-w-3xl">
-                      {(displayData?.overview || item.description)?.slice(0, 200)}...
+                    <Text className="mb-8 max-w-3xl text-lg leading-relaxed text-white/90">
+                      {(displayData?.overview || item.description)?.slice(
+                        0,
+                        200
+                      )}
+                      ...
                     </Text>
                   )}
-                  
+
                   {/* Action Buttons */}
-                  <View className="flex-row gap-4 mb-8">
+                  <View className="mb-8 flex-row gap-4">
                     {/* Play Button */}
                     <Pressable
                       className="flex-row items-center rounded-2xl bg-blue-600/90 px-8 py-4 backdrop-blur-md"
                       onPress={handlePlay}
                     >
                       <Text className="mr-3 text-xl text-white">▶</Text>
-                      <Text className="text-lg font-semibold text-white">Play Movie</Text>
+                      <Text className="text-lg font-semibold text-white">
+                        Play Movie
+                      </Text>
                     </Pressable>
-                    
+
                     {/* Secondary Buttons */}
                     <Pressable
-                      className="h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20"
+                      className="size-14 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-md"
                       onPress={() => item && toggleFavorite(item.id, 'movie')}
                     >
-                      <Heart 
-                        filled={item ? isFavorite(item.id) : false} 
-                        color={item && isFavorite(item.id) ? "#EF4444" : "white"}
-                        size={24} 
+                      <Heart
+                        filled={item ? isFavorite(item.id) : false}
+                        color={
+                          item && isFavorite(item.id) ? '#EF4444' : 'white'
+                        }
+                        size={24}
                       />
                     </Pressable>
-                    
+
                     <Pressable
-                      className="h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20"
+                      className="size-14 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-md"
                       onPress={() => setShowPlaylistModal(true)}
                     >
                       <Playlist color="white" size={24} />
                     </Pressable>
-                    
+
                     <Pressable
-                      className="h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20"
+                      className="size-14 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-md"
                       onPress={async () => {
                         if (!item) return;
                         const ok = await fetchRemote({
@@ -397,7 +417,7 @@ export default function MovieDetails() {
                         }
                       }}
                     >
-                      <Text className="text-white text-lg">
+                      <Text className="text-lg text-white">
                         {isFetching ? '⟳' : '🔄'}
                       </Text>
                     </Pressable>
@@ -408,8 +428,8 @@ export default function MovieDetails() {
                 <View className="gap-4">
                   {/* Error messages */}
                   {(error || fetchError) && (
-                    <View className="rounded-2xl bg-red-500/15 p-4 backdrop-blur-md border border-red-500/30">
-                      <Text className="text-red-200 text-center font-medium">
+                    <View className="rounded-2xl border border-red-500/30 bg-red-500/15 p-4 backdrop-blur-md">
+                      <Text className="text-center font-medium text-red-200">
                         {error || fetchError}
                       </Text>
                     </View>
@@ -418,8 +438,8 @@ export default function MovieDetails() {
                   {/* Info Grid */}
                   <View className="flex-row gap-4">
                     {/* Ratings Card */}
-                    <View className="flex-1 rounded-2xl bg-white/10 p-5 backdrop-blur-md border border-white/20">
-                      <Text className="text-white/70 text-sm font-medium mb-2 uppercase tracking-wide">
+                    <View className="flex-1 rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md">
+                      <Text className="mb-2 text-sm font-medium uppercase tracking-wide text-white/70">
                         Ratings
                       </Text>
                       <RatingsDisplay
@@ -436,13 +456,15 @@ export default function MovieDetails() {
                         imdbRating={
                           typeof (metadata as EnrichedMetadata)?.enrichment
                             ?.imdb_rating === 'number'
-                            ? (metadata as EnrichedMetadata)?.enrichment?.imdb_rating
+                            ? (metadata as EnrichedMetadata)?.enrichment
+                                ?.imdb_rating
                             : undefined
                         }
                         imdbVotes={
                           typeof (metadata as EnrichedMetadata)?.enrichment
                             ?.imdb_votes === 'number'
-                            ? (metadata as EnrichedMetadata)?.enrichment?.imdb_votes
+                            ? (metadata as EnrichedMetadata)?.enrichment
+                                ?.imdb_votes
                             : undefined
                         }
                         rottenTomatoesRating={
@@ -462,13 +484,15 @@ export default function MovieDetails() {
                         traktRating={
                           typeof (metadata as EnrichedMetadata)?.enrichment
                             ?.trakt_rating === 'number'
-                            ? (metadata as EnrichedMetadata)?.enrichment?.trakt_rating
+                            ? (metadata as EnrichedMetadata)?.enrichment
+                                ?.trakt_rating
                             : undefined
                         }
                         traktVotes={
                           typeof (metadata as EnrichedMetadata)?.enrichment
                             ?.trakt_votes === 'number'
-                            ? (metadata as EnrichedMetadata)?.enrichment?.trakt_votes
+                            ? (metadata as EnrichedMetadata)?.enrichment
+                                ?.trakt_votes
                             : undefined
                         }
                         localRating={
@@ -478,25 +502,29 @@ export default function MovieDetails() {
                         }
                       />
                     </View>
-                    
+
                     {/* Production Details Card */}
                     {(displayData?.budget || displayData?.revenue) && (
-                      <View className="flex-1 rounded-2xl bg-white/10 p-5 backdrop-blur-md border border-white/20">
-                        <Text className="text-white/70 text-sm font-medium mb-3 uppercase tracking-wide">
+                      <View className="flex-1 rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md">
+                        <Text className="mb-3 text-sm font-medium uppercase tracking-wide text-white/70">
                           Production
                         </Text>
                         {displayData?.budget && (
                           <View className="mb-2">
-                            <Text className="text-white/70 text-xs">Budget</Text>
-                            <Text className="text-white font-semibold">
+                            <Text className="text-xs text-white/70">
+                              Budget
+                            </Text>
+                            <Text className="font-semibold text-white">
                               ${(displayData.budget / 1000000).toFixed(0)}M
                             </Text>
                           </View>
                         )}
                         {displayData?.revenue && (
                           <View>
-                            <Text className="text-white/70 text-xs">Revenue</Text>
-                            <Text className="text-white font-semibold">
+                            <Text className="text-xs text-white/70">
+                              Revenue
+                            </Text>
+                            <Text className="font-semibold text-white">
                               ${(displayData.revenue / 1000000).toFixed(0)}M
                             </Text>
                           </View>
@@ -504,11 +532,11 @@ export default function MovieDetails() {
                       </View>
                     )}
                   </View>
-                  
+
                   {/* Cast Section */}
                   {metadata?.credits?.cast && (
-                    <View className="rounded-2xl bg-white/10 p-5 backdrop-blur-md border border-white/20">
-                      <Text className="text-white/70 text-sm font-medium mb-4 uppercase tracking-wide">
+                    <View className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md">
+                      <Text className="mb-4 text-sm font-medium uppercase tracking-wide text-white/70">
                         Cast
                       </Text>
                       <CastCarousel cast={metadata.credits.cast} />
@@ -516,24 +544,28 @@ export default function MovieDetails() {
                   )}
 
                   {/* Videos Section */}
-                  {(metadata?.videos?.results || (metadata as EnrichedMetadata)?.enrichment?.trailer_url) && (
-                    <View className="rounded-2xl bg-white/10 p-5 backdrop-blur-md border border-white/20">
-                      <Text className="text-white/70 text-sm font-medium mb-4 uppercase tracking-wide">
+                  {(metadata?.videos?.results ||
+                    (metadata as EnrichedMetadata)?.enrichment
+                      ?.trailer_url) && (
+                    <View className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md">
+                      <Text className="mb-4 text-sm font-medium uppercase tracking-wide text-white/70">
                         Videos
                       </Text>
                       <VideoGallery
                         videos={metadata?.videos?.results}
                         trailerUrl={
-                          (metadata as EnrichedMetadata)?.enrichment?.trailer_url
+                          (metadata as EnrichedMetadata)?.enrichment
+                            ?.trailer_url
                         }
                       />
                     </View>
                   )}
 
                   {/* Images Gallery */}
-                  {(metadata?.images?.posters || metadata?.images?.backdrops) && (
-                    <View className="rounded-2xl bg-white/10 p-5 backdrop-blur-md border border-white/20">
-                      <Text className="text-white/70 text-sm font-medium mb-4 uppercase tracking-wide">
+                  {(metadata?.images?.posters ||
+                    metadata?.images?.backdrops) && (
+                    <View className="rounded-2xl border border-white/20 bg-white/10 p-5 backdrop-blur-md">
+                      <Text className="mb-4 text-sm font-medium uppercase tracking-wide text-white/70">
                         Gallery
                       </Text>
                       <ImageGallery
@@ -542,13 +574,13 @@ export default function MovieDetails() {
                       />
                     </View>
                   )}
-                  
+
                   {/* Loading State */}
                   {metadataLoading && (
-                    <View className="rounded-2xl bg-white/10 p-6 backdrop-blur-md border border-white/20">
+                    <View className="rounded-2xl border border-white/20 bg-white/10 p-6 backdrop-blur-md">
                       <View className="flex-row items-center justify-center">
                         <ActivityIndicator size="small" color="white" />
-                        <Text className="ml-3 text-white/80 font-medium">
+                        <Text className="ml-3 font-medium text-white/80">
                           Loading metadata...
                         </Text>
                       </View>
@@ -556,8 +588,7 @@ export default function MovieDetails() {
                   )}
                 </View>
               </View>
-              
-              
+
               {/* Playlist Modal */}
               {item && (
                 <PlaylistModal

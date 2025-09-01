@@ -48,7 +48,8 @@ export default function ProtectedLayout() {
   }
 
   // Check if we're on the profile picker route
-  const isProfilePicker = pathname === '/(app)/profile-picker' || pathname === '/profile-picker';
+  const isProfilePicker =
+    pathname === '/(app)/profile-picker' || pathname === '/profile-picker';
 
   // Wrap with ProfileGuard and conditionally show AppShell
   return (

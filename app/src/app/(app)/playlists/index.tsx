@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-import { PosterCard } from '@/components/media/poster-card';
 import {
   ActivityIndicator,
   Input,

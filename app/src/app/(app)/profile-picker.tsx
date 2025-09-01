@@ -1,8 +1,9 @@
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { TextInput } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SafeAreaView, Pressable, Text, View } from '@/components/ui';
-import { useProfiles, useCreateProfile } from '@/hooks/ui/useProfiles';
+
+import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
+import { useCreateProfile, useProfiles } from '@/hooks/ui/useProfiles';
 import { useProfileStore } from '@/lib/profile-store';
 
 export default function ProfilePickerScreen() {
@@ -10,29 +11,29 @@ export default function ProfilePickerScreen() {
   const { data: profilesData, isLoading } = useProfiles();
   const { setCurrentProfileId, currentProfileId } = useProfileStore();
   const createProfile = useCreateProfile();
-  
+
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  
+
   const profiles = profilesData?.profiles || [];
-  
+
   // Show create form if no profiles exist
   React.useEffect(() => {
     if (!isLoading && profiles.length === 0) {
       setShowCreateForm(true);
     }
   }, [isLoading, profiles.length]);
-  
+
   const handleSelectProfile = (profileId: string) => {
     setCurrentProfileId(profileId);
     // Navigate to dashboard after selecting profile
     router.replace('/(app)/dashboard');
   };
-  
+
   const handleCreateProfile = async () => {
     if (!newProfileName.trim()) return;
-    
+
     setIsCreating(true);
     try {
       const result = await createProfile.mutateAsync({
@@ -40,7 +41,7 @@ export default function ProfilePickerScreen() {
         hasSourceRestrictions: false,
         allowedSources: [],
       });
-      
+
       if (result?.profile?.id) {
         setCurrentProfileId(result.profile.id);
         // Navigate to dashboard after creating profile
@@ -53,7 +54,7 @@ export default function ProfilePickerScreen() {
       setShowCreateForm(false);
     }
   };
-  
+
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-neutral-50 dark:bg-neutral-900">
@@ -63,18 +64,22 @@ export default function ProfilePickerScreen() {
       </SafeAreaView>
     );
   }
-  
+
   return (
     <SafeAreaView className="flex-1 bg-neutral-50 dark:bg-neutral-900">
       <View className="flex-1 items-center justify-center p-6">
         <View className="w-full max-w-md">
           <Text className="mb-2 text-center text-3xl font-bold text-neutral-900 dark:text-neutral-50">
-            {profiles.length === 0 ? 'Create Your Profile' : 'Choose Your Profile'}
+            {profiles.length === 0
+              ? 'Create Your Profile'
+              : 'Choose Your Profile'}
           </Text>
           <Text className="mb-8 text-center text-neutral-600 dark:text-neutral-400">
-            {profiles.length === 0 ? 'Create a profile to get started' : 'Select a profile to continue'}
+            {profiles.length === 0
+              ? 'Create a profile to get started'
+              : 'Select a profile to continue'}
           </Text>
-          
+
           {/* Profile List */}
           {profiles.length > 0 && (
             <View className="mb-6 space-y-3">
@@ -101,7 +106,7 @@ export default function ProfilePickerScreen() {
               ))}
             </View>
           )}
-          
+
           {/* Create Profile Section */}
           {!showCreateForm ? (
             <Pressable
@@ -149,7 +154,7 @@ export default function ProfilePickerScreen() {
               </View>
             </View>
           )}
-          
+
           {/* Help Text */}
           {profiles.length === 0 && !showCreateForm && (
             <Text className="mt-8 text-center text-sm text-neutral-500 dark:text-neutral-400">

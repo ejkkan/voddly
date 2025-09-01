@@ -1,10 +1,12 @@
-import { Link, usePathname } from 'expo-router';
+// import { usePathname } from 'expo-router';
 import { Database, Heart, Home, List, Settings } from 'lucide-react-native';
 import React from 'react';
 import { Platform } from 'react-native';
 
-import { Pressable, Text, View } from '@/components/ui';
+import { View } from '@/components/ui';
+import { type AnimationKey } from '@/components/ui/lottie-animations';
 
+import { BottomTabItem } from './BottomTabItem';
 import { MOBILE_TAB_ITEMS } from './navigation-types';
 
 const ICON_MAP = {
@@ -15,8 +17,15 @@ const ICON_MAP = {
   settings: Settings,
 };
 
+const ANIMATION_MAP: Record<string, AnimationKey> = {
+  home: 'home',
+  heart: 'heart',
+  list: 'bookmark',
+  sources: 'database',
+  settings: 'settings',
+};
+
 export function BottomTabBar() {
-  const pathname = usePathname();
 
   return (
     <View
@@ -30,30 +39,20 @@ export function BottomTabBar() {
       <View>
         <View className="flex-row items-center justify-around py-2">
           {MOBILE_TAB_ITEMS.map((item) => {
-            const active =
-              pathname === item.href ||
-              (item.href === '/(app)/dashboard' && pathname === '/(app)');
-            const Icon = item.icon
+            const animationKey = item.icon ? ANIMATION_MAP[item.icon] : null;
+            const fallbackIcon = item.icon
               ? ICON_MAP[item.icon as keyof typeof ICON_MAP]
               : null;
 
-            return (
-              <Link key={item.href} href={item.href} asChild>
-                <Pressable className="flex-1 items-center py-2">
-                  {Icon && (
-                    <Icon size={24} color={active ? '#fff' : '#6b7280'} />
-                  )}
-                  <Text
-                    className={
-                      'text-xs ' +
-                      (active ? 'font-semibold text-white' : 'text-gray-500')
-                    }
-                  >
-                    {item.label}
-                  </Text>
-                </Pressable>
-              </Link>
-            );
+            return animationKey ? (
+              <BottomTabItem
+                key={item.href}
+                label={item.label}
+                href={item.href}
+                animationKey={animationKey}
+                fallbackIcon={fallbackIcon}
+              />
+            ) : null;
           })}
         </View>
       </View>

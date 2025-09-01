@@ -29,12 +29,13 @@ export default function Player() {
     | string
     | undefined;
   const { profileId } = useCurrentProfile();
-  const { startTime, callbacks, preferences, updatePreferences } = useWatchStateTracker({
-    profileId,
-    contentId,
-    contentType,
-    reportIntervalMs: 10_000,
-  });
+  const { startTime, callbacks, preferences, updatePreferences } =
+    useWatchStateTracker({
+      profileId,
+      contentId,
+      contentType,
+      reportIntervalMs: 10_000,
+    });
 
   // Fetch subtitles for the movie
   const {
@@ -155,7 +156,10 @@ export default function Player() {
             setSelectedSubtitleLanguage(subtitle.language_code);
             // Update watch state with the new subtitle preference
             if (updatePreferences) {
-              console.log('[Player] Calling updatePreferences with subtitle:', subtitle.language_code);
+              console.log(
+                '[Player] Calling updatePreferences with subtitle:',
+                subtitle.language_code
+              );
               updatePreferences({ subtitleTrack: subtitle.language_code });
             } else {
               console.log('[Player] updatePreferences is not available');

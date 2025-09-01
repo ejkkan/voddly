@@ -1,3 +1,6 @@
+// Hook for React components
+import { useEffect, useState } from 'react';
+
 import { storage } from './storage';
 
 const PROFILE_KEY = 'current_profile_id';
@@ -6,7 +9,7 @@ export const profileStore = {
   getCurrentProfileId: (): string | null => {
     return storage.getString(PROFILE_KEY) || null;
   },
-  
+
   setCurrentProfileId: (profileId: string | null) => {
     if (profileId) {
       storage.set(PROFILE_KEY, profileId);
@@ -14,14 +17,11 @@ export const profileStore = {
       storage.delete(PROFILE_KEY);
     }
   },
-  
+
   clearProfile: () => {
     storage.delete(PROFILE_KEY);
-  }
+  },
 };
-
-// Hook for React components
-import { useState, useEffect } from 'react';
 
 export function useProfileStore() {
   const [currentProfileId, setCurrentProfileIdState] = useState<string | null>(
@@ -34,7 +34,7 @@ export function useProfileStore() {
         setCurrentProfileIdState(profileStore.getCurrentProfileId());
       }
     });
-    
+
     return () => listener.remove();
   }, []);
 
@@ -46,6 +46,6 @@ export function useProfileStore() {
   return {
     currentProfileId,
     setCurrentProfileId,
-    clearProfile: profileStore.clearProfile
+    clearProfile: profileStore.clearProfile,
   };
 }

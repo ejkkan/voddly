@@ -134,7 +134,7 @@ export default function Player() {
     | string
     | undefined;
   const { profileId } = useCurrentProfile();
-  
+
   // Derive current embedded language for UI
   const currentEmbeddedLanguage = React.useMemo(() => {
     if (!formatInfo || selectedEmbeddedTrackIndex === undefined)
@@ -144,7 +144,7 @@ export default function Player() {
     );
     return track?.language;
   }, [formatInfo, selectedEmbeddedTrackIndex]);
-  
+
   const { startTime, callbacks, preferences } = useWatchStateTracker({
     profileId,
     contentId,
@@ -153,7 +153,8 @@ export default function Player() {
     playerPreferences: {
       playbackSpeed: 1.0,
       audioTrack: undefined,
-      subtitleTrack: selectedExternalSubtitle?.language_code || currentEmbeddedLanguage,
+      subtitleTrack:
+        selectedExternalSubtitle?.language_code || currentEmbeddedLanguage,
       qualityPreference: undefined,
     },
   });

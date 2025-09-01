@@ -11,7 +11,8 @@ export function useScrollPosition() {
     if (Platform.OS !== 'web') return;
 
     const handleScroll = () => {
-      const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+      const currentScrollY =
+        window.pageYOffset || document.documentElement.scrollTop;
       console.log('Scroll detected:', currentScrollY);
       scrollYShared.value = currentScrollY;
       setScrollY(currentScrollY);
@@ -24,7 +25,7 @@ export function useScrollPosition() {
     // Listen to both window and document scroll events
     window.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('scroll', handleScroll, { passive: true });
-    
+
     return () => {
       window.removeEventListener('scroll', handleScroll);
       document.removeEventListener('scroll', handleScroll);
