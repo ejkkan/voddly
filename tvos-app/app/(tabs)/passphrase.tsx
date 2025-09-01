@@ -3,7 +3,7 @@ import { View, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { cssInterop } from 'nativewind';
 
-import { PassphraseDemo } from '@/components/PassphraseDemo';
+import { ComprehensiveDemo } from '@/components/ComprehensiveDemo';
 
 // Apply cssInterop for SafeAreaView
 const StyledSafeAreaView = cssInterop(SafeAreaView, {
@@ -18,7 +18,7 @@ const PassphraseScreen = () => {
   return (
     <StyledSafeAreaView className={safeAreaClassName}>
       <View className="flex-1 bg-black">
-        <PassphraseDemo />
+        <ComprehensiveDemo />
       </View>
     </StyledSafeAreaView>
   );
