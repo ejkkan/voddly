@@ -23,8 +23,6 @@ export function TopNav() {
   } = useSearch();
   const { isAtTop, scrollY } = useScrollPosition();
 
-  console.log('TopNav render - isAtTop:', isAtTop, 'scrollY:', scrollY);
-
   return (
     <View
       className="fixed top-4 z-[70]"

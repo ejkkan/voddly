@@ -1,5 +1,4 @@
-import React, { useCallback } from 'react';
-import { Platform } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
 
 import { Image, Pressable, ScrollView, Text, View } from '@/components/ui';
 
@@ -17,7 +16,9 @@ const ProgramItem = React.memo(
     calculateSidebarWidth,
     formatTime,
     isFirstProgram,
+    isLastProgram,
     allPrograms,
+    calculateProgressWidth,
   }: {
     program: any;
     isAiring: boolean;
@@ -26,7 +27,12 @@ const ProgramItem = React.memo(
     calculateSidebarWidth: number;
     formatTime: (date: Date) => string;
     isFirstProgram?: boolean;
+    isLastProgram?: boolean;
     allPrograms?: any[];
+    calculateProgressWidth?: (
+      program: any,
+      progress: number
+    ) => number | string;
   }) => {
     const handleBackgroundPlay = React.useCallback(() => {
       console.log('Playing in background:', program.title);
@@ -42,6 +48,24 @@ const ProgramItem = React.memo(
         window.location.href = `/player?channelId=${encodeURIComponent(program.channelUuid)}`;
       }
     }, [program]);
+    const hasPassed = program.computed.startTime < new Date().getTime();
+
+    // Debug logging for progress bar overlap issue
+    if (isAiring) {
+      // console.log('=== AIRING PROGRAM DEBUG ===');
+      // console.log('Program:', program.title);
+      // console.log('Program ID:', program.id);
+      // console.log('Position:', {
+      //   left: calculateSidebarWidth + program.position.left,
+      //   width: program.position.width,
+      //   top: 0,
+      //   height: program.position.height,
+      // });
+      // console.log('Progress:', progress + '%');
+      // console.log('Is First Program:', isFirstProgram);
+      // console.log('Is Last Program:', isLastProgram);
+      // console.log('===========================');
+    }
 
     return (
       <View
@@ -54,7 +78,7 @@ const ProgramItem = React.memo(
           overflow: 'hidden',
           backgroundColor: 'rgb(255, 255, 255, 0.05)',
         }}
-        className={`border-b border-l border-white/10 ${
+        className={`relative border-b border-l border-white/10 ${
           isAiring ? 'bg-transparent' : 'bg-transparent'
         }`}
       >
@@ -64,6 +88,18 @@ const ProgramItem = React.memo(
           <View
             className={`flex-row items-baseline gap-3 ${isFirstProgram ? 'justify-start' : 'justify-start'}`}
           >
+            {allPrograms && (
+              <DebugButton
+                program={program}
+                allPrograms={allPrograms}
+                size={3}
+                progress={progress}
+                calculateSidebarWidth={calculateSidebarWidth}
+                isAiring={isAiring}
+                isFirstProgram={isFirstProgram}
+                isLastProgram={isLastProgram}
+              />
+            )}
             <Text
               className={`flex-1 text-lg font-semibold ${
                 isAiring ? 'text-white' : 'text-white/90'
@@ -71,16 +107,38 @@ const ProgramItem = React.memo(
               style={{ textAlign: isFirstProgram ? 'left' : 'left' }}
               numberOfLines={1}
             >
-              {program.title}
+              {program.computed?.trimmedTitle ||
+                (() => {
+                  const channelPrograms =
+                    allPrograms?.filter(
+                      (p) => p.channelUuid === program.channelUuid
+                    ) || [];
+                  const nextProgram = channelPrograms
+                    .filter(
+                      (p) => p.computed?.startTime >= program.computed?.endTime
+                    )
+                    .sort((a, b) => a.computed?.startTime - b.computed?.startTime)
+                    .find((p) => p.computed?.hasContent);
+
+                  if (hasPassed) {
+                    return 'No information';
+                  }
+
+                  return nextProgram
+                    ? `Next program starts at ${formatTime(new Date(nextProgram.since))}: ${nextProgram.computed?.trimmedTitle}`
+                    : 'No information';
+                })()}
             </Text>
-            <Text
-              className={`text-sm ${
-                isAiring ? 'text-white/70' : 'text-white/60'
-              }`}
-              style={{ textAlign: isFirstProgram ? 'left' : 'left' }}
-            >
-              {formatTime(new Date(program.since))}
-            </Text>
+            {!hasPassed ? (
+              <Text
+                className={`text-sm ${
+                  isAiring ? 'text-white/70' : 'text-white/60'
+                }`}
+                style={{ textAlign: isFirstProgram ? 'left' : 'left' }}
+              >
+                {formatTime(new Date(program.since))}
+              </Text>
+            ) : null}
           </View>
 
           {/* Description below - extends full height, text renders behind buttons */}
@@ -128,26 +186,23 @@ const ProgramItem = React.memo(
               >
                 <Text className="text-lg text-white">▶</Text>
               </Pressable>
-              {allPrograms && (
-                <DebugButton
-                  program={program}
-                  allPrograms={allPrograms}
-                  size={3}
-                />
-              )}
             </View>
           )}
         </View>
 
-        {/* Progress bar for current programs */}
-        {isAiring && (
-          <View className="absolute inset-x-0 bottom-0 h-1 bg-white/20">
-            <View
-              className="h-full bg-blue-400"
-              style={{ width: `${progress}%` }}
-            />
-          </View>
-        )}
+        {/* Progress bar for currently airing programs only (exclude placeholders) */}
+        {isAiring && program.computed?.hasContent && (
+            <View className="absolute inset-x-0 bottom-0 h-1 bg-white/20">
+              <View
+                className="h-full bg-blue-400"
+                style={{
+                  width: calculateProgressWidth
+                    ? calculateProgressWidth(program, progress)
+                    : `${Math.min(progress, 100)}%`,
+                }}
+              />
+            </View>
+          )}
       </View>
     );
   }
@@ -165,10 +220,6 @@ export function ModernLayout({
   renderChannel,
   calculateSidebarWidth,
 }: ModernLayoutProps) {
-  const [isDragging, setIsDragging] = React.useState(false);
-  const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
-  const [scrollOffset, setScrollOffset] = React.useState({ x: 0, y: 0 });
-
   const formatTime = useCallback((date: Date) => {
     return date.toLocaleTimeString([], {
       hour: '2-digit',
@@ -179,14 +230,41 @@ export function ModernLayout({
 
   const calculateProgress = useCallback((program: any) => {
     const now = new Date().getTime();
-    const start = new Date(program.since).getTime();
-    const end = new Date(program.till).getTime();
+    const { startTime, endTime } = program.computed;
 
-    if (now < start) return 0;
-    if (now > end) return 100;
+    if (now < startTime) return 0;
+    if (now > endTime) return 100;
 
-    return ((now - start) / (end - start)) * 100;
+    return ((now - startTime) / (endTime - startTime)) * 100;
   }, []);
+
+  const calculateProgressWidth = useCallback(
+    (program: any, progress: number) => {
+      const now = new Date().getTime();
+      const { startTime, endTime } = program.computed;
+      const rangeStart = now - 0.5 * 60 * 60 * 1000; // 30 min ago
+
+      // If program starts before visible range (originalLeft < 0), calculate visible progress
+      if (program.position.originalLeft < 0) {
+        // Program started before our visible range
+        const visibleStart = Math.max(startTime, rangeStart);
+        const visibleDuration = endTime - visibleStart;
+        const timeElapsed = now - visibleStart;
+        const visibleProgress = Math.min(
+          100,
+          (timeElapsed / visibleDuration) * 100
+        );
+
+        const progressWidth = (visibleProgress / 100) * program.position.width;
+        return Math.min(progressWidth, program.position.width);
+      }
+
+      // Standard progress calculation for programs fully within visible range
+      const progressWidth = (progress / 100) * program.position.width;
+      return Math.min(progressWidth, program.position.width);
+    },
+    []
+  );
 
   const totalWidth =
     timeline.length > 0
@@ -200,56 +278,14 @@ export function ModernLayout({
         channels[channels.length - 1].position.height
       : 0;
 
-  // Drag and drop handlers
-  const handleMouseDown = (e: any) => {
-    if (Platform.OS === 'web') {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX, y: e.clientY });
-      e.preventDefault();
-    }
-  };
-
-  const handleMouseMove = (e: any) => {
-    if (Platform.OS === 'web' && isDragging) {
-      const deltaX = dragStart.x - e.clientX;
-      const deltaY = dragStart.y - e.clientY;
-
-      const newScrollX = Math.max(0, scrollOffset.x + deltaX);
-      const newScrollY = Math.max(0, scrollOffset.y + deltaY);
-
-      if (scrollRefs.current.horizontalMain) {
-        scrollRefs.current.horizontalMain.scrollTo({
-          x: newScrollX,
-          animated: false,
-        });
-      }
-      if (scrollRefs.current.verticalMain) {
-        scrollRefs.current.verticalMain.scrollTo({
-          y: newScrollY,
-          animated: false,
-        });
-      }
-
-      setDragStart({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const handleMouseUp = () => {
-    if (Platform.OS === 'web') {
-      setIsDragging(false);
-    }
-  };
-
-  React.useEffect(() => {
-    if (Platform.OS === 'web') {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, dragStart, scrollOffset]);
+  // Calculate current time position for "now" line
+  const currentTimePosition = useMemo(() => {
+    const now = new Date();
+    const rangeStart = now.getTime() - 0.5 * 60 * 60 * 1000; // 30 minutes ago
+    return (
+      ((now.getTime() - rangeStart) / (1000 * 60 * 60)) * (totalWidth / 12.5)
+    );
+  }, [totalWidth]);
 
   // Default channel renderer for modern variant
   const defaultRenderChannel = useCallback(
@@ -278,18 +314,7 @@ export function ModernLayout({
   );
 
   return (
-    <View
-      className="flex-1 bg-black/40 backdrop-blur-md"
-      style={
-        Platform.OS === 'web'
-          ? {
-              cursor: (isDragging ? 'grabbing' : 'grab') as any,
-              userSelect: 'none' as any,
-            }
-          : {}
-      }
-      onMouseDown={handleMouseDown}
-    >
+    <View className="flex-1 bg-black/40 backdrop-blur-md">
       {/* Timeline sticky header */}
       {isTimeline && (
         <View
@@ -309,7 +334,6 @@ export function ModernLayout({
             className="flex-1"
             showsHorizontalScrollIndicator={false}
             scrollEventThrottle={16}
-            scrollEnabled={!isDragging}
           >
             <View className="flex-row" style={{ width: totalWidth }}>
               {timeline.map((item, index) => (
@@ -322,9 +346,9 @@ export function ModernLayout({
                   }}
                   className=""
                 >
-                  <View className="h-full items-center justify-center">
+                  <View className="h-full items-start justify-center">
                     <Text className="text-lg font-medium text-white">
-                      {formatTime(item.time)}
+                      {formatTime(item.time).split(':')[0]}
                     </Text>
                   </View>
                 </View>
@@ -343,10 +367,8 @@ export function ModernLayout({
           className="flex-1"
           showsVerticalScrollIndicator={false}
           scrollEventThrottle={16}
-          scrollEnabled={!isDragging}
           onScroll={(event) => {
             const { contentOffset } = event.nativeEvent;
-            setScrollOffset((prev) => ({ ...prev, y: contentOffset.y }));
             onScroll(event, 'vertical');
 
             // Calculate visible channels
@@ -374,10 +396,8 @@ export function ModernLayout({
             }}
             showsHorizontalScrollIndicator={false}
             scrollEventThrottle={16}
-            scrollEnabled={!isDragging}
             onScroll={(event) => {
               const { contentOffset } = event.nativeEvent;
-              setScrollOffset((prev) => ({ ...prev, x: contentOffset.x }));
 
               // Sync with timeline
               if (scrollRefs.current.horizontalTimeline) {
@@ -397,81 +417,125 @@ export function ModernLayout({
                 position: 'relative',
               }}
             >
+              {/* Vertical "now" line */}
+              <View
+                style={{
+                  position: 'absolute',
+                  left: calculateSidebarWidth + currentTimePosition,
+                  top: 0,
+                  width: 2,
+                  height: totalHeight,
+                  backgroundColor: '#ef4444', // red-500
+                  zIndex: 20,
+                  opacity: 0.8,
+                }}
+              />
+
               {/* Channel rows with programs */}
-              {channels.map((channel) => {
-                const channelPrograms = programs.filter(
-                  (p) => p.channelUuid === channel.uuid
-                );
-
-                return (
-                  <View
-                    key={channel.uuid}
-                    style={{
-                      position: 'absolute',
-                      top: channel.position.top,
-                      left: 0,
-                      width: calculateSidebarWidth + totalWidth,
-                      height: channel.position.height,
-                    }}
-                    className=""
-                  >
-                    {/* Sticky channel column */}
+              {channels
+                // .filter(
+                //   (channel) =>
+                //     channel.uuid === '4a89a49d-f832-428b-83f1-7d28e665b6d2'
+                // )
+                .map((channel) => {
+                  const channelPrograms = programs.filter(
+                    (p) => p.channelUuid === channel.uuid
+                  );
+                  // console.log('Channel Programs UUID:', channel.uuid);
+                  return (
                     <View
+                      key={channel.uuid}
                       style={{
-                        position: 'sticky',
+                        position: 'absolute',
+                        top: channel.position.top,
                         left: 0,
-                        width: calculateSidebarWidth,
+                        width: calculateSidebarWidth + totalWidth,
                         height: channel.position.height,
-                        zIndex: 10,
                       }}
-                      className="bg-black/30 backdrop-blur-md"
+                      className=""
                     >
-                      {renderChannel
-                        ? renderChannel({ channel })
-                        : defaultRenderChannel({ channel })}
+                      {/* Sticky channel column */}
+                      <View
+                        style={{
+                          position: 'sticky',
+                          left: 0,
+                          width: calculateSidebarWidth,
+                          height: channel.position.height,
+                          zIndex: 10,
+                        }}
+                        className="bg-black/30 backdrop-blur-md"
+                      >
+                        {renderChannel
+                          ? renderChannel({ channel })
+                          : defaultRenderChannel({ channel })}
+                      </View>
+
+                      {/* Programs for this channel */}
+                      {channelPrograms.map((program, programIndex) => {
+                        const progress = calculateProgress(program);
+                        const now = new Date().getTime();
+
+                        // Find the most recent program that's currently airing on this channel
+                        const currentAiringPrograms = channelPrograms.filter(
+                          (p) => {
+                            return now >= p.computed.startTime && now < p.computed.endTime;
+                          }
+                        );
+
+                        // Sort by start time descending to get the most recent one
+                        const mostRecentAiring = currentAiringPrograms.sort(
+                          (a, b) => b.computed.startTime - a.computed.startTime
+                        )[0];
+
+                        // Only mark as airing if this is the most recent airing program
+                        const isAiring =
+                          mostRecentAiring &&
+                          program.id === mostRecentAiring.id;
+                        // if (isAiring) {
+                        //   console.log('Program:', program);
+                        // }
+
+                        const isFirstProgram = programIndex === 0;
+                        const isLastProgram =
+                          programIndex === channelPrograms.length - 1;
+
+                        // Calculate dynamic opacity based on position and time
+                        const timeBasedOpacity = Math.max(
+                          0.2,
+                          Math.min(
+                            1,
+                            0.3 + (program.position.left / totalWidth) * 0.7
+                          )
+                        );
+                        const rowBasedOpacity = Math.max(
+                          0.15,
+                          Math.min(
+                            0.9,
+                            0.2 + (channel.position.top / totalHeight) * 0.7
+                          )
+                        );
+                        const combinedOpacity =
+                          (timeBasedOpacity + rowBasedOpacity) / 2;
+
+                        return (
+                          <ProgramItem
+                            key={program.id}
+                            program={program}
+                            isAiring={isAiring}
+                            progress={progress}
+                            onProgramClick={onProgramClick}
+                            calculateSidebarWidth={calculateSidebarWidth}
+                            formatTime={formatTime}
+                            isFirstProgram={isFirstProgram}
+                            isLastProgram={isLastProgram}
+                            allPrograms={programs}
+                            calculateProgressWidth={calculateProgressWidth}
+                          />
+                        );
+                      })}
                     </View>
-
-                    {/* Programs for this channel */}
-                    {channelPrograms.map((program, programIndex) => {
-                      const progress = calculateProgress(program);
-                      const isAiring = progress > 0 && progress < 100;
-                      const isFirstProgram = programIndex === 0;
-
-                      // Calculate dynamic opacity based on position and time
-                      const timeBasedOpacity = Math.max(
-                        0.2,
-                        Math.min(
-                          1,
-                          0.3 + (program.position.left / totalWidth) * 0.7
-                        )
-                      );
-                      const rowBasedOpacity = Math.max(
-                        0.15,
-                        Math.min(
-                          0.9,
-                          0.2 + (channel.position.top / totalHeight) * 0.7
-                        )
-                      );
-                      const combinedOpacity =
-                        (timeBasedOpacity + rowBasedOpacity) / 2;
-
-                      return (
-                        <ProgramItem
-                          key={program.id}
-                          program={program}
-                          isAiring={isAiring}
-                          progress={progress}
-                          onProgramClick={onProgramClick}
-                          calculateSidebarWidth={calculateSidebarWidth}
-                          formatTime={formatTime}
-                          isFirstProgram={isFirstProgram}
-                          allPrograms={programs}
-                        />
-                      );
-                    })}
-                  </View>
-                );
-              })}
+                  );
+                })}
             </View>
           </ScrollView>
         </ScrollView>
