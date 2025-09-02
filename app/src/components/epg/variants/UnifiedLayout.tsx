@@ -49,7 +49,10 @@ export function UnifiedLayout({
     <View className="flex-1 bg-gradient-to-br from-neutral-50 to-neutral-100 p-4 dark:from-neutral-950 dark:to-neutral-900">
       {/* Timeline sticky header */}
       {isTimeline && (
-        <View style={{ height: TIMELINE_HEIGHT + 16 }} className="z-10 mb-4 flex-row">
+        <View
+          style={{ height: TIMELINE_HEIGHT + 16 }}
+          className="z-10 mb-4 flex-row"
+        >
           {/* Empty corner for channel column */}
           {isSidebar && (
             <View
@@ -143,8 +146,7 @@ export function UnifiedLayout({
             // Calculate visible channels
             if (onVisibleChannelsChange && channels.length > 0) {
               const scrollY = contentOffset.y;
-              const viewportHeight =
-                event.nativeEvent.layoutMeasurement.height;
+              const viewportHeight = event.nativeEvent.layoutMeasurement.height;
               const channelHeight = channels[0]?.position?.height || 80;
 
               const startIndex = Math.floor(scrollY / channelHeight);
@@ -207,24 +209,36 @@ export function UnifiedLayout({
                     className=""
                   >
                     {/* Render programs for this channel */}
-                    {channelPrograms.map((program) => {
+                    {channelPrograms.map((program, programIndex) => {
                       // Calculate dynamic opacity based on position and time
-                      const timeBasedOpacity = Math.max(0.2, Math.min(1, 
-                        0.3 + (program.position.left / totalWidth) * 0.7
-                      ));
-                      const rowBasedOpacity = Math.max(0.15, Math.min(0.9, 
-                        0.2 + (channel.position.top / totalHeight) * 0.7
-                      ));
-                      const combinedOpacity = (timeBasedOpacity + rowBasedOpacity) / 2;
+                      const timeBasedOpacity = Math.max(
+                        0.2,
+                        Math.min(
+                          1,
+                          0.3 + (program.position.left / totalWidth) * 0.7
+                        )
+                      );
+                      const rowBasedOpacity = Math.max(
+                        0.15,
+                        Math.min(
+                          0.9,
+                          0.2 + (channel.position.top / totalHeight) * 0.7
+                        )
+                      );
+                      const combinedOpacity =
+                        (timeBasedOpacity + rowBasedOpacity) / 2;
+
+                      // Check if this is the first program in the channel
+                      const isFirstProgram = programIndex === 0;
 
                       return (
-                        <View 
+                        <View
                           key={program.id}
                           style={{ opacity: combinedOpacity }}
                         >
                           {renderProgram
-                            ? renderProgram({ program })
-                            : defaultRenderProgram({ program })}
+                            ? renderProgram({ program, isFirstProgram })
+                            : defaultRenderProgram({ program, isFirstProgram })}
                         </View>
                       );
                     })}
@@ -236,9 +250,7 @@ export function UnifiedLayout({
               {(() => {
                 const now = new Date();
                 // Use the same reference point as useEpg hook for consistency
-                const startTime = new Date(
-                  now.getTime() - 1 * 60 * 60 * 1000
-                ); // 1 hour ago
+                const startTime = new Date(now.getTime() - 1 * 60 * 60 * 1000); // 1 hour ago
                 if (timeline.length === 0) return null;
                 const currentPos =
                   ((now.getTime() - startTime.getTime()) / (1000 * 60 * 60)) *

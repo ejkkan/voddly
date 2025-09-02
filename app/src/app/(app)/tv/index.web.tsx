@@ -66,10 +66,10 @@ const ProgramItem = React.memo(function ProgramItem({
       const deltaX = Math.abs(endX - dragStartPos.current.x);
       const deltaY = Math.abs(endY - dragStartPos.current.y);
       
-      // Only trigger click if movement is less than 5 pixels
-      if (deltaX < 5 && deltaY < 5 && !isDragging.current) {
-        onPress(program);
-      }
+      // Disabled program box navigation - only buttons should trigger actions
+      // if (deltaX < 5 && deltaY < 5 && !isDragging.current) {
+      //   onPress(program);
+      // }
     }
     dragStartPos.current = null;
     isDragging.current = false;
@@ -104,7 +104,7 @@ const ProgramItem = React.memo(function ProgramItem({
         cursor: 'pointer',
         overflow: 'hidden',
       }}
-      className={`rounded-md border px-2 py-1 ${
+      className={`flex-row items-center justify-between rounded-md border px-4 py-3 ${
         isPlaceholder
           ? 'border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900'
           : isAiring
@@ -112,31 +112,36 @@ const ProgramItem = React.memo(function ProgramItem({
             : 'border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-800'
       }`}
     >
-      <Text
-        className={`text-xs ${
-          isPlaceholder
-            ? 'italic text-neutral-400 dark:text-neutral-500'
-            : `font-medium ${
-                isAiring
-                  ? 'text-blue-900 dark:text-blue-100'
-                  : 'text-neutral-900 dark:text-neutral-100'
-              }`
-        }`}
-        numberOfLines={1}
-      >
-        {program.title || ''}
-      </Text>
-      {program.description && !isPlaceholder && (
+      <View className="flex-1">
         <Text
-          className={`mt-0.5 text-xs ${
-            isAiring
-              ? 'text-blue-700 dark:text-blue-300'
-              : 'text-neutral-600 dark:text-neutral-400'
+          className={`text-base ${
+            isPlaceholder
+              ? 'italic text-neutral-400 dark:text-neutral-500'
+              : `font-medium ${
+                  isAiring
+                    ? 'text-blue-900 dark:text-blue-100'
+                    : 'text-neutral-900 dark:text-neutral-100'
+                }`
           }`}
+          numberOfLines={1}
         >
-          {program.description || ''}
+          {program.title || ''}
         </Text>
-      )}
+        {!isPlaceholder && (
+          <Text
+            className={`mt-1 text-sm ${
+              isAiring
+                ? 'text-blue-700 dark:text-blue-300'
+                : 'text-neutral-600 dark:text-neutral-400'
+            }`}
+          >
+            {new Date(program.since).toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit',
+            })}
+          </Text>
+        )}
+      </View>
     </Pressable>
   );
 });
@@ -271,7 +276,9 @@ export default function LiveTV() {
     epg: epgPrograms,
     width: typeof window !== 'undefined' ? window.innerWidth - 280 : 1200,
     height: typeof window !== 'undefined' ? window.innerHeight - 160 : 600, // Account for TopNav and bottom info panel
-    sidebarWidth: 80, // Much narrower channel column for icons only
+    sidebarWidth: 160, // Doubled from 80
+    itemHeight: 200, // Doubled from default 100
+    dayWidth: 14400, // Doubled from default 7200 (pixels per day)
     isSidebar: true,
     isTimeline: true,
     isLine: true,
@@ -279,8 +286,8 @@ export default function LiveTV() {
   });
 
   const handleChannelClick = (channel: Channel) => {
-    // Navigate to the channel detail/player
-    router.push(`/(app)/tv/${encodeURIComponent(channel.uuid)}`);
+    // Disabled navigation - stay on EPG page
+    console.log('Channel clicked:', channel.title);
   };
 
   const handleProgramClick = useCallback(async (program: Program) => {
@@ -588,13 +595,13 @@ export default function LiveTV() {
                                 <img
                                   src={channel.logo}
                                   alt={channel.title}
-                                  className="size-10 object-contain"
+                                  className="size-20 object-contain"
                                 />
                               ) : (
                                 <Text
-                                  className="px-1 text-center text-[14px] font-medium text-white"
+                                  className="px-2 text-center text-[20px] font-medium text-white"
                                   numberOfLines={3}
-                                  style={{ maxWidth: 100 }}
+                                  style={{ maxWidth: 140 }}
                                 >
                                   {channel.title || ''}
                                 </Text>
@@ -604,7 +611,7 @@ export default function LiveTV() {
                                   e.stopPropagation();
                                   toggleFavorite(channel.uuid, 'channel');
                                 }}
-                                className="absolute right-1 top-1 rounded-full p-0.5 hover:bg-white/20"
+                                className="absolute right-2 top-2 rounded-full p-1 hover:bg-white/20"
                                 style={{ zIndex: 10 }}
                               >
                                 <Heart
@@ -614,7 +621,7 @@ export default function LiveTV() {
                                       ? '#ef4444'
                                       : '#9ca3af'
                                   }
-                                  size={14}
+                                  size={24}
                                 />
                               </Pressable>
                             </Pressable>

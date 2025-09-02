@@ -9,6 +9,7 @@ import { RatingsDisplay } from '@/components/media/RatingsDisplay';
 import { VideoGallery } from '@/components/media/VideoGallery';
 import { SeasonsList } from '@/components/series/SeasonsList';
 import { SeriesEpisodesCarousels } from '@/components/series/SeriesEpisodesCarousels';
+import { ContentDebugButton } from '@/components/debug/ContentDebugButton';
 import {
   Image,
   Pressable,
@@ -363,6 +364,13 @@ export default function SeriesDetails() {
                         Play First Episode
                       </Text>
                     </Pressable>
+                    {item && (
+                      <ContentDebugButton 
+                        item={item}
+                        contentType="series"
+                        metadata={displayData}
+                      />
+                    )}
 
                     <Pressable
                       className="rounded-xl border border-neutral-300 px-4 py-3 dark:border-neutral-700"

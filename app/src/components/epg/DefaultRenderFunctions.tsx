@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { Platform, Pressable } from 'react-native';
+
 import { Image, Text, View } from '@/components/ui';
+
 import { TIMELINE_HEIGHT } from './constants';
 
 interface DefaultRenderFunctionsProps {
@@ -54,7 +56,13 @@ export function DefaultRenderFunctions({
     );
   };
 
-  const defaultRenderProgram = ({ program }: { program: any }) => {
+  const defaultRenderProgram = ({
+    program,
+    isFirstProgram,
+  }: {
+    program: any;
+    isFirstProgram?: boolean;
+  }) => {
     const isAiring = isCurrentlyAiring(program);
     const dragStartPos = useRef<{ x: number; y: number } | null>(null);
     const isDragging = useRef(false);
@@ -62,9 +70,9 @@ export function DefaultRenderFunctions({
     const handlePressIn = (e: any) => {
       if (Platform.OS === 'web') {
         const event = e.nativeEvent || e;
-        dragStartPos.current = { 
-          x: event.pageX || event.clientX, 
-          y: event.pageY || event.clientY 
+        dragStartPos.current = {
+          x: event.pageX || event.clientX,
+          y: event.pageY || event.clientY,
         };
         isDragging.current = false;
       }
@@ -78,7 +86,7 @@ export function DefaultRenderFunctions({
           const endY = event.pageY || event.clientY;
           const deltaX = Math.abs(endX - dragStartPos.current.x);
           const deltaY = Math.abs(endY - dragStartPos.current.y);
-          
+
           // Only trigger click if movement is less than 5 pixels
           if (deltaX < 5 && deltaY < 5 && !isDragging.current) {
             program.onPress(program);
@@ -96,7 +104,7 @@ export function DefaultRenderFunctions({
         const currentY = event.pageY || event.clientY;
         const deltaX = Math.abs(currentX - dragStartPos.current.x);
         const deltaY = Math.abs(currentY - dragStartPos.current.y);
-        
+
         // Mark as dragging if movement exceeds threshold
         if (deltaX > 5 || deltaY > 5) {
           isDragging.current = true;
@@ -126,24 +134,26 @@ export function DefaultRenderFunctions({
               ? 'text-blue-900 dark:text-blue-100'
               : 'text-neutral-900 dark:text-neutral-100'
           }`}
+          style={{ textAlign: isFirstProgram ? 'right' : 'left' }}
           numberOfLines={1}
           ellipsizeMode="tail"
         >
           {program.title || ''}
         </Text>
-        {program.description && (
+        {program.description ? (
           <Text
             className={`mt-0.5 text-xs ${
               isAiring
                 ? 'text-blue-700 dark:text-blue-300'
                 : 'text-neutral-600 dark:text-neutral-400'
             }`}
+            style={{ textAlign: isFirstProgram ? 'right' : 'left' }}
             numberOfLines={2}
             ellipsizeMode="tail"
           >
             {program.description || ''}
           </Text>
-        )}
+        ) : null}
       </View>
     );
 
@@ -175,7 +185,7 @@ export function DefaultRenderFunctions({
 
   const defaultRenderTimeline = ({ time }: { time: Date }) => (
     <View
-      className="mx-1 my-1 items-center justify-center overflow-hidden rounded-lg bg-white/60 shadow-md backdrop-blur-xl dark:bg-neutral-800/60"
+      className="m-1 items-center justify-center overflow-hidden rounded-lg bg-white/60 shadow-md backdrop-blur-xl dark:bg-neutral-800/60"
       style={{ height: TIMELINE_HEIGHT - 8 }}
     >
       <Text className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
