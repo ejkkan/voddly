@@ -32,6 +32,8 @@ export interface BasePlayerProps {
   theme?: 'default' | 'compact';
   // Auto-reload behavior
   disableAutoReload?: boolean;
+  // Control positioning
+  constrainToContainer?: boolean; // Whether controls should be constrained to container vs full viewport
 }
 
 export interface PlayerState {
@@ -100,4 +102,7 @@ export interface PlayerLayoutProps {
   // UI state
   showControls: boolean;
   setShowControls: (show: boolean) => void;
+
+  // Layout behavior
+  constrainToContainer?: boolean; // Whether controls should be constrained to container vs full viewport
 }

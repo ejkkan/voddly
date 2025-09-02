@@ -8,7 +8,8 @@ import { createQueryOptions, queryKeys } from '@/lib/query-utils';
 // Helper function to query local SQLite database for movie/series details
 async function getContentItemData(
   id: string | number,
-  type: 'movie' | 'series'
+  type: 'movie' | 'series',
+  accountId?: string
 ) {
   try {
     const db = await openDb();
@@ -45,8 +46,8 @@ async function getContentItemData(
         ci.source_id,
         ci.original_payload_json
       FROM content_items ci
-      WHERE ci.tmdb_id = ? AND ci.type = ?`,
-      [stringId, type]
+      WHERE ci.tmdb_id = ? AND ci.type = ?${accountId ? ' AND ci.account_id = ?' : ''}`,
+      accountId ? [stringId, type, accountId] : [stringId, type]
     );
 
     // If not found by TMDB ID, try by local database ID (fallback)
@@ -79,8 +80,8 @@ async function getContentItemData(
           ci.source_id,
           ci.original_payload_json
         FROM content_items ci
-        WHERE ci.id = ? AND ci.type = ?`,
-        [stringId, type]
+        WHERE ci.id = ? AND ci.type = ?${accountId ? ' AND ci.account_id = ?' : ''}`,
+        accountId ? [stringId, type, accountId] : [stringId, type]
       );
     }
 
@@ -113,7 +114,7 @@ async function getContentItemData(
 }
 
 // Helper function to query local SQLite database for live content details
-async function getLiveItemData(id: string | number) {
+async function getLiveItemData(id: string | number, accountId?: string) {
   try {
     const db = await openDb();
     const stringId = String(id);
@@ -140,8 +141,8 @@ async function getLiveItemData(id: string | number) {
         ci.source_id,
         ci.original_payload_json
       FROM content_items ci
-      WHERE ci.id = ? AND ci.type = 'live'`,
-      [stringId]
+      WHERE ci.id = ? AND ci.type = 'live'${accountId ? ' AND ci.account_id = ?' : ''}`,
+      accountId ? [stringId, accountId] : [stringId]
     );
 
     if (!liveItem) return null;
@@ -174,17 +175,18 @@ async function getLiveItemData(id: string | number) {
 // Main function to query local SQLite database for item details
 export async function getLocalItemData(
   id: string | number,
-  type: 'movie' | 'series' | 'live'
+  type: 'movie' | 'series' | 'live',
+  accountId?: string
 ) {
   if (type === 'live') {
-    const data = await getLiveItemData(id);
+    const data = await getLiveItemData(id, accountId);
     if (!data) {
       console.warn(`No local data found for ${type} with ID: ${id}`);
     }
     return data;
   }
 
-  const data = await getContentItemData(id, type);
+  const data = await getContentItemData(id, type, accountId);
   if (!data) {
     console.warn(`No local data found for ${type} with ID: ${id}`);
   }

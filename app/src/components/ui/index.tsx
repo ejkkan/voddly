@@ -13,6 +13,9 @@ export * from './progress-bar';
 export * from './select';
 export * from './text';
 export * from './utils';
+export * from './AnimatedIcon';
+export * from './LordIcon';
+export * from './HybridIcon';
 
 // export base components from react-native
 export {

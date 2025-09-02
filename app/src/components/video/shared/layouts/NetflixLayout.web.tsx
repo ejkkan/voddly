@@ -15,6 +15,7 @@ export function NetflixLayout({
   onBack,
   showControls,
   setShowControls,
+  constrainToContainer = true,
 }: PlayerLayoutProps) {
   const theme = useTheme();
 
@@ -35,38 +36,27 @@ export function NetflixLayout({
         {videoElement}
       </div>
 
-      {/* Top Bar with gradient */}
+      {/* Bottom Controls and Info with gradient */}
       {showControls && (
         <div
           style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            background:
-              'linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%)',
-            padding: theme.dimensions.padding,
-            animation: `fadeIn ${theme.animations.fadeInDuration}ms ease-in`,
-          }}
-        >
-          <TopBar title={title} showBack={showBack} onBack={onBack} />
-        </div>
-      )}
-
-      {/* Bottom Controls with gradient */}
-      {showControls && (
-        <div
-          style={{
-            position: 'absolute',
+            position: constrainToContainer ? 'absolute' : 'fixed',
             bottom: 0,
             left: 0,
             right: 0,
             background:
-              'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)',
+              'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%)',
             padding: theme.dimensions.padding,
             animation: `fadeIn ${theme.animations.fadeInDuration}ms ease-in`,
+            zIndex: 1000,
+            pointerEvents: 'auto',
           }}
         >
+          {/* Video Info at bottom */}
+          <div style={{ marginBottom: theme.dimensions.spacing }}>
+            <TopBar title={title} showBack={showBack} onBack={onBack} />
+          </div>
+          {/* Controls below the info */}
           <ControlsBar playerState={playerState} controls={controls} />
         </div>
       )}

@@ -21,6 +21,7 @@ export function VideoPlayer({
   preferredPlayer = 'auto',
   layout = 'netflix',
   theme = 'default',
+  constrainToContainer = false, // Default to false for fullscreen players
   ...props
 }: VideoPlayerProps) {
   // Determine which player to use
@@ -41,7 +42,7 @@ export function VideoPlayer({
 
   console.log('[VideoPlayer] Final selected player:', selectedPlayer);
   // Resolve theme if string
-  const resolvedTheme = typeof theme === 'string' ? themes[theme] : theme;
+  const resolvedTheme = typeof theme === 'string' ? (themes[theme] || themes.default) : theme;
   console.log('[VideoPlayer] Theme:', theme, 'Resolved theme:', resolvedTheme);
 
   // Common props for all players
@@ -49,6 +50,7 @@ export function VideoPlayer({
     url,
     layout,
     theme: resolvedTheme,
+    constrainToContainer,
     ...props,
   };
 

@@ -11,6 +11,7 @@ import { useUiSections, useFavoriteManager } from '@/hooks/ui';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 import { getLocalItemData } from '@/hooks/ui/useDashboardTrends';
+import { useActiveSubscriptionId } from '@/hooks/ui/useAccounts';
 
 type Section = {
   categoryId?: string;
@@ -25,6 +26,7 @@ type Section = {
 
 export default function VODs() {
   const router = useRouter();
+  const { subscriptionId } = useActiveSubscriptionId();
   const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
   const { isInAnyPlaylist } = usePlaylistManager();
   const [sections, setSections] = useState<Section[]>([]);
@@ -35,7 +37,7 @@ export default function VODs() {
 
   const handleMovieLongPress = async (id: string | number) => {
     console.log('🎬 Long pressed movie with ID:', id);
-    const movieData = await getLocalItemData(id, 'movie');
+    const movieData = await getLocalItemData(id, 'movie', subscriptionId);
 
     if (movieData) {
       console.log('📽️ Local movie data:', JSON.stringify(movieData, null, 2));
@@ -81,7 +83,12 @@ export default function VODs() {
     if (loadingCats || !initialLoaded) return;
     setLoadingCats(true);
     try {
-      const cats = await fetchCategoriesWithPreviews('movie', 20, 5, catOffset);
+      // CRITICAL: Only fetch data for the current user's account
+      if (!subscriptionId) {
+        console.warn('[SECURITY] No subscription ID - skipping data fetch');
+        return;
+      }
+      const cats = await fetchCategoriesWithPreviews('movie', 20, 5, catOffset, subscriptionId);
       if (!cats || cats.length === 0) return;
       setSections((prev) =>
         prev.concat(
@@ -114,11 +121,17 @@ export default function VODs() {
         if (sectionIndex === -1) return;
         const current = sections[sectionIndex];
         const { fetchCategoryItems } = await import('@/lib/db/ui');
+        // CRITICAL: Only fetch data for the current user's account
+        if (!subscriptionId) {
+          console.warn('[SECURITY] No subscription ID - skipping data fetch');
+          return;
+        }
         const more = await fetchCategoryItems(
           'movie',
           categoryId,
           25,
-          current.data.length
+          current.data.length,
+          subscriptionId
         );
         if (!more || more.length === 0) return;
         setSections((prev) => {

@@ -12,6 +12,7 @@ export function MinimalLayout({
   controls,
   showControls,
   setShowControls,
+  constrainToContainer = true,
 }: PlayerLayoutProps) {
   const theme = useTheme();
 
@@ -35,11 +36,13 @@ export function MinimalLayout({
       {/* Minimal progress bar always visible at bottom */}
       <div
         style={{
-          position: 'absolute',
+          position: constrainToContainer ? 'absolute' : 'fixed',
           bottom: 0,
           left: 0,
           right: 0,
           padding: '0 2px',
+          zIndex: 1000,
+          pointerEvents: 'auto',
         }}
       >
         <ProgressBar

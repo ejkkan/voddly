@@ -8,6 +8,7 @@ import { useFavoriteManager, useUiPreview, useUiSections } from '@/hooks/ui';
 import { getLocalItemData } from '@/hooks/ui/useDashboardTrends';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
+import { useActiveSubscriptionId } from '@/hooks/ui/useAccounts';
 
 type Section = {
   categoryId?: string;
@@ -23,6 +24,7 @@ type Section = {
 
 export default function TV() {
   const router = useRouter();
+  const { subscriptionId } = useActiveSubscriptionId();
   const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
   const { isInAnyPlaylist } = usePlaylistManager();
   const [sections, setSections] = useState<Section[]>([]);
@@ -33,7 +35,7 @@ export default function TV() {
 
   const handleLiveLongPress = async (id: string | number) => {
     console.log('📺 Long pressed live/TV with ID:', id);
-    const liveData = await getLocalItemData(id, 'live');
+    const liveData = await getLocalItemData(id, 'live', subscriptionId);
     if (liveData) {
       console.log('📡 Local live data:', liveData);
       try {
@@ -61,12 +63,21 @@ export default function TV() {
     const mapped: Section[] = cats.map((c) => ({
       categoryId: c.categoryId,
       title: c.name,
-      data: c.items.map((i) => ({
-        id: i.id,
-        title: i.title,
-        imageUrl: i.imageUrl,
-        sourceId: (i as any).sourceId,
-      })),
+      data: c.items
+        .map((i) => ({
+          id: i.id,
+          title: i.title,
+          imageUrl: i.imageUrl,
+          sourceId: (i as any).sourceId,
+        }))
+        .sort((a, b) => {
+          // Sort favorites first
+          const aIsFav = isFavorite(a.id);
+          const bIsFav = isFavorite(b.id);
+          if (aIsFav && !bIsFav) return -1;
+          if (!aIsFav && bIsFav) return 1;
+          return 0;
+        }),
       aspect: 'backdrop',
     }));
     if (mapped.length === 0 || mapped.every((s) => s.data.length === 0)) {
@@ -85,7 +96,13 @@ export default function TV() {
         setInitialLoaded(true);
       }
     } else {
-      setSections(mapped);
+      // Sort categories by favorites count (categories with more favorites first)
+      const sortedMapped = mapped.sort((a, b) => {
+        const aFavCount = a.data.filter(item => isFavorite(item.id)).length;
+        const bFavCount = b.data.filter(item => isFavorite(item.id)).length;
+        return bFavCount - aFavCount;
+      });
+      setSections(sortedMapped);
       setCatOffset(10);
       setInitialLoaded(true);
     }
@@ -100,7 +117,12 @@ export default function TV() {
     if (loadingCats || !initialLoaded) return;
     setLoadingCats(true);
     try {
-      const cats = await fetchCategoriesWithPreviews('live', 20, 5, catOffset);
+      // CRITICAL: Only fetch data for the current user's account
+      if (!subscriptionId) {
+        console.warn('[SECURITY] No subscription ID - skipping data fetch');
+        return;
+      }
+      const cats = await fetchCategoriesWithPreviews('live', 20, 5, catOffset, subscriptionId);
       if (!cats || cats.length === 0) return;
       setSections((prev) =>
         prev.concat(
@@ -134,11 +156,17 @@ export default function TV() {
         if (sectionIndex === -1) return;
         const current = sections[sectionIndex];
         const { fetchCategoryItems } = await import('@/lib/db/ui');
+        // CRITICAL: Only fetch data for the current user's account
+        if (!subscriptionId) {
+          console.warn('[SECURITY] No subscription ID - skipping data fetch');
+          return;
+        }
         const more = await fetchCategoryItems(
           'live',
           categoryId,
           25,
-          current.data.length
+          current.data.length,
+          subscriptionId
         );
         if (!more || more.length === 0) return;
         setSections((prev) => {

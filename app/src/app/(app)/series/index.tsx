@@ -9,6 +9,7 @@ import { useFavoriteManager, useUiPreview, useUiSections } from '@/hooks/ui';
 import { getLocalItemData } from '@/hooks/ui/useDashboardTrends';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
+import { useActiveSubscriptionId } from '@/hooks/ui/useAccounts';
 
 type Section = {
   categoryId?: string;
@@ -23,6 +24,7 @@ type Section = {
 
 export default function Series() {
   const router = useRouter();
+  const { subscriptionId } = useActiveSubscriptionId();
   const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
   const { isInAnyPlaylist } = usePlaylistManager();
   const [sections, setSections] = useState<Section[]>([]);
@@ -33,7 +35,7 @@ export default function Series() {
 
   const handleSeriesLongPress = async (id: string | number) => {
     console.log('📺 Long pressed series with ID:', id);
-    const seriesData = await getLocalItemData(id, 'series');
+    const seriesData = await getLocalItemData(id, 'series', subscriptionId);
     if (seriesData) {
       console.log('📺 Local series data:', seriesData);
       try {
@@ -97,11 +99,17 @@ export default function Series() {
     if (loadingCats || !initialLoaded) return;
     setLoadingCats(true);
     try {
+      // CRITICAL: Only fetch data for the current user's account
+      if (!subscriptionId) {
+        console.warn('[SECURITY] No subscription ID - skipping data fetch');
+        return;
+      }
       const cats = await fetchCategoriesWithPreviews(
         'series',
         20,
         5,
-        catOffset
+        catOffset,
+        subscriptionId
       );
       if (!cats || cats.length === 0) return;
       setSections((prev) =>
@@ -135,11 +143,17 @@ export default function Series() {
         if (sectionIndex === -1) return;
         const current = sections[sectionIndex];
         const { fetchCategoryItems } = await import('@/lib/db/ui');
+        // CRITICAL: Only fetch data for the current user's account
+        if (!subscriptionId) {
+          console.warn('[SECURITY] No subscription ID - skipping data fetch');
+          return;
+        }
         const more = await fetchCategoryItems(
           'series',
           categoryId,
           25,
-          current.data.length
+          current.data.length,
+          subscriptionId
         );
         if (!more || more.length === 0) return;
         setSections((prev) => {

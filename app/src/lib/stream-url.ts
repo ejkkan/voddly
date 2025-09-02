@@ -85,7 +85,7 @@ export function constructStreamUrl(params: StreamUrlParams): {
       streamingUrl = `${base}/series/${username}/${password}/${contentId}.${finalExtension}`;
       break;
     case 'live':
-      streamingUrl = `${base}/tv/${username}/${password}/${contentId}.${finalExtension}`;
+      streamingUrl = `${base}/live/${username}/${password}/${contentId}.${finalExtension}`;
       break;
     default:
       throw new Error(`Unsupported content type: ${contentType}`);

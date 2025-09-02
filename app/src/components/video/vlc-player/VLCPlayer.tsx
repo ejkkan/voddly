@@ -29,6 +29,7 @@ export function VLCPlayer({
   theme,
   autoPlay = true,
   startTime = 0,
+  constrainToContainer,
 }: VLCPlayerProps) {
   const vlcRef = useRef<VlcPlayerViewRef>(null);
   const {
@@ -239,6 +240,7 @@ export function VLCPlayer({
         onBack={onBack}
         showControls={showControls}
         setShowControls={setShowControls}
+        constrainToContainer={constrainToContainer}
       />
     </ThemeProvider>
   );

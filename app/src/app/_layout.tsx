@@ -1,6 +1,9 @@
 // Import  global CSS file
 import '../../global.css';
 
+// Import font error handler to suppress FontFaceObserver timeouts
+import '@/utils/fontErrorHandler';
+
 // Re-enable BottomSheet provider for components like Select/Modal
 // @ts-ignore
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';

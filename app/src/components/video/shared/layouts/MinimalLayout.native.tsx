@@ -13,6 +13,7 @@ export function MinimalLayout({
   controls,
   showControls,
   setShowControls,
+  constrainToContainer = true,
 }: PlayerLayoutProps) {
   const theme = useTheme();
 
@@ -74,6 +75,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 2,
+    zIndex: 1000,
   },
   centerButton: {
     position: 'absolute',

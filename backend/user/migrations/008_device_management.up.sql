@@ -72,10 +72,10 @@ BEGIN
     
     -- Determine device limit based on tier
     max_devices := CASE tier
-        WHEN 'basic' THEN 2
-        WHEN 'standard' THEN 4
-        WHEN 'premium' THEN 6
-        ELSE 2
+        WHEN 'basic' THEN 3
+        WHEN 'standard' THEN 5
+        WHEN 'premium' THEN 10
+        ELSE 3
     END;
     
     -- Count active devices
