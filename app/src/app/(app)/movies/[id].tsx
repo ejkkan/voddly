@@ -7,6 +7,7 @@ import { ParallaxGallery } from '@/components/media/ParallaxGallery';
 import { PlaylistModal } from '@/components/media/PlaylistModal';
 import { RatingsDisplay } from '@/components/media/RatingsDisplay';
 import { VideoGallery } from '@/components/media/VideoGallery';
+import { ContentDebugButton } from '@/components/debug/ContentDebugButton';
 import {
   Image,
   Pressable,
@@ -369,6 +370,13 @@ export default function MovieDetails() {
                   </Text>
                   <Text className="text-black text-lg font-semibold">Play</Text>
                 </Pressable>
+                {item && (
+                  <ContentDebugButton 
+                    item={item}
+                    contentType="movie"
+                    metadata={displayData}
+                  />
+                )}
 
                 <Pressable
                   className="h-12 w-12 items-center justify-center rounded-full bg-white/20 backdrop-blur-xl border border-white/30"

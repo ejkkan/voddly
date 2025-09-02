@@ -360,3 +360,9 @@ export function useSimpleVirtualizedEpg(
     },
   };
 }
+
+// Function to clear EPG fetching tracker - useful for cache invalidation
+export function clearEpgFetchingTracker() {
+  // This will be handled by the React Query invalidation
+  // but we can add specific clearing logic if needed
+}

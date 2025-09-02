@@ -11,6 +11,15 @@ type ContentType = 'live' | 'movie' | 'series';
 // Cache for XtreamClient instances to avoid repeated decryption
 const clientCache = new Map<string, XtreamClient>();
 
+// Function to clear client cache for a specific source
+export function clearXtreamClientCache(sourceId?: string) {
+  if (sourceId) {
+    clientCache.delete(sourceId);
+  } else {
+    clientCache.clear();
+  }
+}
+
 export function useXtreamClient() {
   const { getCredentials } = useSourceCredentials();
 
@@ -37,6 +46,7 @@ export function useXtreamClient() {
       clientCache.set(sourceId, client);
       return client;
     },
+    clearCache: clearXtreamClientCache,
   } as const;
 }
 

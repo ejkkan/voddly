@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { Image, Pressable, ScrollView, Text, View } from '@/components/ui';
 
 import { TIMELINE_HEIGHT } from '../constants';
+import { DebugButton } from '../DebugButton';
 import { type ModernLayoutProps } from '../types';
 
 // Memoized Program Item component for better performance
@@ -15,6 +16,8 @@ const ProgramItem = React.memo(
     onProgramClick,
     calculateSidebarWidth,
     formatTime,
+    isFirstProgram,
+    allPrograms,
   }: {
     program: any;
     isAiring: boolean;
@@ -22,6 +25,8 @@ const ProgramItem = React.memo(
     onProgramClick?: (program: any) => void;
     calculateSidebarWidth: number;
     formatTime: (date: Date) => string;
+    isFirstProgram?: boolean;
+    allPrograms?: any[];
   }) => {
     const handleBackgroundPlay = React.useCallback(() => {
       console.log('Playing in background:', program.title);
@@ -30,11 +35,11 @@ const ProgramItem = React.memo(
       }
     }, [program, onProgramClick]);
 
-    const handleFullPlayer = React.useCallback(() => {
+    const handleNavigateToPlayer = React.useCallback(() => {
       console.log('Navigate to player:', program.title);
       // Navigate to full player
       if (typeof window !== 'undefined' && program.channelUuid) {
-        window.location.href = `/(app)/tv/${encodeURIComponent(program.channelUuid)}`;
+        window.location.href = `/player?channelId=${encodeURIComponent(program.channelUuid)}`;
       }
     }, [program]);
 
@@ -54,60 +59,82 @@ const ProgramItem = React.memo(
         }`}
       >
         {/* Content */}
-        <View className="flex-1 p-4">
-          {/* Title and time on same line */}
-          <View className="flex-row items-center justify-between">
+        <View className="relative flex-1 p-6">
+          {/* Title and Time on same line */}
+          <View
+            className={`flex-row items-baseline gap-3 ${isFirstProgram ? 'justify-start' : 'justify-start'}`}
+          >
             <Text
-              className={`flex-1 text-sm font-semibold ${
-                isAiring ? 'text-blue-100' : 'text-white'
+              className={`flex-1 text-lg font-semibold ${
+                isAiring ? 'text-white' : 'text-white/90'
               }`}
+              style={{ textAlign: isFirstProgram ? 'left' : 'left' }}
               numberOfLines={1}
             >
               {program.title}
             </Text>
             <Text
-              className={`ml-2 text-xs font-medium ${
-                isAiring ? 'text-blue-200' : 'text-white/60'
+              className={`text-sm ${
+                isAiring ? 'text-white/70' : 'text-white/60'
               }`}
+              style={{ textAlign: isFirstProgram ? 'left' : 'left' }}
             >
-              {formatTime(new Date(program.since))} -{' '}
-              {formatTime(new Date(program.till))}
+              {formatTime(new Date(program.since))}
             </Text>
           </View>
 
-          {/* Description underneath - can be hidden on overflow */}
-          {program.description && (
+          {/* Description below - extends full height, text renders behind buttons */}
+          {program.description ? (
             <Text
-              className={`mt-1 text-xs ${
-                isAiring ? 'text-blue-200/80' : 'text-white/80'
+              className={`mt-2 text-sm leading-relaxed ${
+                isAiring ? 'text-white/70' : 'text-white/60'
               }`}
-              numberOfLines={2}
+              style={{
+                paddingBottom: isAiring ? 72 : 0,
+                textAlign: isFirstProgram ? 'left' : 'left',
+              }}
             >
               {program.description}
             </Text>
-          )}
+          ) : null}
 
-          {/* Action buttons for currently airing programs */}
+          {/* Circular action buttons at bottom-left */}
           {isAiring && (
-            <View className="mt-2 flex-row gap-2">
+            <View
+              className="absolute bottom-6 left-6 flex-row gap-3"
+              style={{ zIndex: 10 }}
+            >
               <Pressable
                 onPress={handleBackgroundPlay}
-                className="rounded-md bg-blue-500/20 px-3 py-1.5 hover:bg-blue-500/30"
-                style={{ cursor: 'pointer' as any }}
+                className="size-12 items-center justify-center rounded-full bg-white/40 backdrop-blur-2xl hover:bg-white/50"
+                style={{
+                  cursor: 'pointer' as any,
+                  boxShadow:
+                    '0 8px 32px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                }}
               >
-                <Text className="text-xs font-medium text-blue-100">
-                  ▶ Background
-                </Text>
+                <Text className="text-lg text-white">⛶</Text>
               </Pressable>
               <Pressable
-                onPress={handleFullPlayer}
-                className="rounded-md bg-white/10 px-3 py-1.5 hover:bg-white/20"
-                style={{ cursor: 'pointer' as any }}
+                onPress={handleNavigateToPlayer}
+                className="size-12 items-center justify-center rounded-full bg-white/40 backdrop-blur-2xl hover:bg-white/50"
+                style={{
+                  cursor: 'pointer' as any,
+                  boxShadow:
+                    '0 8px 32px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                }}
               >
-                <Text className="text-xs font-medium text-white">
-                  ↗ Full Player
-                </Text>
+                <Text className="text-lg text-white">▶</Text>
               </Pressable>
+              {allPrograms && (
+                <DebugButton
+                  program={program}
+                  allPrograms={allPrograms}
+                  size={3}
+                />
+              )}
             </View>
           )}
         </View>
@@ -225,27 +252,30 @@ export function ModernLayout({
   }, [isDragging, dragStart, scrollOffset]);
 
   // Default channel renderer for modern variant
-  const defaultRenderChannel = useCallback(({ channel }: { channel: any }) => (
-    <View
-      style={{ height: channel.position.height }}
-      className="flex-row items-center justify-center bg-black/20 px-2 backdrop-blur-sm"
-    >
-      {channel.logo?.startsWith('https') ? (
-        <Image
-          source={{ uri: channel.logo }}
-          className="h-full flex-1"
-          contentFit="contain"
-        />
-      ) : (
-        <Text
-          className="flex-1 text-center text-xs font-medium text-white"
-          numberOfLines={3}
-        >
-          {channel.title}
-        </Text>
-      )}
-    </View>
-  ), []);
+  const defaultRenderChannel = useCallback(
+    ({ channel }: { channel: any }) => (
+      <View
+        style={{ height: channel.position.height }}
+        className="flex-row items-center justify-center bg-black/20 px-2 backdrop-blur-sm"
+      >
+        {channel.logo?.startsWith('https') ? (
+          <Image
+            source={{ uri: channel.logo }}
+            className="h-full flex-1"
+            contentFit="contain"
+          />
+        ) : (
+          <Text
+            className="flex-1 text-center text-xs font-medium text-white"
+            numberOfLines={3}
+          >
+            {channel.title}
+          </Text>
+        )}
+      </View>
+    ),
+    []
+  );
 
   return (
     <View
@@ -293,7 +323,7 @@ export function ModernLayout({
                   className=""
                 >
                   <View className="h-full items-center justify-center">
-                    <Text className="text-sm font-medium text-white">
+                    <Text className="text-lg font-medium text-white">
                       {formatTime(item.time)}
                     </Text>
                   </View>
@@ -402,9 +432,10 @@ export function ModernLayout({
                     </View>
 
                     {/* Programs for this channel */}
-                    {channelPrograms.map((program) => {
+                    {channelPrograms.map((program, programIndex) => {
                       const progress = calculateProgress(program);
                       const isAiring = progress > 0 && progress < 100;
+                      const isFirstProgram = programIndex === 0;
 
                       // Calculate dynamic opacity based on position and time
                       const timeBasedOpacity = Math.max(
@@ -433,6 +464,8 @@ export function ModernLayout({
                           onProgramClick={onProgramClick}
                           calculateSidebarWidth={calculateSidebarWidth}
                           formatTime={formatTime}
+                          isFirstProgram={isFirstProgram}
+                          allPrograms={programs}
                         />
                       );
                     })}

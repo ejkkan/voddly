@@ -22,6 +22,7 @@ import { PassphraseProvider } from '@/components/passphrase/PassphraseProvider';
 // Removed APIProvider – old API layer not used anymore
 import { loadSelectedTheme } from '@/lib';
 import { AppToasterHost } from '@/lib';
+import { CacheInvalidationProvider } from '@/lib/cache-invalidation';
 import { DbProvider } from '@/lib/db/provider';
 import { queryErrorHandler } from '@/lib/device-error-handler';
 import { useThemeConfig } from '@/lib/use-theme-config';
@@ -147,14 +148,16 @@ function Providers({ children }: { children: React.ReactNode }) {
         <KeyboardProvider>
           <ThemeProvider value={theme}>
             <QueryClientProvider client={queryClient}>
-              <DbProvider>
-                <PassphraseProvider>
-                  <BottomSheetModalProvider>
-                    {children}
-                    <AppToasterHost />
-                  </BottomSheetModalProvider>
-                </PassphraseProvider>
-              </DbProvider>
+              <CacheInvalidationProvider>
+                <DbProvider>
+                  <PassphraseProvider>
+                    <BottomSheetModalProvider>
+                      {children}
+                      <AppToasterHost />
+                    </BottomSheetModalProvider>
+                  </PassphraseProvider>
+                </DbProvider>
+              </CacheInvalidationProvider>
               <FlashMessage position="top" />
             </QueryClientProvider>
           </ThemeProvider>

@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 
 import { apiClient } from '@/lib/api-client';
+import { useCacheInvalidation } from '@/lib/cache-invalidation';
 import { deriveLightweightKeyChunked } from '@/lib/crypto-chunked';
 import { aesGcmDecrypt, decodeBase64 } from '@/lib/crypto-utils';
 import { passphraseCache } from '@/lib/passphrase-cache';
@@ -63,6 +64,7 @@ export function EnhancedPassphraseProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const { invalidateAfterPassphrase } = useCacheInvalidation();
   const [state, setState] = useState<DecryptionState>({
     visible: false,
     title: 'Decrypt Source',
@@ -241,6 +243,9 @@ export function EnhancedPassphraseProvider({
 
       // Resolve with the passphrase
       resolve(passphrase);
+
+      // Invalidate caches to trigger refetch of content
+      invalidateAfterPassphrase(state.accountId!);
 
       // Close modal after success animation
       setTimeout(() => {

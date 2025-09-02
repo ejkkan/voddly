@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 
 import { usePassphraseWithProgress } from '@/hooks/usePassphraseWithProgress';
+import { useCacheInvalidation } from '@/lib/cache-invalidation';
 import { passphraseCache } from '@/lib/passphrase-cache';
 import { registerPassphraseResolver } from '@/lib/passphrase-ui';
 
@@ -44,6 +45,7 @@ export function PassphraseProvider({
 }) {
   const [state, setState] = useState<PromptState>({ visible: false });
   const { validatePassphraseWithProgress } = usePassphraseWithProgress();
+  const { invalidateAfterPassphrase } = useCacheInvalidation();
 
   const requestPassphrase = useCallback(
     ({
@@ -121,10 +123,13 @@ export function PassphraseProvider({
       // Passphrase is valid and cached
       state.resolve(passphrase);
 
+      // Invalidate caches to trigger refetch of content
+      invalidateAfterPassphrase(state.accountId!);
+
       // Close modal after success
       setState({ visible: false });
     },
-    [state, validatePassphraseWithProgress]
+    [state, validatePassphraseWithProgress, invalidateAfterPassphrase]
   );
 
   const handleCancel = useCallback(() => {

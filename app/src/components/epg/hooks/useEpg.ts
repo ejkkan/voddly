@@ -131,7 +131,17 @@ export function useEpg({
         if (end < rangeStart || start > rangeEnd) return null;
 
         // Calculate position - snap to timeline grid
-        const left = Math.round(((start - rangeStart) / (1000 * 60 * 60)) * hourWidth);
+        let left = Math.round(((start - rangeStart) / (1000 * 60 * 60)) * hourWidth);
+        
+        // For the first program in each channel, align to content start (left: 0)
+        const channelPrograms = epg.filter(p => p.channelUuid === program.channelUuid);
+        const isFirstProgram = channelPrograms
+          .sort((a, b) => new Date(a.since).getTime() - new Date(b.since).getTime())[0]?.id === program.id;
+        
+        if (isFirstProgram && left < 0) {
+          left = 0;
+        }
+        
         const duration = (end - start) / (1000 * 60 * 60);
         const width = Math.max(Math.round(duration * hourWidth), 50); // min width
 
