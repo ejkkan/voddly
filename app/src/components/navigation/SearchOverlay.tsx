@@ -22,12 +22,7 @@ type BasicItem = {
 
 export function SearchOverlay() {
   const { searchQuery, isSearchOpen, closeSearch } = useSearch();
-  console.log(
-    'SearchOverlay - isSearchOpen:',
-    isSearchOpen,
-    'searchQuery:',
-    searchQuery
-  );
+
   const router = useRouter();
   const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
   const { isInAnyPlaylist } = usePlaylistManager();
