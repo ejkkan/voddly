@@ -4,8 +4,8 @@ import { Platform } from 'react-native';
 import { MMKV } from 'react-native-mmkv';
 
 import { apiClient } from '@/lib/api-client';
+import { getDeviceId, getDeviceInfo } from '@/lib/device-id';
 import {
-  getDeviceId,
   getDeviceType,
   getOptimalIterations,
 } from '@/lib/crypto-unified';
@@ -47,32 +47,8 @@ export class DeviceManager {
    * Get device info for the current device
    */
   async getDeviceInfo(): Promise<DeviceInfo> {
-    const deviceId = await getDeviceId();
-    const deviceType = getDeviceType();
-
-    // Get device model/name if available
-    let deviceName: string | undefined;
-    let deviceModel: string | undefined;
-
-    try {
-      if (Platform.OS !== 'web') {
-        const Device = await import('expo-device');
-        deviceModel = Device.modelName || undefined;
-        deviceName = Device.deviceName || `${Device.osName} Device`;
-      } else {
-        deviceName = 'Web Browser';
-        deviceModel = navigator.userAgent.substring(0, 100);
-      }
-    } catch (error) {
-      console.log('[DeviceManager] Could not get device info:', error);
-    }
-
-    return {
-      deviceId,
-      deviceType,
-      deviceName,
-      deviceModel,
-    };
+    const deviceInfo = getDeviceInfo();
+    return deviceInfo;
   }
 
   /**
@@ -146,7 +122,7 @@ export class DeviceManager {
     }
 
     try {
-      const deviceInfo = await this.getDeviceInfo();
+      const deviceInfo = getDeviceInfo();
 
       // Fetch from server
       const response = await apiClient.user.getDeviceKey({

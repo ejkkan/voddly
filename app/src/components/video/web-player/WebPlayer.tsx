@@ -1477,7 +1477,10 @@ export function WebPlayer(props: WebPlayerProps) {
       )}
 
       {showControls && (
-        <View className="absolute left-0 right-0 bottom-0 p-3">
+        <View
+          className="absolute left-0 right-0 bottom-0 p-3"
+          style={{ zIndex: 1000 }}
+        >
           <ControlsBar
             isPlaying={isPlaying}
             isLoading={isLoading}

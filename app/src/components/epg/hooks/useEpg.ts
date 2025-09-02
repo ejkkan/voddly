@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 export interface Channel {
   uuid: string;
@@ -32,7 +38,7 @@ export interface EpgConfig {
   isLine?: boolean;
   isBaseTimeFormat?: boolean;
   theme?: any;
-  variant?: 'separate' | 'unified';
+  variant?: 'unified' | 'modern-grid';
 }
 
 export function useEpg({
@@ -42,25 +48,42 @@ export function useEpg({
   endDate,
   width = 1200,
   height = 600,
-  sidebarWidth = 200,
-  itemHeight = 80,
+  sidebarWidth,
+  itemHeight = 100,
   dayWidth = 7200, // pixels per day
   isSidebar = true,
   isTimeline = true,
   isLine = true,
   isBaseTimeFormat = false,
-  variant = 'separate',
+  variant = 'unified',
 }: EpgConfig) {
+  // Calculate dynamic sidebar width based on longest channel name
+  const calculatedSidebarWidth = React.useMemo(() => {
+    if (sidebarWidth) return sidebarWidth; // Use provided width if specified
+    if (!channels || channels.length === 0) return 250;
+
+    // Find the longest channel title
+    const longestTitle = channels.reduce((longest, channel) => {
+      const title = channel.title || '';
+      return title.length > longest.length ? title : longest;
+    }, '');
+
+    // Estimate width: ~8px per character + padding + logo space
+    const estimatedWidth = Math.max(
+      250, // MIN_SIDEBAR_WIDTH
+      Math.min(
+        500, // MAX_SIDEBAR_WIDTH
+        longestTitle.length * 8 + 100 // 100px for padding, logo, and margins
+      )
+    );
+
+    return estimatedWidth;
+  }, [channels, sidebarWidth]);
+
   const [scrollX, setScrollX] = useState(0);
   const [scrollY, setScrollY] = useState(0);
   const scrollRefs = useRef<{ [key: string]: any }>({});
-  console.log('channels', channels);
-  console.log('epg', epg);
-  console.log('startDate', startDate);
-  console.log('endDate', endDate);
-  console.log('width', width);
-  console.log('height', height);
-  console.log('sidebarWidth', sidebarWidth);
+
   // Calculate time range - start from 1 hour ago to keep "now" visible
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -107,14 +130,15 @@ export function useEpg({
         // Skip programs outside the visible range
         if (end < rangeStart || start > rangeEnd) return null;
 
-        // Calculate position
-        const left = ((start - rangeStart) / (1000 * 60 * 60)) * hourWidth;
+        // Calculate position - snap to timeline grid
+        const left = Math.round(((start - rangeStart) / (1000 * 60 * 60)) * hourWidth);
         const duration = (end - start) / (1000 * 60 * 60);
-        const width = Math.max(duration * hourWidth, 50); // min width
+        const width = Math.max(Math.round(duration * hourWidth), 50); // min width
 
         return {
           ...program,
           position: {
+            // For unified layout: use absolute positioning across all channels
             top: channelIndex * itemHeight,
             left,
             width,
@@ -125,7 +149,7 @@ export function useEpg({
         };
       })
       .filter(Boolean);
-  }, [epg, channels, dateRange, hourWidth, itemHeight]);
+  }, [epg, channels, dateRange, hourWidth, itemHeight, variant]);
 
   // Generate timeline
   const timeline = useMemo(() => {
@@ -159,22 +183,22 @@ export function useEpg({
   // Scroll handlers - position "now" slightly left of center for better visibility
   const onScrollToNow = useCallback(() => {
     // Position "now" at about 1/3 of the viewport width for better visibility
-    const scrollTo = currentTimePosition - (width - sidebarWidth) / 3;
+    const scrollTo = currentTimePosition - (width - calculatedSidebarWidth) / 3;
     setScrollX(Math.max(0, scrollTo));
 
-    // Handle unified variant
+    // Handle different variants
     if (variant === 'unified' && scrollRefs.current.main) {
       scrollRefs.current.main.scrollTo({
         x: Math.max(0, scrollTo),
         animated: true,
       });
-    } else if (scrollRefs.current.horizontal) {
-      scrollRefs.current.horizontal.scrollTo({
+    } else if (variant === 'modern-grid' && scrollRefs.current.horizontalMain) {
+      scrollRefs.current.horizontalMain.scrollTo({
         x: Math.max(0, scrollTo),
         animated: true,
       });
     }
-  }, [currentTimePosition, width, sidebarWidth, variant]);
+  }, [currentTimePosition, width, calculatedSidebarWidth, variant]);
 
   // Auto-scroll to current time on mount
   useEffect(() => {
@@ -182,32 +206,39 @@ export function useEpg({
       onScrollToNow();
     }, 100);
     return () => clearTimeout(timer);
-  }, []);
+  }, [onScrollToNow]);
 
   const onScrollLeft = useCallback(() => {
     const newScroll = Math.max(0, scrollX - hourWidth * 3);
     setScrollX(newScroll);
 
-    // Handle unified variant
+    // Handle different variants
     if (variant === 'unified' && scrollRefs.current.main) {
       scrollRefs.current.main.scrollTo({ x: newScroll, animated: true });
-    } else if (scrollRefs.current.horizontal) {
-      scrollRefs.current.horizontal.scrollTo({ x: newScroll, animated: true });
+    } else if (variant === 'modern-grid' && scrollRefs.current.horizontalMain) {
+      scrollRefs.current.horizontalMain.scrollTo({
+        x: newScroll,
+        animated: true,
+      });
     }
   }, [scrollX, hourWidth, variant]);
 
   const onScrollRight = useCallback(() => {
-    const maxScroll = timeline.length * hourWidth - (width - sidebarWidth);
+    const maxScroll =
+      timeline.length * hourWidth - (width - calculatedSidebarWidth);
     const newScroll = Math.min(maxScroll, scrollX + hourWidth * 3);
     setScrollX(newScroll);
 
-    // Handle unified variant
+    // Handle different variants
     if (variant === 'unified' && scrollRefs.current.main) {
       scrollRefs.current.main.scrollTo({ x: newScroll, animated: true });
-    } else if (scrollRefs.current.horizontal) {
-      scrollRefs.current.horizontal.scrollTo({ x: newScroll, animated: true });
+    } else if (variant === 'modern-grid' && scrollRefs.current.horizontalMain) {
+      scrollRefs.current.horizontalMain.scrollTo({
+        x: newScroll,
+        animated: true,
+      });
     }
-  }, [scrollX, hourWidth, timeline, width, sidebarWidth, variant]);
+  }, [scrollX, hourWidth, timeline, width, calculatedSidebarWidth, variant]);
 
   const onScrollTop = useCallback(() => {
     setScrollY(0);
@@ -232,7 +263,7 @@ export function useEpg({
     () => ({
       width,
       height,
-      sidebarWidth,
+      sidebarWidth: calculatedSidebarWidth,
       itemHeight,
       hourWidth,
       scrollX,
@@ -244,7 +275,7 @@ export function useEpg({
     [
       width,
       height,
-      sidebarWidth,
+      calculatedSidebarWidth,
       itemHeight,
       hourWidth,
       scrollX,

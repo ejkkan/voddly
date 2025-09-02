@@ -220,6 +220,9 @@ export function useSources() {
         toast.dismiss(loadingToastIdRef.current);
       }
 
+      // Invalidate trends caches since new content may be available
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', 'trends'] });
+
       // Show success notification
       const source = sourcesQuery.data?.sources?.find(
         (s) => s.id === data.sourceId

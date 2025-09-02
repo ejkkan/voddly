@@ -267,7 +267,7 @@ export function useSimpleVirtualizedEpg(
             result.push({
               channelUuid: channel.id,
               id: `${channel.id}-filler-start`,
-              title: 'No information',
+              title: '',
               description: '',
               since: baseTime.toISOString(),
               till: sortedPrograms[0].start,
@@ -294,7 +294,7 @@ export function useSimpleVirtualizedEpg(
               result.push({
                 channelUuid: channel.id,
                 id: `${channel.id}-filler-${index}`,
-                title: 'No information',
+                title: '',
                 description: '',
                 since: program.end,
                 till: sortedPrograms[index + 1].start,
@@ -310,7 +310,7 @@ export function useSimpleVirtualizedEpg(
           result.push({
             channelUuid: channel.id,
             id: `${channel.id}-filler-end`,
-            title: 'No information',
+            title: '',
             description: '',
             since: lastProgram.end,
             till: endTime.toISOString(),
@@ -325,7 +325,7 @@ export function useSimpleVirtualizedEpg(
         result.push({
           channelUuid: channel.id,
           id: `${channel.id}-placeholder-full`,
-          title: 'No information',
+          title: '',
           description: '',
           since: baseTime.toISOString(),
           till: endTime.toISOString(),

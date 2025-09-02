@@ -17,6 +17,7 @@ export function NetflixLayout({
   onBack,
   showControls,
   setShowControls,
+  constrainToContainer = true,
 }: PlayerLayoutProps) {
   const theme = useTheme();
 
@@ -30,22 +31,23 @@ export function NetflixLayout({
         {videoElement}
       </Pressable>
 
-      {/* Top Bar with gradient */}
+      {/* Bottom Controls and Info with gradient - Fixed to viewport */}
       {showControls && (
         <LinearGradient
-          colors={['rgba(0,0,0,0.7)', 'transparent']}
-          style={[styles.topGradient, { padding: theme.dimensions.padding }]}
+          colors={['transparent', 'rgba(0,0,0,0.8)']}
+          style={[
+            styles.bottomGradient,
+            {
+              padding: theme.dimensions.padding,
+              zIndex: 1000,
+            },
+          ]}
         >
-          <TopBar title={title} showBack={showBack} onBack={onBack} />
-        </LinearGradient>
-      )}
-
-      {/* Bottom Controls with gradient */}
-      {showControls && (
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)']}
-          style={[styles.bottomGradient, { padding: theme.dimensions.padding }]}
-        >
+          {/* Video Info at bottom */}
+          <View style={{ marginBottom: theme.dimensions.spacing }}>
+            <TopBar title={title} showBack={showBack} onBack={onBack} />
+          </View>
+          {/* Controls below the info */}
           <ControlsBar playerState={playerState} controls={controls} />
         </LinearGradient>
       )}
@@ -63,12 +65,6 @@ const styles = StyleSheet.create({
   },
   videoContainer: {
     flex: 1,
-  },
-  topGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
   },
   bottomGradient: {
     position: 'absolute',

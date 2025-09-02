@@ -22,7 +22,7 @@ interface EpgProps {
 export function Epg({ width, height, children }: EpgProps) {
   return (
     <View
-      className="relative overflow-hidden bg-white dark:bg-black"
+      className="relative overflow-hidden bg-transparent" //bg-white dark:bg-black
       style={{ width, height }}
     >
       {children}

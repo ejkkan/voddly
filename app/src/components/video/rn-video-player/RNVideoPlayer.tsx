@@ -33,6 +33,7 @@ export function RNVideoPlayer({
   onPlaybackStart,
   onProgress,
   onPlaybackEnd,
+  constrainToContainer,
 }: RNVideoPlayerProps) {
   const videoRef = useRef<Video>(null);
   const {
@@ -278,6 +279,7 @@ export function RNVideoPlayer({
         onBack={onBack}
         showControls={showControls}
         setShowControls={setShowControls}
+        constrainToContainer={constrainToContainer}
       />
     </ThemeProvider>
   );

@@ -30,6 +30,7 @@ export function WebPlayer({
   startTime = 0,
   onPressSubtitles,
   hasSubtitles = false,
+  constrainToContainer,
 }: WebPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const {
@@ -275,6 +276,7 @@ export function WebPlayer({
         onBack={onBack}
         showControls={showControls}
         setShowControls={setShowControls}
+        constrainToContainer={constrainToContainer}
       />
     </ThemeProvider>
   );
