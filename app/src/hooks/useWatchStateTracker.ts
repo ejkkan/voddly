@@ -42,7 +42,9 @@ export function useWatchStateTracker(params: UseWatchStateTrackerParams) {
       return apiClient.user.getContentWatchState(profileId, contentId);
     },
     enabled,
-    staleTime: 15_000,
+    staleTime: 60_000, // Increase stale time to reduce API calls during navigation
+    gcTime: 300_000, // Keep in cache for 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch when returning to player
   });
 
   const initialStartTime = useMemo(() => {

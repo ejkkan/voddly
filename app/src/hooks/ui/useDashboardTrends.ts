@@ -15,10 +15,9 @@ async function getContentItemData(
     const db = await openDb();
     const stringId = String(id);
 
-    let contentItem;
-
-    // First try to find by TMDB ID (for consistency with dashboard)
-    contentItem = await db.getFirstAsync<{
+    // Try to find by ID first (most common case), then by TMDB ID
+    // Use a single query with OR condition for better performance
+    const contentItem = await db.getFirstAsync<{
       id: string;
       title: string;
       description: string | null;
@@ -46,44 +45,10 @@ async function getContentItemData(
         ci.source_id,
         ci.original_payload_json
       FROM content_items ci
-      WHERE ci.tmdb_id = ? AND ci.type = ?${accountId ? ' AND ci.account_id = ?' : ''}`,
-      accountId ? [stringId, type, accountId] : [stringId, type]
+      WHERE (ci.id = ? OR ci.tmdb_id = ?) AND ci.type = ?${accountId ? ' AND ci.account_id = ?' : ''}
+      LIMIT 1`,
+      accountId ? [stringId, stringId, type, accountId] : [stringId, stringId, type]
     );
-
-    // If not found by TMDB ID, try by local database ID (fallback)
-    if (!contentItem) {
-      contentItem = await db.getFirstAsync<{
-        id: string;
-        title: string;
-        description: string | null;
-        poster_url: string | null;
-        backdrop_url: string | null;
-        release_date: string | null;
-        rating: number | null;
-        type: string;
-        tmdb_id: string | null;
-        source_item_id: string;
-        source_id: string;
-        original_payload_json: string;
-      }>(
-        `SELECT
-          ci.id,
-          ci.title,
-          ci.description,
-          ci.poster_url,
-          ci.backdrop_url,
-          ci.release_date,
-          ci.rating,
-          ci.type,
-          ci.tmdb_id,
-          ci.source_item_id,
-          ci.source_id,
-          ci.original_payload_json
-        FROM content_items ci
-        WHERE ci.id = ? AND ci.type = ?${accountId ? ' AND ci.account_id = ?' : ''}`,
-        accountId ? [stringId, type, accountId] : [stringId, type]
-      );
-    }
 
     if (!contentItem) return null;
 
@@ -250,26 +215,36 @@ async function getBatchContentData(
 
   try {
     const db = await openDb();
-    const placeholders = tmdbIds.map(() => '?').join(',');
+    
+    // Limit batch size to prevent SQLite query length issues
+    const BATCH_SIZE = 100;
+    const results: any[] = [];
+    
+    for (let i = 0; i < tmdbIds.length; i += BATCH_SIZE) {
+      const batch = tmdbIds.slice(i, i + BATCH_SIZE);
+      const placeholders = batch.map(() => '?').join(',');
 
-    const query = `
-      SELECT
-        ci.id,
-        ci.title,
-        ci.poster_url,
-        ci.tmdb_id,
-        ci.type
-      FROM content_items ci
-      WHERE ci.tmdb_id IN (${placeholders}) AND ci.type = ?
-    `;
+      const query = `
+        SELECT
+          ci.id,
+          ci.title,
+          ci.poster_url,
+          ci.tmdb_id,
+          ci.type
+        FROM content_items ci
+        WHERE ci.tmdb_id IN (${placeholders}) AND ci.type = ?
+      `;
 
-    const results = await db.getAllAsync<{
-      id: string;
-      title: string;
-      poster_url: string | null;
-      tmdb_id: string;
-      type: string;
-    }>(query, [...tmdbIds, type]);
+      const batchResults = await db.getAllAsync<{
+        id: string;
+        title: string;
+        poster_url: string | null;
+        tmdb_id: string;
+        type: string;
+      }>(query, [...batch, type]);
+      
+      results.push(...batchResults);
+    }
 
     // Create a map for O(1) lookups
     const dataMap = new Map<string, any>();
@@ -297,6 +272,18 @@ async function enhanceTrendsResponse(
   const tmdbIds = response.items
     .filter((item) => item.tmdb_id)
     .map((item) => String(item.tmdb_id));
+
+  // Skip enhancement if no TMDB IDs to avoid unnecessary DB queries
+  if (tmdbIds.length === 0) {
+    return {
+      ...response,
+      items: response.items.map(item => ({
+        ...item,
+        poster_path: item.poster_path ?? null,
+        local_id: null,
+      })),
+    };
+  }
 
   // Single batch query for all items
   const localDataMap = await getBatchContentData(tmdbIds, localType);
@@ -333,10 +320,10 @@ async function enhanceTrendsResponse(
  * // Only fetch trends when on dashboard route
  * const { movies, series, isLoading } = useDashboardTrends(useIsDashboardRoute());
  *
- * @param enabled - Whether the trends queries should be enabled (default: true)
+ * @param enabled - Whether the trends queries should be enabled (default: false for performance)
  * @returns Object containing movie trends, series trends, loading state, and errors
  */
-export function useDashboardTrends(enabled = true): UseDashboardTrendsResult {
+export function useDashboardTrends(enabled = false): UseDashboardTrendsResult {
   // Movie feeds
   const movieQueries = useQueries({
     queries: DASHBOARD_TREND_FEEDS.map((feed) => ({

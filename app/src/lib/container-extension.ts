@@ -2,6 +2,30 @@
 
 import { openDb } from '@/lib/db';
 
+// Simple in-memory cache to avoid repeated database queries during playback
+const containerInfoCache = new Map<string, ContainerInfo>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const cacheTimestamps = new Map<string, number>();
+
+function getCacheKey(type: string, sourceId: string, sourceItemId: string | number): string {
+  return `${type}:${sourceId}:${sourceItemId}`;
+}
+
+function getCachedInfo(cacheKey: string): ContainerInfo | null {
+  const timestamp = cacheTimestamps.get(cacheKey);
+  if (!timestamp || Date.now() - timestamp > CACHE_TTL) {
+    containerInfoCache.delete(cacheKey);
+    cacheTimestamps.delete(cacheKey);
+    return null;
+  }
+  return containerInfoCache.get(cacheKey) || null;
+}
+
+function setCachedInfo(cacheKey: string, info: ContainerInfo): void {
+  containerInfoCache.set(cacheKey, info);
+  cacheTimestamps.set(cacheKey, Date.now());
+}
+
 export type ContainerInfo = {
   containerExtension?: string;
   videoCodec?: string;
@@ -16,9 +40,18 @@ export async function getContainerInfoForMovie(
   sourceId: string,
   sourceItemId: string | number
 ): Promise<ContainerInfo> {
+  const cacheKey = getCacheKey('movie', sourceId, String(sourceItemId));
+  
+  // Check cache first
+  const cached = getCachedInfo(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   try {
     const db = await openDb();
-    const rows = await db.getAllAsync<{
+    // Use getFirstAsync instead of getAllAsync for better performance
+    const result = await db.getFirstAsync<{
       container_extension: string | null;
       video_codec: string | null;
       audio_codec: string | null;
@@ -32,12 +65,16 @@ export async function getContainerInfoForMovie(
        LIMIT 1`,
       { $source_id: String(sourceId), $source_item_id: String(sourceItemId) }
     );
-    const first = rows && rows[0];
-    return {
-      containerExtension: first?.container_extension || undefined,
-      videoCodec: first?.video_codec || undefined,
-      audioCodec: first?.audio_codec || undefined,
+    
+    const info = {
+      containerExtension: result?.container_extension || undefined,
+      videoCodec: result?.video_codec || undefined,
+      audioCodec: result?.audio_codec || undefined,
     };
+    
+    // Cache the result
+    setCachedInfo(cacheKey, info);
+    return info;
   } catch {
     return {};
   }
@@ -51,6 +88,14 @@ export async function getContainerInfoForSeries(
   sourceId: string,
   sourceItemId: string | number
 ): Promise<ContainerInfo> {
+  const cacheKey = getCacheKey('series', sourceId, String(sourceItemId));
+  
+  // Check cache first
+  const cached = getCachedInfo(cacheKey);
+  if (cached) {
+    return cached;
+  }
+  
   try {
     const db = await openDb();
     // Case 1: The provided id may actually be an EPISODE stream_id. Try direct lookup first.
@@ -64,10 +109,12 @@ export async function getContainerInfoForSeries(
       { $stream_id: String(sourceItemId) }
     );
     if (directEp?.container_extension) {
-      return {
+      const info = {
         containerExtension: directEp.container_extension || undefined,
         playbackContentId: String(sourceItemId),
       };
+      setCachedInfo(cacheKey, info);
+      return info;
     }
     // Look up the series' internal item id
     const seriesRow = await db.getFirstAsync<{ id: string }>(
@@ -89,10 +136,15 @@ export async function getContainerInfoForSeries(
        LIMIT 1`,
       { $series_item_id: String(seriesRow.id) }
     );
-    return {
+    
+    const info = {
       containerExtension: ep?.container_extension || undefined,
       playbackContentId: ep?.stream_id || undefined,
     };
+    
+    // Cache the result
+    setCachedInfo(cacheKey, info);
+    return info;
   } catch {
     return {};
   }
