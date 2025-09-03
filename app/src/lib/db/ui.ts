@@ -78,61 +78,63 @@ export async function fetchCategoriesWithPreviews(
   // Map item type to category.type stored during import
   const categoryType = type === 'movie' ? 'vod' : type;
 
-  // For large numbers of categories (like Live TV), use optimized single query
+  // For large numbers of categories (like Live TV), use optimized approach
+  // but avoid expensive window functions for better performance
   if (maxCategories > 50 || limitPerCategory > 100) {
-    // Get all data in one query using window functions (if supported) or subqueries
-    const query = `
-      WITH ranked_items AS (
-        SELECT 
-          i.id, i.tmdb_id, i.type, i.title, i.poster_url, i.backdrop_url, 
-          i.release_date, i.rating, i.rating_5based, i.source_id, i.source_item_id,
-          ic.category_id,
-          c.name as category_name,
-          ROW_NUMBER() OVER (PARTITION BY ic.category_id ORDER BY i.added_at DESC, i.title ASC) as rn
-        FROM categories c
-        JOIN content_item_categories ic ON ic.category_id = c.id  
-        JOIN content_items i ON i.id = ic.item_id
-        WHERE c.type = $catType 
-          AND i.type = $itemType
-          ${accountId ? 'AND c.account_id = $accountId AND i.account_id = $accountId' : ''}
-        ORDER BY c.name ASC
-      )
-      SELECT * FROM ranked_items 
-      WHERE rn <= $limit
-      ${maxCategories > 0 ? 'AND category_id IN (SELECT id FROM categories WHERE type = $catType ' + (accountId ? 'AND account_id = $accountId' : '') + ' ORDER BY name ASC LIMIT $maxCats OFFSET $catOffset)' : ''}
-      ORDER BY category_name ASC, rn ASC`;
+    // Use simpler approach: get categories first, then items in batches
+    const categoriesQuery = `
+      SELECT c.id, c.name
+      FROM categories c
+      WHERE c.type = $catType 
+        ${accountId ? 'AND c.account_id = $accountId' : ''}
+        AND c.source_id IN (
+          SELECT DISTINCT source_id FROM content_items WHERE type = $itemType 
+          ${accountId ? 'AND account_id = $accountId' : ''}
+        )
+      ORDER BY c.name ASC
+      ${maxCategories > 0 ? 'LIMIT $maxCats OFFSET $catOffset' : ''}`;
 
-    const params: any = {
+    const catParams: any = {
       $catType: categoryType,
       $itemType: type,
-      $limit: limitPerCategory,
     };
-    if (accountId) params.$accountId = accountId;
+    if (accountId) catParams.$accountId = accountId;
     if (maxCategories > 0) {
-      params.$maxCats = maxCategories;
-      params.$catOffset = categoryOffset || 0;
+      catParams.$maxCats = maxCategories;
+      catParams.$catOffset = categoryOffset || 0;
     }
 
-    const rows = await db.getAllAsync(query, params);
+    const categories = await db.getAllAsync(categoriesQuery, catParams);
+    
+    // Fetch items for each category in parallel
+    const results = await Promise.all(
+      categories.map(async (cat: any) => {
+        const itemsQuery = `
+          SELECT i.id, i.tmdb_id, i.type, i.title, i.poster_url, i.backdrop_url, 
+                 i.release_date, i.rating, i.rating_5based, i.source_id, i.source_item_id,
+                 ic.category_id
+          FROM content_items i
+          JOIN content_item_categories ic ON ic.item_id = i.id
+          WHERE ic.category_id = ? AND i.type = ? 
+            ${accountId ? 'AND i.account_id = ?' : ''}
+          ORDER BY i.added_at DESC, i.title ASC
+          LIMIT ?`;
+        
+        const itemParams = accountId 
+          ? [cat.id, type, accountId, limitPerCategory]
+          : [cat.id, type, limitPerCategory];
+          
+        const items = await db.getAllAsync(itemsQuery, itemParams);
+        
+        return {
+          categoryId: cat.id,
+          name: cat.name,
+          items: items.map(mapRowToUiItem),
+        };
+      })
+    );
 
-    // Group by category
-    const categoryMap = new Map<
-      string,
-      { categoryId: string; name: string; items: UiCatalogItem[] }
-    >();
-
-    for (const row of rows as any[]) {
-      if (!categoryMap.has(row.category_id)) {
-        categoryMap.set(row.category_id, {
-          categoryId: row.category_id,
-          name: row.category_name,
-          items: [],
-        });
-      }
-      categoryMap.get(row.category_id)!.items.push(mapRowToUiItem(row));
-    }
-
-    return Array.from(categoryMap.values());
+    return results;
   }
 
   // Original implementation for smaller queries
@@ -280,7 +282,7 @@ export async function fetchRandomByType(
      FROM content_items i
      LEFT JOIN content_item_categories ic ON ic.item_id = i.id
      WHERE i.type = $type ${accountId ? 'AND i.account_id = $account_id' : ''}
-     ORDER BY RANDOM()
+     ORDER BY i.added_at DESC, i.title ASC
      LIMIT $limit`,
     accountId
       ? { $type: type, $limit: limit, $account_id: accountId }

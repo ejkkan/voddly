@@ -281,6 +281,14 @@ async function createIndexes(db: DatabaseHandle) {
     CREATE INDEX IF NOT EXISTS idx_categories_account_source ON categories(account_id, source_id, source_category_id);
     CREATE INDEX IF NOT EXISTS idx_sources_account ON sources(account_id, id);
     CREATE INDEX IF NOT EXISTS idx_item_categories_cat ON content_item_categories(category_id);
+    
+    -- Performance optimizations for player navigation flow
+    CREATE INDEX IF NOT EXISTS idx_items_id_type ON content_items(id, type);
+    CREATE INDEX IF NOT EXISTS idx_items_source_item_type ON content_items(source_id, source_item_id, type);
+    CREATE INDEX IF NOT EXISTS idx_movies_ext_item_id ON movies_ext(item_id);
+    CREATE INDEX IF NOT EXISTS idx_series_ext_item_id ON series_ext(item_id);
+    CREATE INDEX IF NOT EXISTS idx_episodes_ext_stream_id ON episodes_ext(stream_id);
+    CREATE INDEX IF NOT EXISTS idx_episodes_ext_series_season_episode ON episodes_ext(series_item_id, season_number, episode_number);
   `);
 }
 

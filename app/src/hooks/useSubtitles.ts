@@ -194,7 +194,7 @@ export function useSubtitleContent(
  */
 export function useSubtitles(
   params: UseSubtitlesParams,
-  autoFetchLanguages: string[] = ['en', 'es', 'fr', 'de'] // Common languages to auto-fetch
+  autoFetchLanguages: string[] = [] // Default to empty array to avoid auto-fetching on player load
 ): UseSubtitlesResult {
   const languagesQuery = useSubtitleLanguages(params);
 

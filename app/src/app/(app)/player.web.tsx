@@ -158,18 +158,21 @@ export default function Player() {
     },
   });
 
-  // Fetch subtitles for the movie/series
+  // Fetch subtitles for the movie/series - defer content loading to improve startup performance
   const {
     languages: availableLanguages,
     subtitles: loadedSubtitles,
     isLoading: subtitlesLoading,
-  } = useSubtitles({
-    movieId,
-    tmdbId,
-    title,
-    contentType: contentType === 'movie' ? 'movie' : 'episode',
-    enabled: !!movieId || !!tmdbId,
-  });
+  } = useSubtitles(
+    {
+      movieId,
+      tmdbId,
+      title,
+      contentType: contentType === 'movie' ? 'movie' : 'episode',
+      enabled: !!movieId || !!tmdbId,
+    },
+    [] // Don't auto-fetch subtitle content to improve player startup performance
+  );
 
   const selectedSubtitleLoading = false;
   const allSubtitles = loadedSubtitles;

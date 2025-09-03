@@ -151,29 +151,32 @@ export default function MovieDetails() {
               setTmdbId(tmdb);
             }
           } catch {}
-          fetchRemote({
-            id: row.id,
-            sourceId: row.source_id,
-            sourceItemId: row.source_item_id,
-          }).then(async (ok) => {
-            try {
-              if (!ok || !mounted) return;
-              const db2 = await openDb();
-              const updated = await db2.getFirstAsync<ItemRow>(
-                `SELECT i.* FROM content_items i WHERE i.id = $id`,
-                { $id: String(row.id) }
-              );
-              if (mounted) setItem(updated ?? row);
+          // Defer remote fetch to avoid blocking initial render
+          setTimeout(() => {
+            fetchRemote({
+              id: row.id,
+              sourceId: row.source_id,
+              sourceItemId: row.source_item_id,
+            }).then(async (ok) => {
               try {
-                const tmdbPost = String((updated as any)?.tmdb_id || '').trim();
-                if (tmdbPost && mounted && tmdbPost !== tmdbId) {
-                  setTmdbId(tmdbPost);
-                }
-              } catch {}
-            } catch {
-              // ignore refresh errors
-            }
-          });
+                if (!ok || !mounted) return;
+                const db2 = await openDb();
+                const updated = await db2.getFirstAsync<ItemRow>(
+                  `SELECT i.* FROM content_items i WHERE i.id = $id`,
+                  { $id: String(row.id) }
+                );
+                if (mounted) setItem(updated ?? row);
+                try {
+                  const tmdbPost = String((updated as any)?.tmdb_id || '').trim();
+                  if (tmdbPost && mounted && tmdbPost !== tmdbId) {
+                    setTmdbId(tmdbPost);
+                  }
+                } catch {}
+              } catch {
+                // ignore refresh errors
+              }
+            });
+          }, 100); // Small delay to prioritize initial render
         }
       } finally {
         // done

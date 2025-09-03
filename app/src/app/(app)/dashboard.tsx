@@ -88,9 +88,9 @@ export default function Dashboard() {
     }
   };
 
-  // Always fetch dashboard data and trends
+  // Only fetch dashboard data and trends when on dashboard route
   const dashboard = useDashboardPreviews(10);
-  const trends = useDashboardTrends();
+  const trends = useDashboardTrends(true); // Keep enabled since this is the dashboard page
 
   useEffect(() => {
     const res = dashboard.data as DashboardPreviewsResult | undefined;

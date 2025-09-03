@@ -36,18 +36,21 @@ export default function Player() {
     reportIntervalMs: 10_000,
   });
 
-  // Fetch subtitles for the movie
+  // Fetch subtitles for the movie - defer content loading to improve startup performance
   const {
     languages: availableLanguages,
     subtitles: loadedSubtitles,
     isLoading: subtitlesLoading,
-  } = useSubtitles({
-    movieId,
-    tmdbId,
-    title,
-    contentType: contentType === 'movie' ? 'movie' : 'episode',
-    enabled: !!movieId || !!tmdbId,
-  });
+  } = useSubtitles(
+    {
+      movieId,
+      tmdbId,
+      title,
+      contentType: contentType === 'movie' ? 'movie' : 'episode',
+      enabled: !!movieId || !!tmdbId,
+    },
+    [] // Don't auto-fetch subtitle content to improve player startup performance
+  );
 
   // Fetch subtitle content for selected language
   const { data: selectedSubtitle, isLoading: selectedSubtitleLoading } =
