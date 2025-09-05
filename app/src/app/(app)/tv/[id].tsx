@@ -31,7 +31,7 @@ export default function TVDetails() {
   const [item, setItem] = useState<ItemRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { prepareContentPlayback } = useSourceCredentials();
+  const { navigateToPlayer } = usePlayerNavigation();
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteLive();
   const sourceBase = useSourceBaseUrl(item?.source_id);
 
@@ -86,18 +86,11 @@ export default function TVDetails() {
       if (!item) return;
       const sourceId = item.source_id;
       const channelId = item.source_item_id;
-      await prepareContentPlayback({
-        sourceId,
+      await navigateToPlayer({
+        playlist: sourceId,
         contentId: channelId,
         contentType: 'live',
-        options: {
-          title: 'Watch TV',
-          message: 'Enter your passphrase to watch TV',
-        },
-      });
-      router.push({
-        pathname: '/(app)/player',
-        params: { playlist: sourceId, live: String(channelId) },
+        title: item.title || `Channel ${channelId}`,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to prepare playback');

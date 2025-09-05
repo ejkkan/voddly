@@ -1,16 +1,14 @@
 // Import  global CSS file
 import '../../global.css';
-
 // Import font error handler to suppress FontFaceObserver timeouts
 import '@/utils/fontErrorHandler';
-
-import { useFonts } from 'expo-font';
 
 // Re-enable BottomSheet provider for components like Select/Modal
 // @ts-ignore
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { ThemeProvider } from '@react-navigation/native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useFonts } from 'expo-font';
 // @ts-ignore
 import { Stack } from 'expo-router';
 import React from 'react';
@@ -134,6 +132,7 @@ export default function RootLayout() {
   return (
     <Providers>
       <Stack>
+        <Stack.Screen name="video2" options={{ headerShown: false }} />
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="signin" options={{ headerShown: false }} />
         <Stack.Screen name="signup" options={{ headerShown: false }} />

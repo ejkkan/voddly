@@ -17,7 +17,8 @@ async function initDb(): Promise<DatabaseHandle> {
 }
 
 function attachWebCleanupOnce() {
-  if (cleanupAttached || Platform.OS !== 'web') return;
+  if (cleanupAttached || Platform.OS !== 'web' || typeof window === 'undefined')
+    return;
   cleanupAttached = true;
   const close = async () => {
     try {

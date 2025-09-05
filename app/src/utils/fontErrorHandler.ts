@@ -1,11 +1,13 @@
 // Global error handler for FontFaceObserver timeouts
-if (typeof window !== 'undefined') {
+import { Platform } from 'react-native';
+
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
   window.addEventListener('error', (event) => {
     // Suppress FontFaceObserver timeout errors
     if (
-      event.message && 
-      event.message.includes('timeout exceeded') && 
-      event.filename && 
+      event.message &&
+      event.message.includes('timeout exceeded') &&
+      event.filename &&
       event.filename.includes('fontfaceobserver')
     ) {
       event.preventDefault();
@@ -17,8 +19,8 @@ if (typeof window !== 'undefined') {
   // Also handle unhandled promise rejections
   window.addEventListener('unhandledrejection', (event) => {
     if (
-      event.reason && 
-      event.reason.message && 
+      event.reason &&
+      event.reason.message &&
       event.reason.message.includes('timeout exceeded')
     ) {
       event.preventDefault();

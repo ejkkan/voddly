@@ -26,7 +26,7 @@ import {
 import { useFetchRemoteSeries } from '@/hooks/useFetchRemoteSeries';
 import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
 import { openDb } from '@/lib/db';
-import { useSourceCredentials } from '@/lib/source-credentials';
+import { usePlayerNavigation } from '@/lib/player-navigation';
 import { normalizeImageUrl } from '@/lib/url-utils';
 
 type ItemRow = {
@@ -54,7 +54,7 @@ export default function SeriesDetails() {
   const [error, setError] = useState<string | null>(null);
   const [episodesRefreshKey, setEpisodesRefreshKey] = useState(0);
   const [tmdbId, setTmdbId] = useState<string | null>(null);
-  const { prepareContentPlayback } = useSourceCredentials();
+  const { navigateToPlayer } = usePlayerNavigation();
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteSeries();
   const sourceBase = useSourceBaseUrl(item?.source_id);
 
@@ -193,23 +193,12 @@ export default function SeriesDetails() {
       if (!item) return;
       const sourceId = item.source_id;
       const seriesId = item.source_item_id;
-      await prepareContentPlayback({
-        sourceId,
+      await navigateToPlayer({
+        playlist: sourceId,
         contentId: seriesId,
         contentType: 'series',
-        options: {
-          title: 'Play Series',
-          message: 'Enter your passphrase to play the first episode',
-        },
-      });
-      router.push({
-        pathname: '/(app)/player',
-        params: {
-          playlist: sourceId,
-          series: String(seriesId),
-          tmdb_id: tmdbId || undefined,
-          title: item.title || undefined,
-        },
+        title: item.title || undefined,
+        tmdbId: tmdbId || undefined,
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to prepare playback');

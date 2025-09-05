@@ -1,84 +1,85 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React from 'react';
 
-import { EnhancedSubtitleModal } from '@/components/subtitles/EnhancedSubtitleModal';
 import { Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { WebPlayer } from '@/components/video/web-player';
-import { useWebPlaybackSource } from '@/components/video/web-player/useWebPlaybackSource';
-import { useCurrentProfile } from '@/hooks/ui/useCurrentProfile';
-import { type Subtitle, useSubtitles } from '@/hooks/useSubtitles';
-import { useWatchStateTracker } from '@/hooks/useWatchStateTracker';
+import { useSourceCredentials } from '@/lib/source-credentials';
+import { getContainerInfoForContent } from '@/lib/container-extension';
+import { constructStreamUrl } from '@/lib/stream-url';
+import { useMovieMetadata, useTVMetadata } from '@/hooks/use-content-metadata';
 
-function PlayerContent({
-  url,
-  contentType,
-  movieId,
-  tmdbId,
-  title,
-  selectedSubtitle,
-  selectedSubtitleLanguage,
-  onSubtitleApplied,
-  onPressSubtitles,
-  hasSubtitles,
-  onFormatInfoChange,
-  selectedMode,
-  selectedEmbeddedTrackIndex,
-  selectedEmbeddedLanguage,
-  startTime,
-  onPlaybackStart,
-  onProgress,
-  onPlaybackEnd,
-  onPause,
-  onSeek,
-}: {
-  url?: string;
+function PlayerContent({ 
+  url, 
+  title, 
+  tmdbId, 
+  contentType 
+}: { 
+  url?: string; 
+  title?: string; 
+  tmdbId?: string;
   contentType?: 'movie' | 'series' | 'live';
-  movieId?: string;
-  tmdbId?: number;
-  title?: string;
-  selectedSubtitle?: any;
-  selectedSubtitleLanguage?: string;
-  onSubtitleApplied?: (language: string) => void;
-  onPressSubtitles: () => void;
-  hasSubtitles: boolean;
-  onFormatInfoChange?: (formatInfo: any) => void;
-  selectedMode: 'none' | 'external' | 'embedded';
-  selectedEmbeddedTrackIndex?: number;
-  selectedEmbeddedLanguage?: string;
-  startTime?: number;
-  onPlaybackStart?: (current: number, duration?: number) => void;
-  onProgress?: (current: number, duration?: number) => void;
-  onPlaybackEnd?: (current: number, duration?: number) => void;
-  onPause?: (current: number, duration?: number) => void;
-  onSeek?: (current: number, duration?: number) => void;
 }) {
   const router = useRouter();
+  
+  // Fetch metadata based on content type if TMDB ID is available
+  const movieMetadata = useMovieMetadata(
+    contentType === 'movie' && tmdbId ? tmdbId : undefined,
+    {
+      enabled: contentType === 'movie' && !!tmdbId,
+    }
+  );
+  
+  const tvMetadata = useTVMetadata(
+    contentType === 'series' && tmdbId ? tmdbId : undefined,
+    {
+      enabled: contentType === 'series' && !!tmdbId,
+    }
+  );
+  
+  // Use fetched metadata to enhance the title if available
+  const enhancedTitle = React.useMemo(() => {
+    if (contentType === 'movie' && movieMetadata.data) {
+      return movieMetadata.data.title || title;
+    }
+    if (contentType === 'series' && tvMetadata.data) {
+      return (tvMetadata.data as any).name || title;
+    }
+    return title;
+  }, [title, movieMetadata.data, tvMetadata.data, contentType]);
+  
+  // Log the available data for debugging
+  React.useEffect(() => {
+    if (tmdbId && contentType) {
+      console.log('Player has TMDB ID:', tmdbId, 'for', contentType, ':', title);
+      
+      if (contentType === 'movie' && movieMetadata.data) {
+        console.log('Fetched movie metadata:', {
+          title: movieMetadata.data.title,
+          overview: movieMetadata.data.overview,
+          release_date: movieMetadata.data.release_date,
+          runtime: movieMetadata.data.runtime,
+        });
+      }
+      
+      if (contentType === 'series' && tvMetadata.data) {
+        console.log('Fetched TV metadata:', {
+          name: (tvMetadata.data as any).name,
+          overview: tvMetadata.data.overview,
+          first_air_date: (tvMetadata.data as any).first_air_date,
+          number_of_seasons: (tvMetadata.data as any).number_of_seasons,
+        });
+      }
+    }
+  }, [tmdbId, title, contentType, movieMetadata.data, tvMetadata.data]);
+  
   return (
     <View className="flex-1 items-stretch justify-center">
       {!url ? null : (
         <WebPlayer
           url={url}
-          title={title}
+          title={enhancedTitle}
           showBack
           onBack={() => router.back()}
-          movieId={movieId}
-          tmdbId={tmdbId}
-          type={contentType}
-          subtitleContent={selectedSubtitle?.content}
-          subtitleLanguage={selectedSubtitleLanguage}
-          onSubtitleApplied={onSubtitleApplied}
-          externalOnPressSubtitles={onPressSubtitles}
-          externalHasSubtitles={hasSubtitles}
-          onFormatInfoChange={onFormatInfoChange}
-          selectedMode={selectedMode}
-          selectedEmbeddedTrackIndex={selectedEmbeddedTrackIndex}
-          selectedEmbeddedLanguage={selectedEmbeddedLanguage}
-          startTime={startTime}
-          onPlaybackStart={onPlaybackStart}
-          onProgress={onProgress}
-          onPlaybackEnd={onPlaybackEnd}
-          onPause={onPause}
-          onSeek={onSeek}
         />
       )}
     </View>
@@ -100,118 +101,111 @@ function BackBar() {
 }
 
 export default function Player() {
-  const { url, loading, error, contentType } = useWebPlaybackSource();
-  const [showSubtitleModal, setShowSubtitleModal] = useState(false);
-  const [selectedExternalSubtitle, setSelectedExternalSubtitle] =
-    useState<Subtitle | null>(null);
-  const [formatInfo, setFormatInfo] = useState<any>(null);
-  const [selectedMode, setSelectedMode] = useState<
-    'none' | 'external' | 'embedded'
-  >('none');
-  const [selectedEmbeddedTrackIndex, setSelectedEmbeddedTrackIndex] = useState<
-    number | undefined
-  >(undefined);
-
-  // Debug: Log format info changes
-  React.useEffect(() => {
-    if (formatInfo) {
-      console.log('🎬 Format info updated:', {
-        containerFormat: formatInfo.containerFormat,
-        subtitleTracks: formatInfo.subtitleTracks?.length || 0,
-        audioTracks: formatInfo.audioTracks?.length || 0,
-        hasEmbeddedSubtitles: formatInfo.hasEmbeddedSubtitles,
-        hasMultipleAudioTracks: formatInfo.hasMultipleAudioTracks,
-      });
-    }
-  }, [formatInfo]);
-
-  // Get route parameters for subtitle fetching
   const params = useLocalSearchParams();
-  const movieId = params.movie as string;
-  const tmdbId = params.tmdb_id ? Number(params.tmdb_id) : undefined;
+  const { getCredentials } = useSourceCredentials();
+  const [url, setUrl] = React.useState<string | undefined>(undefined);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  
+  // Extract parameters - support both direct video URL and playlist-based approach
+  const directVideo = params.video as string;
+  const playlist = params.playlist as string;
+  const movie = params.movie as string;
+  const series = params.series as string;
+  const live = params.live as string;
   const title = params.title as string;
-  const contentId = (params.movie || params.series || params.live) as
-    | string
-    | undefined;
-  const { profileId } = useCurrentProfile();
+  const tmdbId = params.tmdb_id as string;
+
+  React.useEffect(() => {
+    let mounted = true;
+    const loadVideo = async () => {
+      try {
+        // If direct video URL is provided, use it directly
+        if (directVideo) {
+          if (!mounted) return;
+          setUrl(`http://${directVideo}`);
+          setLoading(false);
+          setError(null);
+          return;
+        }
+
+        // Otherwise, construct URL from playlist parameters (existing flow)
+        if (!playlist) {
+          throw new Error('Missing playlist or video parameter');
+        }
+
+        const contentId = movie || series || live;
+        const contentType = movie ? 'movie' : series ? 'series' : 'live';
+        
+        if (!contentId) {
+          throw new Error('Missing content identifier');
+        }
+
+        const creds = await getCredentials(playlist, {
+          title: 'Play Content',
+          message: 'Enter your passphrase to decrypt the source',
+        });
+
+        let containerExtension: string | undefined;
+        let videoCodec: string | undefined = creds.videoCodec;
+        let audioCodec: string | undefined = creds.audioCodec;
+        let playbackContentId: number | string = Number(contentId);
+        
+        try {
+          const info = await getContainerInfoForContent(
+            contentType as 'movie' | 'series' | 'live',
+            playlist,
+            contentId
+          );
+          containerExtension = info.containerExtension || containerExtension;
+          videoCodec = info.videoCodec || videoCodec;
+          audioCodec = info.audioCodec || audioCodec;
+          if (info.playbackContentId) {
+            playbackContentId = info.playbackContentId;
+          }
+        } catch {}
+
+        const { streamingUrl } = constructStreamUrl({
+          server: creds.server,
+          username: creds.username,
+          password: creds.password,
+          contentId: playbackContentId,
+          contentType: contentType as 'movie' | 'series' | 'live',
+          containerExtension,
+          videoCodec,
+          audioCodec,
+        });
+        
+        if (!mounted) return;
+        setUrl(streamingUrl);
+        setLoading(false);
+        setError(null);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e instanceof Error ? e.message : 'Failed to load video');
+        setLoading(false);
+      }
+    };
+
+    loadVideo();
+    return () => {
+      mounted = false;
+    };
+  }, [directVideo, playlist, movie, series, live, getCredentials]);
+
+  // Determine content type from params
+  const contentType = movie ? 'movie' : series ? 'series' : live ? 'live' : undefined;
   
-  // Derive current embedded language for UI
-  const currentEmbeddedLanguage = React.useMemo(() => {
-    if (!formatInfo || selectedEmbeddedTrackIndex === undefined)
-      return undefined;
-    const track = formatInfo.subtitleTracks?.find(
-      (t: any) => t.index === selectedEmbeddedTrackIndex
-    );
-    return track?.language;
-  }, [formatInfo, selectedEmbeddedTrackIndex]);
-  
-  const { startTime, callbacks, preferences } = useWatchStateTracker({
-    profileId,
-    contentId,
-    contentType,
-    reportIntervalMs: 10_000,
-    playerPreferences: {
-      playbackSpeed: 1.0,
-      audioTrack: undefined,
-      subtitleTrack: selectedExternalSubtitle?.language_code || currentEmbeddedLanguage,
-      qualityPreference: undefined,
-    },
-  });
-
-  // Fetch subtitles for the movie/series
-  const {
-    languages: availableLanguages,
-    subtitles: loadedSubtitles,
-    isLoading: subtitlesLoading,
-  } = useSubtitles({
-    movieId,
-    tmdbId,
-    title,
-    contentType: contentType === 'movie' ? 'movie' : 'episode',
-    enabled: !!movieId || !!tmdbId,
-  });
-
-  const selectedSubtitleLoading = false;
-  const allSubtitles = loadedSubtitles;
-
-  // Get the currently selected external subtitle for the player
-  const currentSubtitle = selectedExternalSubtitle;
-
-  // Handle subtitle application
-  const handleSubtitleApplied = React.useCallback((language: string) => {
-    console.log(`Subtitle applied: ${language}`);
-  }, []);
-
   const body = loading ? (
     <Text className="text-center text-white">Loading player…</Text>
   ) : error ? (
     <Text className="text-center text-red-400">{error}</Text>
   ) : (
-    <PlayerContent
-      url={url}
+    <PlayerContent 
+      url={url} 
+      title={title} 
+      tmdbId={tmdbId} 
       contentType={contentType}
-      movieId={movieId}
-      tmdbId={tmdbId}
-      title={title}
-      selectedSubtitle={currentSubtitle}
-      selectedSubtitleLanguage={currentSubtitle?.language_code}
-      onSubtitleApplied={handleSubtitleApplied}
-      onPressSubtitles={() => setShowSubtitleModal(true)}
-      hasSubtitles={
-        availableLanguages.length > 0 ||
-        (formatInfo?.hasEmbeddedSubtitles &&
-          formatInfo.subtitleTracks.length > 0)
-      }
-      onFormatInfoChange={setFormatInfo}
-      selectedMode={selectedMode}
-      selectedEmbeddedTrackIndex={selectedEmbeddedTrackIndex}
-      selectedEmbeddedLanguage={currentEmbeddedLanguage}
-      startTime={startTime}
-      onPlaybackStart={callbacks.onPlaybackStart}
-      onProgress={callbacks.onProgress}
-      onPlaybackEnd={callbacks.onPlaybackEnd}
-      onPause={callbacks.onPause}
-      onSeek={callbacks.onSeek}
     />
   );
 
@@ -220,37 +214,6 @@ export default function Player() {
       <View className="flex-1 bg-black">
         <BackBar />
         {body}
-
-        {/* Enhanced Subtitle Modal */}
-        <EnhancedSubtitleModal
-          visible={showSubtitleModal}
-          onClose={() => setShowSubtitleModal(false)}
-          subtitles={allSubtitles}
-          formatInfo={formatInfo}
-          isLoading={subtitlesLoading || selectedSubtitleLoading}
-          currentMode={selectedMode}
-          currentExternalId={selectedExternalSubtitle?.id}
-          currentEmbeddedLanguage={currentEmbeddedLanguage}
-          currentEmbeddedIndex={selectedEmbeddedTrackIndex}
-          onClearSelection={() => {
-            setSelectedMode('none');
-            setSelectedExternalSubtitle(null);
-            setSelectedEmbeddedTrackIndex(undefined);
-            setShowSubtitleModal(false);
-          }}
-          onSubtitleSelect={(subtitle: any) => {
-            setSelectedMode('external');
-            setSelectedExternalSubtitle(subtitle);
-            setSelectedEmbeddedTrackIndex(undefined);
-            setShowSubtitleModal(false);
-          }}
-          onEmbeddedTrackSelect={(trackIndex: number) => {
-            setSelectedMode('embedded');
-            setSelectedExternalSubtitle(null);
-            setSelectedEmbeddedTrackIndex(trackIndex);
-            setShowSubtitleModal(false);
-          }}
-        />
       </View>
     </SafeAreaView>
   );

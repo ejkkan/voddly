@@ -14,7 +14,7 @@ import { ArrowLeft, Edit, Trash2 } from '@/components/ui/icons';
 import { useFavoriteManager } from '@/hooks/ui';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { openDb } from '@/lib/db';
-import { useSourceCredentials } from '@/lib/source-credentials';
+import { usePlayerNavigation } from '@/lib/player-navigation';
 
 type ContentItem = {
   id: string;
@@ -130,7 +130,7 @@ export default function PlaylistDetailPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isFavorite, toggleFavorite } = useFavoriteManager();
-  const { prepareContentPlayback } = useSourceCredentials();
+  const { navigateToPlayer } = usePlayerNavigation();
   const {
     playlists,
     isLoading: playlistsLoading,
@@ -191,17 +191,11 @@ export default function PlaylistDetailPage() {
   const handlePlayEpisode = async (episode: EpisodeItem) => {
     try {
       if (!episode.sourceId) return;
-      await prepareContentPlayback({
-        sourceId: episode.sourceId,
+      await navigateToPlayer({
+        playlist: episode.sourceId,
         contentId: episode.streamId,
         contentType: 'series',
-      });
-      router.push({
-        pathname: '/(app)/player',
-        params: {
-          playlist: episode.sourceId,
-          series: episode.streamId,
-        },
+        title: episode.title,
       });
     } catch (error) {
       console.error('Failed to play episode:', error);

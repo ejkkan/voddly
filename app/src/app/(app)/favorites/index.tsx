@@ -13,7 +13,7 @@ import { useFavoriteManager } from '@/hooks/ui';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { useFavorites } from '@/hooks/useFavorites';
 import { openDb } from '@/lib/db';
-import { useSourceCredentials } from '@/lib/source-credentials';
+import { usePlayerNavigation } from '@/lib/player-navigation';
 
 type FavoriteItem = {
   content_id: string;
@@ -196,7 +196,7 @@ export default function FavoritesPage() {
   const router = useRouter();
   const { isFavorite, toggleFavorite, profileId } = useFavoriteManager();
   const { isInAnyPlaylist } = usePlaylistManager();
-  const { prepareContentPlayback } = useSourceCredentials();
+  const { navigateToPlayer } = usePlayerNavigation();
   const favoritesQuery = useFavorites(profileId);
   const loading = favoritesQuery.isLoading;
   const favorites = (favoritesQuery.data?.items ?? []) as FavoriteItem[];
@@ -363,17 +363,11 @@ export default function FavoritesPage() {
                     onPress={async () => {
                       try {
                         if (!ep.sourceId) return;
-                        await prepareContentPlayback({
-                          sourceId: ep.sourceId,
+                        await navigateToPlayer({
+                          playlist: ep.sourceId,
                           contentId: ep.streamId,
                           contentType: 'series',
-                        });
-                        router.push({
-                          pathname: '/(app)/player',
-                          params: {
-                            playlist: ep.sourceId,
-                            series: ep.streamId,
-                          },
+                          title: ep.title,
                         });
                       } catch (error) {
                         console.error(

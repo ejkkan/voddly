@@ -13,6 +13,16 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
   const { currentProfile, isLoading, profileId, profiles } = useCurrentProfile();
   const [isChecking, setIsChecking] = useState(true);
   
+  // Debug logging to help identify the issue
+  console.log('[ProfileGuard] State check:', {
+    isLoading,
+    isChecking,
+    currentProfile: currentProfile?.id,
+    profileId,
+    profilesCount: profiles.length,
+    pathname
+  });
+  
   // Don't guard the profile-picker route itself
   const isProfilePickerRoute = pathname === '/(app)/profile-picker' || pathname === '/profile-picker';
   
@@ -23,33 +33,38 @@ export function ProfileGuard({ children }: ProfileGuardProps) {
       return;
     }
     
-    // Wait a moment to ensure profile store is initialized
-    const checkProfile = async () => {
-      // Give the store a moment to hydrate from local storage
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      if (!isLoading) {
-        // Check different scenarios:
-        // 1. No profiles at all - redirect to picker to create one
-        // 2. Multiple profiles but none selected - redirect to picker
-        // 3. Single profile - will be auto-selected by useCurrentProfile
-        // 4. Profile selected - allow access
-        
-        if (profiles.length === 0) {
-          // No profiles exist, need to create one
-          router.replace('/(app)/profile-picker');
-        } else if (profiles.length > 1 && !profileId) {
-          // Multiple profiles but none selected, need to pick
-          router.replace('/(app)/profile-picker');
-        } else if (profiles.length === 1 || profileId) {
-          // Either single profile (will auto-select) or profile already selected
-          setIsChecking(false);
-        }
-      }
-    };
+    // Only proceed when profiles have finished loading
+    if (isLoading) {
+      return;
+    }
     
-    checkProfile();
-  }, [currentProfile, profileId, profiles, isLoading, router, isProfilePickerRoute]);
+    console.log('[ProfileGuard] Processing profile logic:', {
+      profilesLength: profiles.length,
+      profileId,
+      currentProfile: currentProfile?.id
+    });
+    
+    // Check different scenarios:
+    if (profiles.length === 0) {
+      // No profiles exist, need to create one
+      console.log('[ProfileGuard] No profiles found, redirecting to picker');
+      router.replace('/(app)/profile-picker');
+      return;
+    }
+    
+    if (profiles.length > 1 && !profileId) {
+      // Multiple profiles but none selected, need to pick
+      console.log('[ProfileGuard] Multiple profiles, none selected, redirecting to picker');
+      router.replace('/(app)/profile-picker');
+      return;
+    }
+    
+    // If we have profiles and either single profile or one is selected, we're good
+    if (profiles.length > 0) {
+      console.log('[ProfileGuard] Profiles available, stopping check');
+      setIsChecking(false);
+    }
+  }, [profiles, profileId, currentProfile, isLoading, router, isProfilePickerRoute]);
   
   // For profile picker route, always render
   if (isProfilePickerRoute) {

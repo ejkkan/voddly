@@ -48,7 +48,7 @@ export function SeriesEpisodesCarousels(props: {
   const [rows, setRows] = useState<EpisodeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const { prepareContentPlayback } = useSourceCredentials();
+  const { navigateToPlayer } = usePlayerNavigation();
   const { isFavorite, toggleFavorite } = useFavoriteManager();
   const { isInAnyPlaylist } = usePlaylistManager();
 
@@ -119,18 +119,11 @@ export function SeriesEpisodesCarousels(props: {
               onPress={async () => {
                 try {
                   const streamId = String((item as any).streamId);
-                  await prepareContentPlayback({
-                    sourceId,
+                  await navigateToPlayer({
+                    playlist: sourceId,
                     contentId: streamId,
                     contentType: 'series',
-                    options: {
-                      title: 'Play Episode',
-                      message: 'Enter your passphrase to play this episode',
-                    },
-                  });
-                  router.push({
-                    pathname: '/(app)/player',
-                    params: { playlist: sourceId, series: streamId },
+                    title: item.title,
                   });
                 } catch (error) {
                   console.error('Failed to play episode:', error);

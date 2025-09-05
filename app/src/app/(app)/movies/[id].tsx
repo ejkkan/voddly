@@ -27,7 +27,7 @@ import {
 import { useFetchRemoteMovie } from '@/hooks/useFetchRemoteMovie';
 import { useSourceBaseUrl } from '@/hooks/useSourceInfo';
 import { openDb } from '@/lib/db';
-import { useSourceCredentials } from '@/lib/source-credentials';
+import { usePlayerNavigation } from '@/lib/player-navigation';
 import { normalizeImageUrl } from '@/lib/url-utils';
 
 type ItemRow = {
@@ -55,7 +55,7 @@ export default function MovieDetails() {
   const [tmdbId, setTmdbId] = useState<string | null>(null);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [currentBackdropIndex, setCurrentBackdropIndex] = useState(0);
-  const { prepareContentPlayback } = useSourceCredentials();
+  const { navigateToPlayer } = usePlayerNavigation();
   const { fetchRemote, isFetching, error: fetchError } = useFetchRemoteMovie();
   const sourceBase = useSourceBaseUrl(item?.source_id);
   const { isFavorite, toggleFavorite } = useFavoriteManager();
@@ -191,24 +191,12 @@ export default function MovieDetails() {
       const sourceId = item.source_id;
       const movieId = item.source_item_id;
 
-      await prepareContentPlayback({
-        sourceId,
+      await navigateToPlayer({
+        playlist: sourceId,
         contentId: movieId,
         contentType: 'movie',
-        options: {
-          title: 'Play Movie',
-          message: 'Enter your passphrase to play the movie',
-        },
-      });
-
-      router.push({
-        pathname: '/(app)/player',
-        params: {
-          playlist: sourceId,
-          movie: String(movieId),
-          tmdb_id: tmdbId || undefined,
-          title: item.title || undefined,
-        },
+        title: item.title || undefined,
+        tmdbId: tmdbId || undefined,
       });
     } catch (e) {
       console.error('[MovieDetails] handlePlay error:', e);
