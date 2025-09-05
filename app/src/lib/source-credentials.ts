@@ -15,6 +15,9 @@ import { passphraseCache } from '@/lib/passphrase-cache';
 import { debugLog } from '@/lib/passphrase-debug';
 import { getRegisteredPassphraseResolver } from '@/lib/passphrase-ui';
 
+// Logging control flag - set to true to enable debug logs
+const ENABLE_LOGGING = false;
+
 export type SourceCredentials = {
   server: string;
   username: string;
@@ -89,25 +92,33 @@ export class SourceCredentialsManager {
     sourceId: string,
     options: SourceCredentialsOptions = {}
   ): Promise<SourceCredentials> {
-    console.log(
-      '[SourceCredentialsManager] getSourceCredentials called for:',
-      sourceId
-    );
+    if (ENABLE_LOGGING) {
+      console.log(
+        '[SourceCredentialsManager] getSourceCredentials called for:',
+        sourceId
+      );
+    }
     const info = await this.findSourceInfo(sourceId);
 
     try {
-      console.log(
-        '[SourceCredentialsManager] Found source info, attempting to get credentials...'
-      );
+      if (ENABLE_LOGGING) {
+        console.log(
+          '[SourceCredentialsManager] Found source info, attempting to get credentials...'
+        );
+      }
       const result = await this.attemptGetCredentials(info, options);
-      console.log(
-        '[SourceCredentialsManager] attemptGetCredentials completed successfully'
-      );
+      if (ENABLE_LOGGING) {
+        console.log(
+          '[SourceCredentialsManager] attemptGetCredentials completed successfully'
+        );
+      }
       return result;
     } catch {
-      console.log(
-        '[SourceCredentialsManager] First attempt failed, retrying...'
-      );
+      if (ENABLE_LOGGING) {
+        console.log(
+          '[SourceCredentialsManager] First attempt failed, retrying...'
+        );
+      }
       try {
         passphraseCache.remove(info.account.id);
       } catch {}
@@ -117,9 +128,11 @@ export class SourceCredentialsManager {
           g.__masterKeyCache.delete(`acct:${info.account.id}`);
       } catch {}
       const result = await this.attemptGetCredentials(info, options);
-      console.log(
-        '[SourceCredentialsManager] Retry attemptGetCredentials completed successfully'
-      );
+      if (ENABLE_LOGGING) {
+        console.log(
+          '[SourceCredentialsManager] Retry attemptGetCredentials completed successfully'
+        );
+      }
       return result;
     }
   }
@@ -164,21 +177,29 @@ export class SourceCredentialsManager {
     info: SourceInfo,
     options: SourceCredentialsOptions
   ): Promise<SourceCredentials> {
-    console.log('[SourceCredentialsManager] attemptGetCredentials starting...');
+    if (ENABLE_LOGGING) {
+      console.log(
+        '[SourceCredentialsManager] attemptGetCredentials starting...'
+      );
+    }
     const passphrase = await this.getPassphrase(info.account.id, {
       title: options.title || 'Decrypt Source',
       message: options.message || 'Enter your passphrase to decrypt the source',
       accountName: info.account.name,
       validateFn: options.validatePassphrase,
     });
-    console.log(
-      '[SourceCredentialsManager] Passphrase obtained, deriving master key...'
-    );
+    if (ENABLE_LOGGING) {
+      console.log(
+        '[SourceCredentialsManager] Passphrase obtained, deriving master key...'
+      );
+    }
 
     const { salt, iv, wrapped } = validateAndParseKeyData(info.keyData);
-    console.log(
-      '[SourceCredentialsManager] Key data parsed, calling getOrDeriveMasterKey...'
-    );
+    if (ENABLE_LOGGING) {
+      console.log(
+        '[SourceCredentialsManager] Key data parsed, calling getOrDeriveMasterKey...'
+      );
+    }
     const masterKeyBytes = await getOrDeriveMasterKey({
       accountId: info.account.id,
       passphrase,
@@ -188,15 +209,23 @@ export class SourceCredentialsManager {
       wrapped,
       onProgress: options.onProgress,
     });
-    console.log(
-      '[SourceCredentialsManager] Master key derived, validating source config...'
-    );
+    if (ENABLE_LOGGING) {
+      console.log(
+        '[SourceCredentialsManager] Master key derived, validating source config...'
+      );
+    }
     validateSourceConfig(info.source);
-    console.log(
-      '[SourceCredentialsManager] Source config validated, decrypting...'
-    );
+    if (ENABLE_LOGGING) {
+      console.log(
+        '[SourceCredentialsManager] Source config validated, decrypting...'
+      );
+    }
     const creds = await this.decryptSourceConfigWithKey(info, masterKeyBytes);
-    console.log('[SourceCredentialsManager] Decryption completed successfully');
+    if (ENABLE_LOGGING) {
+      console.log(
+        '[SourceCredentialsManager] Decryption completed successfully'
+      );
+    }
     return creds;
   }
 }
@@ -274,13 +303,17 @@ export async function resolveSourceInfoCached(
 }
 
 async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
-  console.log('[resolveSourceInfoDirect] Starting with targetId:', targetId);
+  if (ENABLE_LOGGING) {
+    console.log('[resolveSourceInfoDirect] Starting with targetId:', targetId);
+  }
   debugLog('resolveSourceInfo:start', { targetId });
   const subscriptions = await apiClient.user.getSubscriptions();
-  console.log(
-    '[resolveSourceInfoDirect] Subscriptions response:',
-    subscriptions
-  );
+  if (ENABLE_LOGGING) {
+    console.log(
+      '[resolveSourceInfoDirect] Subscriptions response:',
+      subscriptions
+    );
+  }
 
   // Check if we have any subscriptions
   if (
@@ -296,38 +329,54 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
   for (const account of subscriptions.subscriptions || []) {
     try {
       debugLog('resolveSourceInfo:checkingAccount', { accountId: account.id });
-      console.log(
-        '[resolveSourceInfoDirect] About to call apiClient.user.getSources()'
-      );
+      if (ENABLE_LOGGING) {
+        console.log(
+          '[resolveSourceInfoDirect] About to call apiClient.user.getSources()'
+        );
+      }
 
       let sources, keyData;
       try {
-        console.log('[resolveSourceInfoDirect] Calling getSources API...');
+        if (ENABLE_LOGGING) {
+          console.log('[resolveSourceInfoDirect] Calling getSources API...');
+        }
         const response = await apiClient.user.getSources({});
         sources = response.sources;
-        console.log('[resolveSourceInfoDirect] getSources API call succeeded');
+        if (ENABLE_LOGGING) {
+          console.log(
+            '[resolveSourceInfoDirect] getSources API call succeeded'
+          );
+        }
 
         // Fetch keyData separately for security
-        console.log(
-          '[resolveSourceInfoDirect] Calling getSourceDecryptionKeys API...'
-        );
+        if (ENABLE_LOGGING) {
+          console.log(
+            '[resolveSourceInfoDirect] Calling getSourceDecryptionKeys API...'
+          );
+        }
         const keysResponse = await apiClient.user.getSourceDecryptionKeys({});
         keyData = keysResponse.keyData;
-        console.log(
-          '[resolveSourceInfoDirect] getSourceDecryptionKeys API call succeeded'
-        );
+        if (ENABLE_LOGGING) {
+          console.log(
+            '[resolveSourceInfoDirect] getSourceDecryptionKeys API call succeeded'
+          );
+        }
       } catch (apiError) {
-        console.error('[resolveSourceInfoDirect] API call failed:', apiError);
+        if (ENABLE_LOGGING) {
+          console.error('[resolveSourceInfoDirect] API call failed:', apiError);
+        }
         throw apiError;
       }
 
       const list = sources || [];
-      console.log('[resolveSourceInfoDirect] Sources response:', {
-        sources: list,
-        keyData: !!keyData,
-        sourceIds: list.map((s) => s.id),
-        sourceNames: list.map((s) => s.name),
-      });
+      if (ENABLE_LOGGING) {
+        console.log('[resolveSourceInfoDirect] Sources response:', {
+          sources: list,
+          keyData: !!keyData,
+          sourceIds: list.map((s) => s.id),
+          sourceNames: list.map((s) => s.name),
+        });
+      }
       debugLog('resolveSourceInfo:sourcesFetched', {
         count: list.length,
         hasKeyData: !!keyData,
@@ -343,12 +392,14 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
 
       // First try exact match
       let source = list.find((s) => s.id === targetId || s.name === targetId);
-      console.log(
-        '[resolveSourceInfoDirect] Looking for targetId:',
-        targetId,
-        'Found:',
-        source
-      );
+      if (ENABLE_LOGGING) {
+        console.log(
+          '[resolveSourceInfoDirect] Looking for targetId:',
+          targetId,
+          'Found:',
+          source
+        );
+      }
 
       // If no exact match and we have sources, try to be more flexible
       if (!source && list.length > 0) {
@@ -356,26 +407,35 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
         // and try to match the prefix
         if (targetId.includes(':')) {
           const prefix = targetId.split(':')[0];
-          console.log(
-            '[resolveSourceInfoDirect] Trying prefix match with:',
-            prefix
-          );
+          if (ENABLE_LOGGING) {
+            console.log(
+              '[resolveSourceInfoDirect] Trying prefix match with:',
+              prefix
+            );
+          }
           source = list.find((s) => s.id === prefix || s.name === prefix);
         }
 
         // If still no match and there's only one source, use it
         if (!source && list.length === 1) {
           source = list[0];
-          console.log(
-            '[resolveSourceInfoDirect] Using single available source:',
-            source.id
-          );
+          if (ENABLE_LOGGING) {
+            console.log(
+              '[resolveSourceInfoDirect] Using single available source:',
+              source.id
+            );
+          }
         }
       }
 
       if (source && keyData) {
         debugLog('resolveSourceInfo:foundSource', { sourceId: source.id });
-        console.log('[resolveSourceInfoDirect] Found source match:', source.id);
+        if (ENABLE_LOGGING) {
+          console.log(
+            '[resolveSourceInfoDirect] Found source match:',
+            source.id
+          );
+        }
         return {
           source: {
             id: source.id,
@@ -388,11 +448,18 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
         };
       }
 
-      console.log(
-        '[resolveSourceInfoDirect] No source found matching criteria'
-      );
+      if (ENABLE_LOGGING) {
+        console.log(
+          '[resolveSourceInfoDirect] No source found matching criteria'
+        );
+      }
     } catch (error) {
-      console.error('[resolveSourceInfoDirect] Error fetching account:', error);
+      if (ENABLE_LOGGING) {
+        console.error(
+          '[resolveSourceInfoDirect] Error fetching account:',
+          error
+        );
+      }
       debugLog('resolveSourceInfo:errorFetchingAccount', {
         accountId: account.id,
         error: String(error),
@@ -401,7 +468,9 @@ async function resolveSourceInfoDirect(targetId: string): Promise<SourceInfo> {
     }
   }
   debugLog('resolveSourceInfo:notFound');
-  console.error('[resolveSourceInfoDirect] Source not found in any account');
+  if (ENABLE_LOGGING) {
+    console.error('[resolveSourceInfoDirect] Source not found in any account');
+  }
   throw new Error(
     'Source not found in any account. Please check your source configuration.'
   );
@@ -427,17 +496,21 @@ async function deriveLightweightKey(
       if (deviceKeyData) {
         if (!deviceKeyData.kdf_iterations) {
           // Old cache without iterations - clear it
-          console.log(
-            '[Crypto] Device key missing iterations, clearing cache...'
-          );
+          if (ENABLE_LOGGING) {
+            console.log(
+              '[Crypto] Device key missing iterations, clearing cache...'
+            );
+          }
           deviceManager.clearDeviceRegistration(accountId);
           // Fall through to re-register
         } else {
           // Use device-specific iterations
           const iterations = deviceKeyData.kdf_iterations;
-          console.log(
-            `[Crypto] Using device-specific iterations: ${iterations}`
-          );
+          if (ENABLE_LOGGING) {
+            console.log(
+              `[Crypto] Using device-specific iterations: ${iterations}`
+            );
+          }
 
           const deviceSalt = decodeBase64(deviceKeyData.salt);
           const result = await deriveKeyUnified(
@@ -458,7 +531,9 @@ async function deriveLightweightKey(
 
       // If we get here, either no device key or invalid cache - register device
       if (accountId) {
-        console.log('[Crypto] Registering device...');
+        if (ENABLE_LOGGING) {
+          console.log('[Crypto] Registering device...');
+        }
         onProgress?.(0, 'Registering device...');
 
         try {
@@ -479,10 +554,12 @@ async function deriveLightweightKey(
 
           return result;
         } catch (regError) {
-          console.log(
-            '[Crypto] Device registration failed, using account defaults:',
-            regError
-          );
+          if (ENABLE_LOGGING) {
+            console.log(
+              '[Crypto] Device registration failed, using account defaults:',
+              regError
+            );
+          }
           // Fall through to use account defaults
         }
       }
@@ -490,7 +567,9 @@ async function deriveLightweightKey(
 
     // Fallback: Use account-level iterations
     const iterations = keyData.kdf_iterations || keyData.iterations || 100000;
-    console.log(`[Crypto] Using account iterations: ${iterations}`);
+    if (ENABLE_LOGGING) {
+      console.log(`[Crypto] Using account iterations: ${iterations}`);
+    }
 
     const result = await deriveKeyUnified(
       passphrase,
@@ -554,15 +633,6 @@ function validateSourceConfig(source: SourceInfo['source']): void {
   });
 }
 
-type MasterKeyInputs = {
-  accountId: string;
-  passphrase: string;
-  keyData: SourceInfo['keyData'];
-  salt: Uint8Array;
-  iv: Uint8Array;
-  wrapped: Uint8Array;
-};
-
 const storage: MMKV | null = (() => {
   try {
     return new MMKV();
@@ -580,7 +650,9 @@ async function getOrDeriveMasterKey(args: {
   wrapped: Uint8Array;
   onProgress?: (progress: number, message?: string) => void;
 }): Promise<Uint8Array> {
-  console.log('[getOrDeriveMasterKey] Starting for account:', args.accountId);
+  if (ENABLE_LOGGING) {
+    console.log('[getOrDeriveMasterKey] Starting for account:', args.accountId);
+  }
   const { accountId, passphrase, keyData, salt, iv, wrapped, onProgress } =
     args;
   const cacheKeyPersist = `mk:${accountId}`;
@@ -591,7 +663,9 @@ async function getOrDeriveMasterKey(args: {
       const obj = JSON.parse(packed) as { b64: string; exp: number };
       if (Date.now() < obj.exp) {
         const keyBytes = decodeBase64(obj.b64);
-        console.log('[getOrDeriveMasterKey] Using persisted cache');
+        if (ENABLE_LOGGING) {
+          console.log('[getOrDeriveMasterKey] Using persisted cache');
+        }
         debugLog('getOrDeriveMasterKey:hitPersistedCache');
         return keyBytes;
       }
@@ -605,14 +679,18 @@ async function getOrDeriveMasterKey(args: {
   const nowTs = Date.now();
   const cached: CacheEntry | undefined = g.__masterKeyCache.get(cacheKey);
   if (cached && cached.expiresAt > nowTs) {
-    console.log('[getOrDeriveMasterKey] Using memory cache');
+    if (ENABLE_LOGGING) {
+      console.log('[getOrDeriveMasterKey] Using memory cache');
+    }
     debugLog('getOrDeriveMasterKey:hitMemoryCache');
     return cached.key;
   }
   // Use PBKDF2 for lightweight key derivation
-  console.log(
-    '[getOrDeriveMasterKey] No cache hit, starting key derivation...'
-  );
+  if (ENABLE_LOGGING) {
+    console.log(
+      '[getOrDeriveMasterKey] No cache hit, starting key derivation...'
+    );
+  }
 
   const personalKeyBytes = await deriveLightweightKey(
     passphrase,
@@ -621,7 +699,9 @@ async function getOrDeriveMasterKey(args: {
     onProgress,
     accountId
   );
-  console.log('[getOrDeriveMasterKey] Key derivation completed');
+  if (ENABLE_LOGGING) {
+    console.log('[getOrDeriveMasterKey] Key derivation completed');
+  }
 
   // Choose correct IV/wrapped layer: prefer device-specific if available
   let ivToUse = iv;
@@ -642,7 +722,9 @@ async function getOrDeriveMasterKey(args: {
     debugLog('getOrDeriveMasterKey:aesGcm:error', String(e?.message || e));
     throw e;
   }
-  console.log('[getOrDeriveMasterKey] Master key decryption completed');
+  if (ENABLE_LOGGING) {
+    console.log('[getOrDeriveMasterKey] Master key decryption completed');
+  }
   debugLog('getOrDeriveMasterKey:derived');
   g.__masterKeyCache.set(cacheKey, {
     key: masterKeyBytes,
@@ -656,7 +738,9 @@ async function getOrDeriveMasterKey(args: {
         exp: nowTs + MASTER_KEY_CACHE_TTL_MS,
       })
     );
-    console.log('[getOrDeriveMasterKey] Cached to persistent storage');
+    if (ENABLE_LOGGING) {
+      console.log('[getOrDeriveMasterKey] Cached to persistent storage');
+    }
     debugLog('getOrDeriveMasterKey:persisted');
   } catch {}
   return masterKeyBytes;

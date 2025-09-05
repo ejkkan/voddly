@@ -3,12 +3,17 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { CarouselRow } from '@/components/media/carousel-row';
 import { PosterCard } from '@/components/media/poster-card';
-import { FlatList, SafeAreaView, Text, View } from '@/components/ui';
+import { FlatList, Pressable, SafeAreaView, Text, View } from '@/components/ui';
 import { useFavoriteManager, useUiPreview, useUiSections } from '@/hooks/ui';
 import { getLocalItemData } from '@/hooks/ui/useDashboardTrends';
 import { usePlaylistManager } from '@/hooks/ui/usePlaylistManager';
 import { fetchCategoriesWithPreviews } from '@/lib/db/ui';
 import { useActiveSubscriptionId } from '@/hooks/ui/useAccounts';
+import { sortChannelsWithClustering } from '@/utils/channel-grouping';
+import { EpgLoadingSkeletonMobile } from '@/components/epg/EpgLoadingSkeleton';
+import { PlainPlayer } from '@/components/video/PlainPlayer';
+import { useSourceCredentials } from '@/lib/source-credentials';
+import { constructStreamUrl } from '@/lib/stream-url';
 
 type Section = {
   categoryId?: string;
@@ -27,11 +32,47 @@ export default function TV() {
   const { subscriptionId } = useActiveSubscriptionId();
   const { isFavorite, toggleFavorite, hasProfile } = useFavoriteManager();
   const { isInAnyPlaylist } = usePlaylistManager();
+  const { prepareContentPlayback, getCredentials } = useSourceCredentials();
   const [sections, setSections] = useState<Section[]>([]);
   const [catOffset, setCatOffset] = useState(0);
   const [loadingCats, setLoadingCats] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
+  const [backgroundStreamUrl, setBackgroundStreamUrl] = useState<string | null>(null);
   const loadingRowsRef = useRef<Record<string, boolean>>({});
+
+  // Function to get background stream URL from first available channel
+  const initBackgroundStream = async () => {
+    if (backgroundStreamUrl) return; // Already have a stream
+    
+    try {
+      const firstSection = sections.find(section => section.data.length > 0);
+      if (!firstSection) return;
+      
+      const firstChannel = firstSection.data[0];
+      if (!firstChannel.sourceId) return;
+      
+      const creds = await getCredentials(firstChannel.sourceId, {
+        title: 'Loading background video',
+        message: 'Getting stream URL...',
+      });
+      
+      const { streamingUrl } = constructStreamUrl({
+        server: creds.server,
+        username: creds.username,
+        password: creds.password,
+        contentId: firstChannel.id,
+        contentType: 'live',
+        containerExtension: creds.containerExtension,
+        videoCodec: creds.videoCodec,
+        audioCodec: creds.audioCodec,
+      });
+      
+      setBackgroundStreamUrl(streamingUrl);
+      console.log('Background stream initialized:', streamingUrl);
+    } catch (error) {
+      console.error('Failed to initialize background stream:', error);
+    }
+  };
 
   const handleLiveLongPress = async (id: string | number) => {
     console.log('📺 Long pressed live/TV with ID:', id);
@@ -50,12 +91,12 @@ export default function TV() {
   };
 
   const sectionsQuery = useUiSections('live', {
-    limitPerCategory: 20,
-    maxCategories: 10,
+    limitPerCategory: 999999, // Get ALL channels per category
+    maxCategories: 999999, // Get ALL categories
     categoryOffset: 0,
   });
 
-  const previewQuery = useUiPreview('live', 10);
+  const previewQuery = useUiPreview('live', 999999); // Get ALL preview items
 
   useEffect(() => {
     if (sectionsQuery.isPending || sectionsQuery.isError) return;
@@ -63,21 +104,15 @@ export default function TV() {
     const mapped: Section[] = cats.map((c) => ({
       categoryId: c.categoryId,
       title: c.name,
-      data: c.items
-        .map((i) => ({
+      data: sortChannelsWithClustering(
+        c.items.map((i) => ({
           id: i.id,
           title: i.title,
           imageUrl: i.imageUrl,
           sourceId: (i as any).sourceId,
-        }))
-        .sort((a, b) => {
-          // Sort favorites first
-          const aIsFav = isFavorite(a.id);
-          const bIsFav = isFavorite(b.id);
-          if (aIsFav && !bIsFav) return -1;
-          if (!aIsFav && bIsFav) return 1;
-          return 0;
-        }),
+        })),
+        isFavorite
+      ),
       aspect: 'backdrop',
     }));
     if (mapped.length === 0 || mapped.every((s) => s.data.length === 0)) {
@@ -94,17 +129,21 @@ export default function TV() {
           },
         ]);
         setInitialLoaded(true);
+        // Initialize background stream with preview data
+        setTimeout(() => initBackgroundStream(), 100);
       }
     } else {
       // Sort categories by favorites count (categories with more favorites first)
       const sortedMapped = mapped.sort((a, b) => {
-        const aFavCount = a.data.filter(item => isFavorite(item.id)).length;
-        const bFavCount = b.data.filter(item => isFavorite(item.id)).length;
+        const aFavCount = a.data.filter((item) => isFavorite(item.id)).length;
+        const bFavCount = b.data.filter((item) => isFavorite(item.id)).length;
         return bFavCount - aFavCount;
       });
       setSections(sortedMapped);
       setCatOffset(10);
       setInitialLoaded(true);
+      // Initialize background stream with first available channel
+      setTimeout(() => initBackgroundStream(), 100);
     }
   }, [
     sectionsQuery.isPending,
@@ -122,18 +161,27 @@ export default function TV() {
         console.warn('[SECURITY] No subscription ID - skipping data fetch');
         return;
       }
-      const cats = await fetchCategoriesWithPreviews('live', 20, 5, catOffset, subscriptionId);
+      const cats = await fetchCategoriesWithPreviews(
+        'live',
+        999999, // Get ALL channels per category
+        999999, // Get ALL categories
+        catOffset,
+        subscriptionId
+      );
       if (!cats || cats.length === 0) return;
       setSections((prev) =>
         prev.concat(
           cats.map((c) => ({
             categoryId: c.categoryId,
             title: c.name,
-            data: c.items.map((i) => ({
-              id: i.id,
-              title: i.title,
-              imageUrl: i.imageUrl,
-            })),
+            data: sortChannelsWithClustering(
+              c.items.map((i) => ({
+                id: i.id,
+                title: i.title,
+                imageUrl: i.imageUrl,
+              })),
+              isFavorite
+            ),
             aspect: 'backdrop',
           }))
         )
@@ -164,7 +212,7 @@ export default function TV() {
         const more = await fetchCategoryItems(
           'live',
           categoryId,
-          25,
+          999999, // Get ALL remaining channels
           current.data.length,
           subscriptionId
         );
@@ -174,13 +222,16 @@ export default function TV() {
           const target = copy[sectionIndex];
           copy[sectionIndex] = {
             ...target,
-            data: target.data.concat(
-              more.map((i) => ({
-                id: i.id,
-                title: i.title,
-                imageUrl: i.imageUrl,
-                sourceId: (i as any).sourceId,
-              }))
+            data: sortChannelsWithClustering(
+              target.data.concat(
+                more.map((i) => ({
+                  id: i.id,
+                  title: i.title,
+                  imageUrl: i.imageUrl,
+                  sourceId: (i as any).sourceId,
+                }))
+              ),
+              isFavorite
             ),
           };
           return copy;
@@ -192,8 +243,37 @@ export default function TV() {
     [sections]
   );
 
+  // Show loading skeleton while data is loading
+  if (sectionsQuery.isPending || (!initialLoaded && sections.length === 0)) {
+    return <EpgLoadingSkeletonMobile />;
+  }
+
+  // Show error state
+  if (sectionsQuery.isError) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-white dark:bg-black">
+        <View className="items-center space-y-4 p-6">
+          <Text className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+            Failed to load channels
+          </Text>
+          <Text className="text-center text-neutral-600 dark:text-neutral-400">
+            There was an error loading your TV channels. Please try again.
+          </Text>
+          <Pressable
+            onPress={() => sectionsQuery.refetch()}
+            className="rounded-lg bg-blue-500 px-6 py-3"
+          >
+            <Text className="font-semibold text-white">Retry</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1">
+      {backgroundStreamUrl && <PlainPlayer url={backgroundStreamUrl} />}
+      
       <FlatList
         data={sections}
         keyExtractor={(s, idx) => `${s.categoryId || s.title}-${idx}`}
@@ -238,7 +318,8 @@ export default function TV() {
           </View>
         }
         contentContainerStyle={{ paddingBottom: 24 }}
-        className="flex-1 bg-white dark:bg-black"
+        className="flex-1"
+        style={{ backgroundColor: 'transparent' }}
       />
     </SafeAreaView>
   );

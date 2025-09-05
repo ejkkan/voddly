@@ -19,6 +19,7 @@ const ProgramItem = React.memo(
     isLastProgram,
     allPrograms,
     calculateProgressWidth,
+    channel,
   }: {
     program: any;
     isAiring: boolean;
@@ -33,6 +34,7 @@ const ProgramItem = React.memo(
       program: any,
       progress: number
     ) => number | string;
+    channel?: any;
   }) => {
     const handleBackgroundPlay = React.useCallback(() => {
       console.log('Playing in background:', program.title);
@@ -117,16 +119,18 @@ const ProgramItem = React.memo(
                     .filter(
                       (p) => p.computed?.startTime >= program.computed?.endTime
                     )
-                    .sort((a, b) => a.computed?.startTime - b.computed?.startTime)
+                    .sort(
+                      (a, b) => a.computed?.startTime - b.computed?.startTime
+                    )
                     .find((p) => p.computed?.hasContent);
 
                   if (hasPassed) {
-                    return 'No information';
+                    return channel?.title || 'No information';
                   }
 
                   return nextProgram
                     ? `Next program starts at ${formatTime(new Date(nextProgram.since))}: ${nextProgram.computed?.trimmedTitle}`
-                    : 'No information';
+                    : channel?.title || 'No information';
                 })()}
             </Text>
             {!hasPassed ? (
@@ -153,6 +157,18 @@ const ProgramItem = React.memo(
               }}
             >
               {program.description}
+            </Text>
+          ) : !program.computed?.trimmedTitle && channel?.title ? (
+            <Text
+              className={`mt-2 text-sm leading-relaxed ${
+                isAiring ? 'text-white/70' : 'text-white/60'
+              }`}
+              style={{
+                paddingBottom: isAiring ? 72 : 0,
+                textAlign: isFirstProgram ? 'left' : 'left',
+              }}
+            >
+              No information
             </Text>
           ) : null}
 
@@ -192,17 +208,17 @@ const ProgramItem = React.memo(
 
         {/* Progress bar for currently airing programs only (exclude placeholders) */}
         {isAiring && program.computed?.hasContent && (
-            <View className="absolute inset-x-0 bottom-0 h-1 bg-white/20">
-              <View
-                className="h-full bg-blue-400"
-                style={{
-                  width: calculateProgressWidth
-                    ? calculateProgressWidth(program, progress)
-                    : `${Math.min(progress, 100)}%`,
-                }}
-              />
-            </View>
-          )}
+          <View className="absolute inset-x-0 bottom-0 h-1 bg-white/20">
+            <View
+              className="h-full bg-blue-400"
+              style={{
+                width: calculateProgressWidth
+                  ? calculateProgressWidth(program, progress)
+                  : `${Math.min(progress, 100)}%`,
+              }}
+            />
+          </View>
+        )}
       </View>
     );
   }
@@ -478,7 +494,10 @@ export function ModernLayout({
                         // Find the most recent program that's currently airing on this channel
                         const currentAiringPrograms = channelPrograms.filter(
                           (p) => {
-                            return now >= p.computed.startTime && now < p.computed.endTime;
+                            return (
+                              now >= p.computed.startTime &&
+                              now < p.computed.endTime
+                            );
                           }
                         );
 
@@ -530,6 +549,7 @@ export function ModernLayout({
                             isLastProgram={isLastProgram}
                             allPrograms={programs}
                             calculateProgressWidth={calculateProgressWidth}
+                            channel={channel}
                           />
                         );
                       })}

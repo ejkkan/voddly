@@ -206,7 +206,7 @@ export const createSubscription = api(
           ${providerType}
         )
       `;
-      
+
       // Store encrypted credentials separately
       await userDB.exec`
         INSERT INTO source_credentials (
@@ -441,10 +441,10 @@ export const updatePassphrase = api(
     try {
       masterKey = await decryptMasterKey(subscription.id, currentPassphrase);
     } catch (error: any) {
-      console.error(
-        '[updatePassphrase] Current passphrase validation failed:',
-        error.message
-      );
+      // console.error(
+      //   '[updatePassphrase] Current passphrase validation failed:',
+      //   error.message
+      // );
       throw APIError.invalidArgument('Invalid current passphrase');
     }
 
@@ -494,9 +494,9 @@ export const updatePassphrase = api(
       WHERE subscription_id = ${subscription.id}
     `;
 
-    console.log(
-      '[updatePassphrase] Passphrase updated with enhanced encryption'
-    );
+    // console.log(
+    //   '[updatePassphrase] Passphrase updated with enhanced encryption'
+    // );
 
     return { success: true };
   }
@@ -891,7 +891,7 @@ export const addSource = api(
           ${providerType}
         )
       `;
-      
+
       // Store encrypted credentials separately
       await userDB.exec`
         INSERT INTO source_credentials (

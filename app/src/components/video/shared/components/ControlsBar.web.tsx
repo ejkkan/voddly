@@ -1,6 +1,5 @@
 import React from 'react';
 
-import { useTheme } from '../themes/ThemeProvider';
 import { type PlayerControls, type PlayerState } from '../types/player.types';
 import { formatTime } from '../utils/formatTime';
 import { CastButton } from './CastButton';
@@ -14,7 +13,6 @@ interface ControlsBarProps {
 }
 
 export function ControlsBar({ playerState, controls }: ControlsBarProps) {
-  const theme = useTheme();
 
   const progressPercent =
     playerState.duration > 0
@@ -24,7 +22,7 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
   return (
     <div style={{ width: '100%' }}>
       {/* Progress Bar */}
-      <div style={{ marginBottom: theme.dimensions.spacing }}>
+      <div style={{ marginBottom: 12 }}>
         <ProgressBar
           progress={progressPercent}
           onSeek={(fraction) => controls.seek(fraction * playerState.duration)}
@@ -44,7 +42,7 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: theme.dimensions.spacing,
+            gap: 12,
           }}
         >
           <PlayButton
@@ -59,8 +57,8 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
           />
           <span
             style={{
-              color: theme.colors.text,
-              fontSize: theme.dimensions.fontSize.small,
+              color: '#ffffff',
+              fontSize: 14,
             }}
           >
             {formatTime(playerState.currentTime)} /{' '}
@@ -73,20 +71,20 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: theme.dimensions.spacing,
+            gap: 12,
           }}
         >
           {/* Subtitle button */}
           {controls.hasSubtitles && (
             <button
               style={{
-                backgroundColor: theme.colors.surface,
+                backgroundColor: 'rgba(255,255,255,0.1)',
                 border: 'none',
-                borderRadius: theme.styles.buttonRadius,
-                color: theme.colors.text,
+                borderRadius: 6,
+                color: '#ffffff',
                 padding: '8px 12px',
                 cursor: 'pointer',
-                fontSize: theme.dimensions.fontSize.small,
+                fontSize: 14,
               }}
               onClick={controls.onPressSubtitles}
             >
@@ -111,12 +109,12 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
           {/* Fullscreen button */}
           <button
             style={{
-              backgroundColor: theme.colors.surface,
+              backgroundColor: 'rgba(255,255,255,0.1)',
               border: 'none',
-              borderRadius: theme.styles.buttonRadius,
-              color: theme.colors.text,
-              width: theme.dimensions.controlButton,
-              height: theme.dimensions.controlButton,
+              borderRadius: 6,
+              color: '#ffffff',
+              width: 40,
+              height: 40,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -125,8 +123,8 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
             onClick={controls.toggleFullscreen}
           >
             <svg
-              width={theme.dimensions.iconSize}
-              height={theme.dimensions.iconSize}
+              width={20}
+              height={20}
               viewBox="0 0 24 24"
               fill="currentColor"
             >

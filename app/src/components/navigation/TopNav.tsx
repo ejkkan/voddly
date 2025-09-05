@@ -1,6 +1,6 @@
 import { BackdropFilter, Blur, Canvas, rect } from '@shopify/react-native-skia';
 import { Link, usePathname } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { Search, X } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import React, { useState } from 'react';
 import { Platform, TextInput } from 'react-native';
@@ -126,21 +126,22 @@ function TopNavIsland({
   };
 
   return (
-    <View className="flex-row items-center justify-center px-6 py-3">
-      {/* Navigation Items */}
+    <View className="relative">
+      {/* Normal Navigation State */}
       <MotiView
         animate={{
           opacity: isSearchExpanded ? 0 : 1,
-          scale: isSearchExpanded ? 0.8 : 1,
         }}
         transition={{
-          type: 'spring',
-          damping: 15,
-          stiffness: 300,
+          type: 'timing',
+          duration: 200,
         }}
-        style={{ pointerEvents: isSearchExpanded ? 'none' : 'auto' }}
+        style={{
+          pointerEvents: isSearchExpanded ? 'none' : 'auto',
+        }}
       >
-        <View className="flex-row gap-2">
+        <View className="flex-row items-center justify-evenly px-6 py-3">
+          {/* Navigation Items */}
           {CONTENT_NAV_ITEMS.map((item) => {
             const active =
               pathname === item.href ||
@@ -190,106 +191,100 @@ function TopNavIsland({
               </Link>
             );
           })}
+
+          {/* Search Button */}
+          <Pressable
+            onPress={handleSearchPress}
+            className="flex-row items-center justify-center rounded-full bg-white/10"
+            style={{ width: 44, height: 44 }}
+          >
+            <Search size={18} color="#9ca3af" />
+          </Pressable>
         </View>
       </MotiView>
 
-      {/* Divider */}
-      {!isSearchExpanded && (
+      {/* Search Expanded State */}
+      <MotiView
+        animate={{
+          opacity: isSearchExpanded ? 1 : 0,
+        }}
+        transition={{
+          type: 'timing',
+          duration: 300,
+          delay: isSearchExpanded ? 100 : 0,
+        }}
+        className="absolute inset-0 flex-row items-center px-6 py-3"
+        style={{
+          zIndex: 10,
+          pointerEvents: isSearchExpanded ? 'auto' : 'none',
+        }}
+      >
+        {/* Search Icon */}
         <MotiView
           animate={{
-            opacity: 1,
-            width: 1,
+            translateX: isSearchExpanded ? 0 : 100,
+            opacity: isSearchExpanded ? 1 : 0,
           }}
           transition={{
             type: 'spring',
-            damping: 15,
+            damping: 20,
             stiffness: 300,
+            delay: isSearchExpanded ? 0 : 0,
           }}
-          className="mx-4 bg-white/20"
-          style={{ height: 24 }}
-        />
-      )}
-
-      {/* Search */}
-      {!isSearchExpanded ? (
-        <MotiView
-          animate={{
-            width: 140,
-          }}
-          transition={{
-            type: 'spring',
-            damping: 15,
-            stiffness: 300,
-          }}
-          className="flex-row items-center overflow-hidden rounded-full bg-white/10 px-4 py-2.5"
         >
-          <Pressable
-            onPress={handleSearchPress}
-            className="flex-1 flex-row items-center justify-center"
-          >
-            <AnimatedIcon
-              name="searchToX"
-              size={18}
-              strokeColor="#9ca3af"
-              animateOnHover={true}
-            />
-            <MotiView
-              animate={{
-                opacity: isAtTop ? 1 : 0,
-                width: isAtTop ? 'auto' : 0,
-              }}
-              transition={{
-                type: 'spring',
-                damping: 15,
-                stiffness: 300,
-              }}
-              style={{
-                overflow: 'hidden',
-                marginLeft: isAtTop ? 8 : 0,
-              }}
-            >
-              <Text className="whitespace-nowrap text-sm text-gray-400">
-                Search
-              </Text>
-            </MotiView>
-          </Pressable>
+          <Search size={18} color="#9ca3af" />
         </MotiView>
-      ) : (
+
+        {/* Search Input */}
         <MotiView
           animate={{
-            opacity: 1,
+            opacity: isSearchExpanded ? 1 : 0,
+            translateX: isSearchExpanded ? 0 : 50,
           }}
           transition={{
             type: 'timing',
-            duration: 200,
-            delay: 100,
+            duration: 250,
+            delay: isSearchExpanded ? 150 : 0,
           }}
-          className="absolute inset-0 flex-row items-center px-6 py-3"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            borderRadius: 1000,
-          }}
+          className="ml-3 flex-1"
         >
-          <AnimatedIcon name="searchToX" size={18} strokeColor="#9ca3af" />
           <TextInput
             value={searchQuery}
             onChangeText={handleSearchChange}
             placeholder="Search movies, series, TV..."
             placeholderTextColor="#9ca3af"
-            className="ml-3 flex-1 text-white"
+            className="text-white"
             style={
               {
                 outlineStyle: 'none',
                 fontSize: 16,
               } as any
             }
-            autoFocus
+            autoFocus={isSearchExpanded}
           />
-          <Pressable onPress={handleSearchClose} className="ml-6">
+        </MotiView>
+
+        {/* Close Button */}
+        <MotiView
+          animate={{
+            opacity: isSearchExpanded ? 1 : 0,
+          }}
+          transition={{
+            type: 'spring',
+            damping: 20,
+            stiffness: 300,
+            delay: isSearchExpanded ? 50 : 0,
+          }}
+        >
+          <Pressable
+            onPress={handleSearchClose}
+            className="flex-row items-center justify-center rounded-full bg-white/10"
+            style={{ width: 44, height: 44 }}
+          >
             <X size={18} color="#9ca3af" />
           </Pressable>
         </MotiView>
-      )}
+      </MotiView>
     </View>
   );
 }

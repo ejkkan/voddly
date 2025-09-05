@@ -29,6 +29,6 @@ export function getDefaultPlayer(
   // Check file extension for mobile
   if (shouldUseMKVPlayer(url)) return 'vlc';
 
-  // Default to react-native-video for mobile (better performance and features)
-  return 'rn-video';
+  // Default to VLC for mobile as requested
+  return 'vlc';
 }

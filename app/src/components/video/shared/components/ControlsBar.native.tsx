@@ -2,7 +2,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useTheme } from '../themes/ThemeProvider';
 import { type PlayerControls, type PlayerState } from '../types/player.types';
 import { formatTime } from '../utils/formatTime';
 import { CastButton } from './CastButton';
@@ -16,7 +15,6 @@ interface ControlsBarProps {
 }
 
 export function ControlsBar({ playerState, controls }: ControlsBarProps) {
-  const theme = useTheme();
 
   const progressPercent =
     playerState.duration > 0
@@ -26,7 +24,7 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
   return (
     <View style={styles.container}>
       {/* Progress Bar */}
-      <View style={{ marginBottom: theme.dimensions.spacing }}>
+      <View style={{ marginBottom: 12 }}>
         <ProgressBar
           progress={progressPercent}
           onSeek={(fraction) => controls.seek(fraction * playerState.duration)}
@@ -36,7 +34,7 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
       {/* Controls Row */}
       <View style={styles.controlsRow}>
         {/* Left Controls */}
-        <View style={[styles.leftControls, { gap: theme.dimensions.spacing }]}>
+        <View style={[styles.leftControls, { gap: 12 }]}>
           <PlayButton
             isPlaying={playerState.isPlaying}
             onPress={controls.togglePlay}
@@ -51,8 +49,8 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
             style={[
               styles.timeText,
               {
-                color: theme.colors.text,
-                fontSize: theme.dimensions.fontSize.small,
+                color: '#ffffff',
+                fontSize: 14,
               },
             ]}
           >
@@ -62,15 +60,15 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
         </View>
 
         {/* Right Controls */}
-        <View style={[styles.rightControls, { gap: theme.dimensions.spacing }]}>
+        <View style={[styles.rightControls, { gap: 12 }]}>
           {/* Subtitle button */}
           {playerState.subtitleTracks.length > 0 && (
             <Pressable
               style={[
                 styles.button,
                 {
-                  backgroundColor: theme.colors.surface,
-                  borderRadius: theme.styles.buttonRadius,
+                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  borderRadius: 6,
                   paddingHorizontal: 12,
                   paddingVertical: 8,
                 },
@@ -88,8 +86,8 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
             >
               <MaterialIcons
                 name="closed-caption"
-                size={theme.dimensions.iconSize}
-                color={theme.colors.text}
+                size={20}
+                color="#ffffff"
               />
             </Pressable>
           )}
@@ -113,18 +111,18 @@ export function ControlsBar({ playerState, controls }: ControlsBarProps) {
             style={[
               styles.button,
               {
-                backgroundColor: theme.colors.surface,
-                borderRadius: theme.styles.buttonRadius,
-                width: theme.dimensions.controlButton,
-                height: theme.dimensions.controlButton,
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderRadius: 6,
+                width: 40,
+                height: 40,
               },
             ]}
             onPress={controls.toggleFullscreen}
           >
             <MaterialIcons
               name="fullscreen"
-              size={theme.dimensions.iconSize}
-              color={theme.colors.text}
+              size={20}
+              color="#ffffff"
             />
           </Pressable>
         </View>

@@ -53,10 +53,30 @@ export class DeviceManager {
 
   /**
    * Check if device is registered for an account
+   * First checks cache, then falls back to server check
    */
   async isDeviceRegistered(accountId: string): Promise<boolean> {
     const cacheKey = `device_registered_${accountId}`;
-    return storage.getBoolean(cacheKey) || false;
+    const cached = storage.getBoolean(cacheKey);
+    
+    // If cached as registered, trust the cache
+    if (cached) {
+      return true;
+    }
+    
+    // If not cached, check with server (this handles cleared storage)
+    try {
+      const keyData = await this.getDeviceKeyData(accountId);
+      if (keyData) {
+        // Device is registered on server, update cache
+        storage.set(cacheKey, true);
+        return true;
+      }
+    } catch (error) {
+      console.log('[DeviceManager] Server check failed, device not registered:', error);
+    }
+    
+    return false;
   }
 
   /**

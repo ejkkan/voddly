@@ -1,28 +1,22 @@
 import React, { createContext, useContext } from 'react';
+import { defaultTheme } from './index';
 
-import { type VisualTheme } from '../types/theme.types';
-import { defaultTheme } from './default.theme';
-
-const ThemeContext = createContext<VisualTheme>(defaultTheme);
+// Always use default theme - no theme selection
+const ThemeContext = createContext(defaultTheme);
 
 export interface ThemeProviderProps {
-  theme: VisualTheme;
   children: React.ReactNode;
 }
 
-export const ThemeProvider: React.FC<ThemeProviderProps> = ({
-  theme,
-  children,
-}) => {
+// Simplified provider that always uses default theme
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   return (
-    <ThemeContext.Provider value={theme}>{children}</ThemeContext.Provider>
+    <ThemeContext.Provider value={defaultTheme}>
+      {children}
+    </ThemeContext.Provider>
   );
 };
 
 export const useTheme = () => {
-  const theme = useContext(ThemeContext);
-  if (!theme) {
-    throw new Error('useTheme must be used within ThemeProvider');
-  }
-  return theme;
+  return defaultTheme; // Always return default theme
 };

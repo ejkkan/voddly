@@ -122,12 +122,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         imageWidth: 150,
       },
     ],
-    [
-      'expo-font',
-      {
-        fonts: ['./assets/fonts/Inter.ttf'],
-      },
-    ],
+    'expo-font',
     'expo-localization',
     'expo-router',
     'expo-secure-store',

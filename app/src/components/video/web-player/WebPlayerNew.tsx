@@ -3,17 +3,14 @@ import React, { useEffect, useRef } from 'react';
 import { useCast } from '../shared/hooks/useCast';
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { usePlaybackState } from '../shared/hooks/usePlaybackState';
-import { MinimalLayout, NetflixLayout } from '../shared/layouts';
-import { ThemeProvider } from '../shared/themes/ThemeProvider';
+import { NetflixLayout } from '../shared/layouts';
 import {
   type BasePlayerProps,
   type PlayerControls,
 } from '../shared/types/player.types';
-import { type VisualTheme } from '../shared/types/theme.types';
 import { useShakaPlayer } from './hooks/useShakaPlayer';
 
 interface WebPlayerProps extends BasePlayerProps {
-  theme: VisualTheme;
   // Subtitle functionality
   onPressSubtitles?: () => void;
   hasSubtitles?: boolean;
@@ -24,8 +21,6 @@ export function WebPlayer({
   title,
   showBack,
   onBack,
-  layout = 'netflix',
-  theme,
   autoPlay = true,
   startTime = 0,
   onPressSubtitles,
@@ -254,12 +249,8 @@ export function WebPlayer({
       }
     : controls;
 
-  // Select layout component
-  const Layout = layout === 'minimal' ? MinimalLayout : NetflixLayout;
-
   return (
-    <ThemeProvider theme={theme}>
-      <Layout
+    <NetflixLayout
         videoElement={
           <video
             ref={videoRef}
@@ -278,7 +269,6 @@ export function WebPlayer({
         setShowControls={setShowControls}
         constrainToContainer={constrainToContainer}
       />
-    </ThemeProvider>
   );
 }
 

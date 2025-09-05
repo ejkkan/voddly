@@ -15,7 +15,7 @@ type SidebarItem = {
 };
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
-  { label: 'Home', href: '/(app)/dashboard', icon: 'home' },
+  // { label: 'Home', href: '/(app)/dashboard', icon: 'home' },
   { label: 'Favourites', href: '/(app)/favorites', icon: 'heart' },
   { label: 'Playlists', href: '/(app)/playlists', icon: 'bookmark' },
   { label: 'Sources', href: '/(app)/sources', icon: 'folder' },
@@ -65,7 +65,7 @@ export function Sidebar() {
         <View className="mb-8">
           <Pressable
             onPress={() => router.push('/(app)/icon-creator' as any)}
-            className="flex h-12 w-12 items-center justify-center rounded-lg transition-all hover:bg-white/10"
+            className="flex size-12 items-center justify-center rounded-lg transition-all hover:bg-white/10"
           >
             <Tv size={28} color="#fff" />
           </Pressable>

@@ -10,9 +10,6 @@ import { FormatSupportIndicator } from './components/FormatSupportIndicator';
 import { useFormatSupport } from './hooks/useFormatSupport';
 
 let ShakaNS: any = null;
-const STARTUP_PLAY_TIMEOUT_MS = 3500;
-const STALL_RECOVERY_TIMEOUT_MS = 2500;
-const MAX_SOFT_RELOAD_ATTEMPTS = 2;
 
 export type WebPlayerProps = {
   url: string;
@@ -22,7 +19,6 @@ export type WebPlayerProps = {
   movieId?: string;
   tmdbId?: number;
   type?: 'movie' | 'series' | 'live';
-  disableAutoReload?: boolean;
   subtitleContent?: string;
   subtitleLanguage?: string;
   onSubtitleApplied?: (language: string) => void;
@@ -48,7 +44,6 @@ export function WebPlayer(props: WebPlayerProps) {
     movieId,
     tmdbId,
     type,
-    disableAutoReload = false,
     subtitleContent,
     subtitleLanguage,
     onSubtitleApplied,
@@ -65,17 +60,7 @@ export function WebPlayer(props: WebPlayerProps) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const playerRef = React.useRef<any>(null);
-  const progressiveFallbackTriedRef = React.useRef<boolean>(false);
-  const progressiveAlternateTriedRef = React.useRef<boolean>(false);
-  const progressiveRetryCountRef = React.useRef<number>(0);
-  const stalledReloadTimerRef = React.useRef<any>(null);
-  const hasTriedRouteReloadRef = React.useRef<boolean>(false);
-  const recoveryTimerRef = React.useRef<any>(null);
-  const startupTimerRef = React.useRef<any>(null);
   const lastTimeEmitRef = React.useRef<number>(0);
-  const waitingReloadTimerRef = React.useRef<any>(null);
-  const lastProgressMsRef = React.useRef<number>(0);
-  const softReloadAttemptsRef = React.useRef<number>(0);
   const createdObjectUrlsRef = React.useRef<string[]>([]);
   const autoplayTriedRef = React.useRef<boolean>(false);
   const pendingPlayRef = React.useRef<Promise<void> | null>(null);
@@ -257,20 +242,6 @@ export function WebPlayer(props: WebPlayerProps) {
   const setInactiveAndCleanup = React.useCallback(() => {
     isActiveRef.current = false;
     try {
-      if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
-    } catch {}
-    try {
-      if (startupTimerRef.current) clearTimeout(startupTimerRef.current);
-    } catch {}
-    try {
-      if (stalledReloadTimerRef.current)
-        clearTimeout(stalledReloadTimerRef.current);
-    } catch {}
-    try {
-      if (waitingReloadTimerRef.current)
-        clearTimeout(waitingReloadTimerRef.current);
-    } catch {}
-    try {
       if (audioCheckIntervalRef.current) {
         clearInterval(audioCheckIntervalRef.current);
         audioCheckIntervalRef.current = null;
@@ -382,13 +353,6 @@ export function WebPlayer(props: WebPlayerProps) {
           onProgress?.(nowSec, duration || video.duration || 0);
         } catch {}
       }
-      try {
-        lastProgressMsRef.current = Date.now();
-        if (stalledReloadTimerRef.current)
-          clearTimeout(stalledReloadTimerRef.current);
-        if (waitingReloadTimerRef.current)
-          clearTimeout(waitingReloadTimerRef.current);
-      } catch {}
     };
     const onDuration = () => setDuration(video.duration || 0);
     const onPlay = () => {
@@ -423,119 +387,15 @@ export function WebPlayer(props: WebPlayerProps) {
     const onWaiting = () => {
       setIsLoading(true);
       logVideoState('onWaiting');
-
-      // Skip auto-reload logic if disabled
-      if (disableAutoReload) return;
-
-      try {
-        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
-      } catch {}
-      recoveryTimerRef.current = setTimeout(() => {
-        if (!isActiveRef.current) return;
-        const since = Date.now() - (lastProgressMsRef.current || 0);
-        if (since < STALL_RECOVERY_TIMEOUT_MS) return;
-        if (softReloadAttemptsRef.current < MAX_SOFT_RELOAD_ATTEMPTS) {
-          softReloadAttemptsRef.current += 1;
-          try {
-            const v = videoRef.current;
-            if (v) {
-              // Store current playback position before reload
-              const currentTime = v.currentTime || 0;
-              try {
-                v.pause();
-              } catch {}
-              try {
-                v.removeAttribute('src');
-                v.load();
-              } catch {}
-              try {
-                (v as HTMLVideoElement).src = url;
-                (v as any).preload = 'auto';
-              } catch {}
-              try {
-                (v as any).muted = true;
-                // Restore playback position after reload
-                v.currentTime = currentTime;
-                void v.play();
-              } catch {}
-              lastProgressMsRef.current = Date.now();
-            }
-          } catch {}
-          return;
-        }
-        if (!hasTriedRouteReloadRef.current) {
-          hasTriedRouteReloadRef.current = true;
-          try {
-            if (isActiveRef.current && typeof window !== 'undefined')
-              window.location.reload();
-          } catch {}
-        }
-      }, STALL_RECOVERY_TIMEOUT_MS);
     };
     const onStalled = () => {
       setIsLoading(true);
       logVideoState('onStalled');
-
-      // Skip auto-reload logic if disabled
-      if (disableAutoReload) return;
-
-      try {
-        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
-      } catch {}
-      recoveryTimerRef.current = setTimeout(() => {
-        if (!isActiveRef.current) return;
-        const since = Date.now() - (lastProgressMsRef.current || 0);
-        if (since < STALL_RECOVERY_TIMEOUT_MS) return;
-        if (softReloadAttemptsRef.current < MAX_SOFT_RELOAD_ATTEMPTS) {
-          softReloadAttemptsRef.current += 1;
-          try {
-            const v = videoRef.current;
-            if (v) {
-              // Store current playback position before reload
-              const currentTime = v.currentTime || 0;
-              try {
-                v.pause();
-              } catch {}
-              try {
-                v.removeAttribute('src');
-                v.load();
-              } catch {}
-              try {
-                (v as HTMLVideoElement).src = url;
-                (v as any).preload = 'auto';
-              } catch {}
-              try {
-                (v as any).muted = true;
-                // Restore playback position after reload
-                v.currentTime = currentTime;
-                void v.play();
-              } catch {}
-              lastProgressMsRef.current = Date.now();
-            }
-          } catch {}
-          return;
-        }
-        if (!hasTriedRouteReloadRef.current) {
-          hasTriedRouteReloadRef.current = true;
-          try {
-            if (isActiveRef.current && typeof window !== 'undefined')
-              window.location.reload();
-          } catch {}
-        }
-      }, STALL_RECOVERY_TIMEOUT_MS);
     };
     const onCanPlay = () => {
       setIsLoading(false);
       try {
         if (progressiveWatchdog) clearTimeout(progressiveWatchdog);
-      } catch {}
-      try {
-        if (stalledReloadTimerRef.current)
-          clearTimeout(stalledReloadTimerRef.current);
-      } catch {}
-      try {
-        if (waitingReloadTimerRef.current)
-          clearTimeout(waitingReloadTimerRef.current);
       } catch {}
       progressiveWatchdog = null;
       logVideoState('onCanPlay');
@@ -846,9 +706,6 @@ export function WebPlayer(props: WebPlayerProps) {
             }
           } catch {}
           (video as HTMLVideoElement).src = url;
-          progressiveFallbackTriedRef.current = false;
-          progressiveRetryCountRef.current = 0;
-          progressiveAlternateTriedRef.current = false;
           logVideoState('after set src and load');
           rafIdRef.current = requestAnimationFrame(() => {
             try {
@@ -885,47 +742,6 @@ export function WebPlayer(props: WebPlayerProps) {
               });
             } catch {}
           });
-          try {
-            if (startupTimerRef.current) clearTimeout(startupTimerRef.current);
-          } catch {}
-          startupTimerRef.current = setTimeout(() => {
-            if (!isActiveRef.current) return;
-
-            // Skip auto-reload logic if disabled
-            if (disableAutoReload) return;
-
-            const since = Date.now() - (lastProgressMsRef.current || 0);
-            if (since >= STARTUP_PLAY_TIMEOUT_MS) {
-              if (softReloadAttemptsRef.current < MAX_SOFT_RELOAD_ATTEMPTS) {
-                softReloadAttemptsRef.current += 1;
-                try {
-                  const v = videoRef.current;
-                  if (v) {
-                    // Store current playback position before reload
-                    const currentTime = v.currentTime || 0;
-                    try {
-                      v.pause();
-                    } catch {}
-                    try {
-                      v.removeAttribute('src');
-                      v.load();
-                    } catch {}
-                    try {
-                      (v as HTMLVideoElement).src = url;
-                      (v as any).preload = 'auto';
-                    } catch {}
-                    try {
-                      (v as any).muted = true;
-                      // Restore playback position after reload
-                      v.currentTime = currentTime;
-                      void v.play();
-                    } catch {}
-                    lastProgressMsRef.current = Date.now();
-                  }
-                } catch {}
-              }
-            }
-          }, STARTUP_PLAY_TIMEOUT_MS);
           try {
             if (audioCheckIntervalRef.current) {
               clearInterval(audioCheckIntervalRef.current);
@@ -1057,16 +873,6 @@ export function WebPlayer(props: WebPlayerProps) {
         video.removeEventListener('loadedmetadata', onLoadedMeta);
       } catch {}
       try {
-        if (stalledReloadTimerRef.current)
-          clearTimeout(stalledReloadTimerRef.current);
-      } catch {}
-      try {
-        if (recoveryTimerRef.current) clearTimeout(recoveryTimerRef.current);
-      } catch {}
-      try {
-        if (startupTimerRef.current) clearTimeout(startupTimerRef.current);
-      } catch {}
-      try {
         if (audioCheckIntervalRef.current) {
           clearInterval(audioCheckIntervalRef.current);
           audioCheckIntervalRef.current = null;
@@ -1084,10 +890,6 @@ export function WebPlayer(props: WebPlayerProps) {
     };
   }, [url]);
 
-  React.useEffect(() => {
-    console.log('url', url);
-    softReloadAttemptsRef.current = 0;
-  }, [url]);
 
   const onSeek = React.useCallback(
     (value: number) => {

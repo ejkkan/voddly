@@ -132,14 +132,15 @@ export function useEpg({
         if (end < rangeStart || start > rangeEnd) return null;
 
         // Calculate position - use precise positioning without rounding
-        const originalLeft = ((start - rangeStart) / (1000 * 60 * 60)) * hourWidth;
+        const originalLeft =
+          ((start - rangeStart) / (1000 * 60 * 60)) * hourWidth;
         let left = originalLeft;
-        
+
         // For programs that started before the visible range, position them at 0
         if (start < rangeStart) {
           left = 0;
         }
-        
+
         const duration = (end - start) / (1000 * 60 * 60);
         const width = Math.max(duration * hourWidth, 50); // min width
 
@@ -147,7 +148,7 @@ export function useEpg({
         const trimmedTitle = program.title?.trim() || '';
         const isPlaceholder = program.id?.includes('placeholder') || false;
         const hasContent = !!trimmedTitle && !isPlaceholder;
-        
+
         return {
           ...program,
           position: {
@@ -176,7 +177,7 @@ export function useEpg({
 
     // Second pass: adjust widths to prevent overlaps
     const programsByChannel = {};
-    programsWithPositions.forEach(program => {
+    programsWithPositions.forEach((program) => {
       if (!programsByChannel[program.channelUuid]) {
         programsByChannel[program.channelUuid] = [];
       }
@@ -184,17 +185,18 @@ export function useEpg({
     });
 
     // Sort programs by start time and handle overlaps
-    Object.keys(programsByChannel).forEach(channelUuid => {
+    Object.keys(programsByChannel).forEach((channelUuid) => {
       const channelPrograms = programsByChannel[channelUuid].sort(
         (a, b) => new Date(a.since).getTime() - new Date(b.since).getTime()
       );
-      
+
       // Find programs that started before visible range and overlap
-      const preRangePrograms = channelPrograms.filter(p => 
-        new Date(p.since).getTime() < rangeStart && 
-        new Date(p.till).getTime() > rangeStart
+      const preRangePrograms = channelPrograms.filter(
+        (p) =>
+          new Date(p.since).getTime() < rangeStart &&
+          new Date(p.till).getTime() > rangeStart
       );
-      
+
       // If multiple programs started before range and overlap, merge them
       if (preRangePrograms.length > 1) {
         // Find overlapping pre-range programs
@@ -207,50 +209,55 @@ export function useEpg({
             const currentEnd = new Date(current.till).getTime();
             const otherStart = new Date(other.since).getTime();
             const otherEnd = new Date(other.till).getTime();
-            return (currentStart < otherEnd && currentEnd > otherStart);
+            return currentStart < otherEnd && currentEnd > otherStart;
           });
-          
+
           if (hasOverlap) {
             overlappingPreRange.push(current);
           }
         }
-        
+
         if (overlappingPreRange.length > 1) {
           // Remove duplicate programs (same title and times, regardless of ID)
           const uniquePrograms = [];
           const seen = new Set();
-          
-          overlappingPreRange.forEach(program => {
+
+          overlappingPreRange.forEach((program) => {
             const key = `${program.title}-${new Date(program.since).getTime()}-${new Date(program.till).getTime()}`;
             if (!seen.has(key)) {
               seen.add(key);
               uniquePrograms.push(program);
             }
           });
-          
+
           // Additional check: if all programs have the same title, just keep one
-          const uniqueTitles = [...new Set(uniquePrograms.map(p => p.title))];
+          const uniqueTitles = [...new Set(uniquePrograms.map((p) => p.title))];
           if (uniqueTitles.length === 1) {
             // All programs have same title, just keep the first one
             const program = uniquePrograms[0];
             // Preserve originalLeft for progress calculation, but set display left to 0
-            program.position.originalLeft = program.position.originalLeft || program.position.left;
+            program.position.originalLeft =
+              program.position.originalLeft || program.position.left;
             program.position.left = 0;
-            
+
             // Remove all duplicates except the first
-            overlappingPreRange.slice(1).forEach(p => {
+            overlappingPreRange.slice(1).forEach((p) => {
               const index = channelPrograms.indexOf(p);
               if (index > -1) channelPrograms.splice(index, 1);
             });
           } else if (uniquePrograms.length > 1) {
             // Create merged program
-            const earliestStart = Math.min(...uniquePrograms.map(p => new Date(p.since).getTime()));
-            const latestEnd = Math.max(...uniquePrograms.map(p => new Date(p.till).getTime()));
-            const titles = uniquePrograms.map(p => p.title).join(' / ');
-            
+            const earliestStart = Math.min(
+              ...uniquePrograms.map((p) => new Date(p.since).getTime())
+            );
+            const latestEnd = Math.max(
+              ...uniquePrograms.map((p) => new Date(p.till).getTime())
+            );
+            const titles = uniquePrograms.map((p) => p.title).join(' / ');
+
             const mergedProgram = {
               ...uniquePrograms[0],
-              id: `merged-${uniquePrograms.map(p => p.id).join('-')}`,
+              id: `merged-${uniquePrograms.map((p) => p.id).join('-')}`,
               title: titles,
               description: 'Mixed programming',
               since: new Date(earliestStart),
@@ -258,59 +265,76 @@ export function useEpg({
               position: {
                 ...uniquePrograms[0].position,
                 left: 0, // Always start at 0 for merged pre-range programs
-                width: Math.max(((latestEnd - rangeStart) / (1000 * 60 * 60)) * hourWidth, 50),
-                originalLeft: ((earliestStart - rangeStart) / (1000 * 60 * 60)) * hourWidth, // Preserve original calculation for progress
-              }
+                width: Math.max(
+                  ((latestEnd - rangeStart) / (1000 * 60 * 60)) * hourWidth,
+                  50
+                ),
+                originalLeft:
+                  ((earliestStart - rangeStart) / (1000 * 60 * 60)) * hourWidth, // Preserve original calculation for progress
+              },
             };
-            
+
             // Remove original overlapping programs and add merged one
-            overlappingPreRange.forEach(p => {
+            overlappingPreRange.forEach((p) => {
               const index = channelPrograms.indexOf(p);
               if (index > -1) channelPrograms.splice(index, 1);
             });
             channelPrograms.unshift(mergedProgram);
           }
-          
+
           // Re-sort after adding merged program
-          channelPrograms.sort((a, b) => new Date(a.since).getTime() - new Date(b.since).getTime());
+          channelPrograms.sort(
+            (a, b) => new Date(a.since).getTime() - new Date(b.since).getTime()
+          );
         }
       }
-      
+
       // Handle remaining overlaps for programs within visible range
       for (let i = 0; i < channelPrograms.length; i++) {
         const currentProgram = channelPrograms[i];
-        
+
         // Check if this program overlaps with previous program
         if (i > 0) {
           const prevProgram = channelPrograms[i - 1];
-          const prevEnd = prevProgram.position.left + prevProgram.position.width;
-          
+          const prevEnd =
+            prevProgram.position.left + prevProgram.position.width;
+
           // Only adjust overlaps for programs that both start within visible range
           const programStart = new Date(currentProgram.since).getTime();
           const prevProgramStart = new Date(prevProgram.since).getTime();
-          
-          if (currentProgram.position.left < prevEnd && 
-              programStart >= rangeStart && 
-              prevProgramStart >= rangeStart) {
-            console.warn(`Overlap detected: "${currentProgram.title}" overlaps with "${prevProgram.title}"`);
+
+          if (
+            currentProgram.position.left < prevEnd &&
+            programStart >= rangeStart &&
+            prevProgramStart >= rangeStart
+          ) {
+            console.warn(
+              `Overlap detected: "${currentProgram.title}" overlaps with "${prevProgram.title}"`
+            );
             // Move current program to start after previous with small gap
             currentProgram.position.left = prevEnd + 2;
-            
+
             // Recalculate width based on new position
             const programEnd = new Date(currentProgram.till).getTime();
-            const endPosition = ((programEnd - rangeStart) / (1000 * 60 * 60)) * hourWidth;
-            currentProgram.position.width = Math.max(50, endPosition - currentProgram.position.left);
+            const endPosition =
+              ((programEnd - rangeStart) / (1000 * 60 * 60)) * hourWidth;
+            currentProgram.position.width = Math.max(
+              50,
+              endPosition - currentProgram.position.left
+            );
           }
         }
-        
+
         // Check if this program would overlap with next program
         if (i < channelPrograms.length - 1) {
           const nextProgram = channelPrograms[i + 1];
-          const currentEnd = currentProgram.position.left + currentProgram.position.width;
-          
+          const currentEnd =
+            currentProgram.position.left + currentProgram.position.width;
+
           // If current program would overlap with next, clamp its width
           if (currentEnd > nextProgram.position.left) {
-            const maxWidth = nextProgram.position.left - currentProgram.position.left - 2;
+            const maxWidth =
+              nextProgram.position.left - currentProgram.position.left - 2;
             currentProgram.position.width = Math.max(50, maxWidth);
           }
         }
@@ -319,7 +343,7 @@ export function useEpg({
 
     // Flatten the modified programs back into a single array
     const finalPrograms = [];
-    Object.values(programsByChannel).forEach(channelPrograms => {
+    Object.values(programsByChannel).forEach((channelPrograms) => {
       finalPrograms.push(...channelPrograms);
     });
 
@@ -360,6 +384,7 @@ export function useEpg({
     // Position "now" at about 1/3 of the viewport width for better visibility
     const scrollTo = currentTimePosition - (width - calculatedSidebarWidth) / 3;
     setScrollX(Math.max(0, scrollTo));
+    setShouldAutoScroll(true); // Re-enable auto-scroll when manually scrolling to "now"
 
     // Handle different variants
     if (variant === 'unified' && scrollRefs.current.main) {
@@ -375,13 +400,18 @@ export function useEpg({
     }
   }, [currentTimePosition, width, calculatedSidebarWidth, variant]);
 
-  // Auto-scroll to current time on mount
+  // Track if we should auto-scroll to now (don't auto-scroll after manual reset)
+  const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
+
+  // Auto-scroll to current time on mount (only if not manually reset)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      onScrollToNow();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [onScrollToNow]);
+    if (shouldAutoScroll) {
+      const timer = setTimeout(() => {
+        onScrollToNow();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [onScrollToNow, shouldAutoScroll]);
 
   const onScrollLeft = useCallback(() => {
     const newScroll = Math.max(0, scrollX - hourWidth * 3);
@@ -432,6 +462,31 @@ export function useEpg({
       scrollRefs.current.vertical.scrollTo({ y: newScroll, animated: true });
     }
   }, [scrollY, channels.length, itemHeight]);
+
+  // Reset scroll position to top-left
+  const onScrollReset = useCallback(() => {
+    setScrollX(0);
+    setScrollY(0);
+    setShouldAutoScroll(false); // Prevent auto-scroll to "now" after manual reset
+
+    // Handle different variants
+    if (variant === 'unified' && scrollRefs.current.main) {
+      scrollRefs.current.main.scrollTo({ x: 0, y: 0, animated: false });
+    } else if (variant === 'modern-grid') {
+      if (scrollRefs.current.horizontalMain) {
+        scrollRefs.current.horizontalMain.scrollTo({ x: 0, animated: false });
+      }
+      if (scrollRefs.current.verticalMain) {
+        scrollRefs.current.verticalMain.scrollTo({ y: 0, animated: false });
+      }
+      if (scrollRefs.current.horizontalTimeline) {
+        scrollRefs.current.horizontalTimeline.scrollTo({
+          x: 0,
+          animated: false,
+        });
+      }
+    }
+  }, [variant]);
 
   // Get props functions
   const getEpgProps = useCallback(
@@ -498,6 +553,7 @@ export function useEpg({
     onScrollRight,
     onScrollTop,
     onScrollDown,
+    onScrollReset,
     scrollX,
     scrollY,
   };

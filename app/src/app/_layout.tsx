@@ -4,6 +4,8 @@ import '../../global.css';
 // Import font error handler to suppress FontFaceObserver timeouts
 import '@/utils/fontErrorHandler';
 
+import { useFonts } from 'expo-font';
+
 // Re-enable BottomSheet provider for components like Select/Modal
 // @ts-ignore
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
@@ -91,6 +93,10 @@ const queryClient = new QueryClient({
 loadSelectedTheme();
 
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter: require('../../assets/fonts/Inter.ttf'),
+  });
+
   React.useEffect(() => {
     // Web: patch atob to accept URL-safe base64 and missing padding
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -119,6 +125,12 @@ export default function RootLayout() {
       (globalThis as any).atob = shim;
     }
   }, []);
+
+  // Don't render until fonts are loaded
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
   return (
     <Providers>
       <Stack>

@@ -13,5 +13,5 @@ export function debugLog(...args: any[]) {
   if (!shouldDebug()) return;
   // Prefix for easy filtering
 
-  console.log('[passphrase]', ...args);
+  // console.log('[passphrase]', ...args);
 }

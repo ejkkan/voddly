@@ -5,6 +5,7 @@ import {
   getDeviceModel,
   getDeviceName,
   getStableDeviceId,
+  debugFingerprint,
 } from './device-fingerprint';
 
 const storage = new MMKV();
@@ -82,5 +83,26 @@ export function clearDeviceId() {
     }
   } else {
     storage.delete('deviceId');
+  }
+}
+
+/**
+ * Debug device identification - logs detailed fingerprint information
+ * Use this to troubleshoot device ID changes
+ */
+export function debugDeviceId() {
+  console.log('[Device ID Debug] Starting device identification debug...');
+  debugFingerprint();
+  
+  const deviceId = getDeviceId();
+  console.log('[Device ID Debug] Final device ID:', deviceId);
+  
+  // Check if cached
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
+    const cached = window.localStorage.getItem('deviceId');
+    console.log('[Device ID Debug] Cached web device ID:', cached);
+  } else if (Platform.OS !== 'web') {
+    const cached = storage.getString('deviceId');
+    console.log('[Device ID Debug] Cached native device ID:', cached);
   }
 }

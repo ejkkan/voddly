@@ -1,5 +1,11 @@
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useRef,
+} from 'react';
 
 import {
   type Channel,
@@ -16,11 +22,13 @@ import {
   View,
 } from '@/components/ui';
 import { Heart } from '@/components/ui/icons';
-import { VideoPlayer } from '@/components/video/VideoPlayer';
+import { PlainPlayer } from '@/components/video/PlainPlayer';
 import { useFavoriteManager, useUiSections } from '@/hooks/ui';
 import { useSimpleVirtualizedEpg } from '@/hooks/useCachedEpg';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { constructStreamUrl } from '@/lib/stream-url';
+import { sortChannelsWithClustering } from '@/utils/channel-grouping';
+import { EpgLoadingSkeleton } from '@/components/epg/EpgLoadingSkeleton';
 
 type CategorySection = {
   categoryId?: string;
@@ -35,11 +43,11 @@ type CategorySection = {
 };
 
 // Separate component for program items with proper drag detection
-const ProgramItem = React.memo(function ProgramItem({ 
-  program, 
-  isAiring, 
-  isPlaceholder, 
-  onPress 
+const ProgramItem = React.memo(function ProgramItem({
+  program,
+  isAiring,
+  isPlaceholder,
+  onPress,
 }: {
   program: Program;
   isAiring: boolean;
@@ -53,27 +61,30 @@ const ProgramItem = React.memo(function ProgramItem({
     const event = e.nativeEvent || e;
     dragStartPos.current = {
       x: event.pageX || event.clientX,
-      y: event.pageY || event.clientY
+      y: event.pageY || event.clientY,
     };
     isDragging.current = false;
   }, []);
 
-  const handlePressOut = useCallback((e: any) => {
-    const event = e.nativeEvent || e;
-    if (dragStartPos.current) {
-      const endX = event.pageX || event.clientX;
-      const endY = event.pageY || event.clientY;
-      const deltaX = Math.abs(endX - dragStartPos.current.x);
-      const deltaY = Math.abs(endY - dragStartPos.current.y);
-      
-      // Disabled program box navigation - only buttons should trigger actions
-      // if (deltaX < 5 && deltaY < 5 && !isDragging.current) {
-      //   onPress(program);
-      // }
-    }
-    dragStartPos.current = null;
-    isDragging.current = false;
-  }, [program, onPress]);
+  const handlePressOut = useCallback(
+    (e: any) => {
+      const event = e.nativeEvent || e;
+      if (dragStartPos.current) {
+        const endX = event.pageX || event.clientX;
+        const endY = event.pageY || event.clientY;
+        const deltaX = Math.abs(endX - dragStartPos.current.x);
+        const deltaY = Math.abs(endY - dragStartPos.current.y);
+
+        // Disabled program box navigation - only buttons should trigger actions
+        // if (deltaX < 5 && deltaY < 5 && !isDragging.current) {
+        //   onPress(program);
+        // }
+      }
+      dragStartPos.current = null;
+      isDragging.current = false;
+    },
+    [program, onPress]
+  );
 
   const handleMouseMove = useCallback((e: any) => {
     if (dragStartPos.current) {
@@ -82,7 +93,7 @@ const ProgramItem = React.memo(function ProgramItem({
       const currentY = event.pageY || event.clientY;
       const deltaX = Math.abs(currentX - dragStartPos.current.x);
       const deltaY = Math.abs(currentY - dragStartPos.current.y);
-      
+
       // Mark as dragging if movement exceeds threshold
       if (deltaX > 5 || deltaY > 5) {
         isDragging.current = true;
@@ -166,53 +177,49 @@ export default function LiveTV() {
     null
   );
 
-  const sectionsQuery = useUiSections('live', {
-    limitPerCategory: 1000, // Get ALL channels per category
+  // First load: Get only category metadata with minimal channels to get category list
+  const categoriesQuery = useUiSections('live', {
+    limitPerCategory: 1, // Load just 1 channel per category to get the category list
     maxCategories: 1000, // Get ALL categories
     categoryOffset: 0,
   });
 
-  useEffect(() => {
-    if (!sectionsQuery.data) return;
+  // Second load: Get channels for selected category only
+  const selectedCategoryChannelsQuery = useUiSections('live', {
+    limitPerCategory: 999999, // Get ALL channels for selected category (no limit)
+    maxCategories: 999999, // Get ALL categories to ensure we get the right category
+    categoryOffset: 0, // Start from beginning to ensure we get the right category
+    enabled: !!selectedCategory, // Only run when we have a selected category
+  });
 
-    const mapped: CategorySection[] = sectionsQuery.data.map((c) => ({
+  useEffect(() => {
+    console.log('Categories query state:', {
+      isPending: categoriesQuery.isPending,
+      isError: categoriesQuery.isError,
+      data: categoriesQuery.data,
+      dataLength: categoriesQuery.data?.length,
+    });
+
+    if (!categoriesQuery.data) return;
+
+    // PERFORMANCE FIX: Only store basic category info, no channels
+    const mapped: CategorySection[] = categoriesQuery.data.map((c) => ({
       categoryId: c.categoryId,
       title: c.name,
-      items: c.items
-        .map((i) => ({
-          id: i.id,
-          title: i.title,
-          imageUrl: i.imageUrl ?? undefined,
-          sourceId: i.sourceId ?? undefined,
-          sourceItemId: i.sourceItemId ?? undefined,
-        }))
-        .sort((a, b) => {
-          // Sort favorites first within category
-          const aIsFav = isFavorite(a.id);
-          const bIsFav = isFavorite(b.id);
-          if (aIsFav && !bIsFav) return -1;
-          if (!aIsFav && bIsFav) return 1;
-          return 0;
-        }),
+      items: [], // No items initially - will be loaded separately
     }));
 
-    // Sort categories by favorites count (categories with more favorites first)
-    const sortedMapped = mapped.sort((a, b) => {
-      const aFavCount = a.items.filter((item) => isFavorite(item.id)).length;
-      const bFavCount = b.items.filter((item) => isFavorite(item.id)).length;
-      return bFavCount - aFavCount;
-    });
+    console.log('Mapped categories:', mapped.length);
+
+    // Simple category sorting by name
+    const sortedMapped = mapped.sort((a, b) => a.title.localeCompare(b.title));
 
     setCategories(sortedMapped);
     if (mapped.length > 0 && !selectedCategory) {
-      console.log(
-        'First category sample:',
-        mapped[0]?.title,
-        mapped[0]?.items.slice(0, 2)
-      );
+      // Auto-select first category
       setSelectedCategory(mapped[0]);
     }
-  }, [sectionsQuery.data, selectedCategory]);
+  }, [categoriesQuery.data]);
 
   // Split categories into favorited and non-favorited
   const { favoritedCategories, otherCategories } = useMemo(() => {
@@ -229,41 +236,156 @@ export default function LiveTV() {
 
   // Get source ID and channel IDs for EPG fetching
   const selectedSourceId = useMemo(() => {
-    const sourceId = selectedCategory?.items[0]?.sourceId;
+    if (
+      !selectedCategoryChannelsQuery.data ||
+      selectedCategoryChannelsQuery.data.length === 0 ||
+      !selectedCategory
+    )
+      return undefined;
+    // Find the selected category from all loaded categories
+    const selectedCategoryData = selectedCategoryChannelsQuery.data.find(
+      (cat) => cat.categoryId === selectedCategory.categoryId
+    );
+    const sourceId = selectedCategoryData?.items[0]?.sourceId;
     console.log('Selected Source ID:', sourceId);
     return sourceId;
-  }, [selectedCategory]);
+  }, [selectedCategoryChannelsQuery.data, selectedCategory]);
 
-  // Note: We rely on useSimpleVirtualizedEpg for fetching visible channels
+  // Use simple virtualized EPG fetching - only fetch visible channels from processed channels
+  const channelsForEpg = useMemo(() => {
+    if (
+      !selectedCategoryChannelsQuery.data ||
+      selectedCategoryChannelsQuery.data.length === 0 ||
+      !selectedCategory
+    )
+      return [];
+    // Find the selected category from all loaded categories
+    const selectedCategoryData = selectedCategoryChannelsQuery.data.find(
+      (cat) => cat.categoryId === selectedCategory.categoryId
+    );
+    return selectedCategoryData?.items || [];
+  }, [selectedCategoryChannelsQuery.data, selectedCategory]);
 
-  // Use simple virtualized EPG fetching - only fetch visible channels
   const epgQuery = useSimpleVirtualizedEpg(
     selectedSourceId,
-    selectedCategory?.items || [],
+    channelsForEpg,
     visibleChannelRange
   );
 
-  // Transform data for EPG viewer - include ALL channels sorted by favorites first
-  const epgChannels = useMemo<Channel[]>(() => {
-    if (!selectedCategory) return [];
+  // State to track processed channels for the selected category
+  const [processedChannels, setProcessedChannels] = useState<Channel[]>([]);
 
-    return selectedCategory.items
-      .sort((a, b) => {
-        // Sort favorites first
-        const aIsFav = isFavorite(a.id);
-        const bIsFav = isFavorite(b.id);
-        if (aIsFav && !bIsFav) return -1;
-        if (!aIsFav && bIsFav) return 1;
-        return 0;
-      })
-      .map((item) => ({
+  // Process channels when selected category's channel data is loaded
+  useEffect(() => {
+    if (
+      !selectedCategoryChannelsQuery.data ||
+      selectedCategoryChannelsQuery.data.length === 0 ||
+      !selectedCategory
+    ) {
+      setProcessedChannels([]);
+      return;
+    }
+
+    // Find the selected category from all loaded categories
+    const categoryData = selectedCategoryChannelsQuery.data.find(
+      (cat) => cat.categoryId === selectedCategory.categoryId
+    );
+    if (!categoryData) return;
+
+    console.time(
+      `Processing ${categoryData.items.length} channels for category: ${categoryData.name}`
+    );
+
+    // LOG ALL CHANNELS FOUND FROM DATABASE FOR THIS CATEGORY
+    console.log(
+      `=== ALL CHANNELS FROM DB FOR CATEGORY: ${categoryData.name} ===`
+    );
+    console.log(`Total channels found in DB: ${categoryData.items.length}`);
+    categoryData.items.forEach((item, index) => {
+      console.log(
+        `${index + 1}. ${item.title} (ID: ${item.id}, Source: ${item.sourceId}/${item.sourceItemId})`
+      );
+    });
+    console.log(`=== END CHANNEL LIST FOR: ${categoryData.name} ===`);
+
+    // Apply expensive channel sorting/clustering logic here
+    const sortedItems = sortChannelsWithClustering(
+      categoryData.items,
+      (id: string) => isFavorite(id)
+    );
+
+    const channels = sortedItems.map((item) => ({
+      uuid: item.id,
+      type: 'live',
+      title: item.title,
+      logo: item.imageUrl || undefined,
+      streamId: item.sourceItemId,
+    }));
+
+    setProcessedChannels(channels);
+    console.timeEnd(
+      `Processing ${categoryData.items.length} channels for category: ${categoryData.name}`
+    );
+  }, [selectedCategoryChannelsQuery.data, selectedCategory]);
+
+  // Create a stable reference to the current favorite state
+  const currentFavoritesRef = useRef<Set<string>>(new Set());
+
+  // Re-process channels when favorites actually change
+  useEffect(() => {
+    if (
+      !selectedCategoryChannelsQuery.data ||
+      selectedCategoryChannelsQuery.data.length === 0 ||
+      !selectedCategory
+    )
+      return;
+
+    // Find the selected category from all loaded categories
+    const categoryData = selectedCategoryChannelsQuery.data.find(
+      (cat) => cat.categoryId === selectedCategory.categoryId
+    );
+    if (!categoryData) return;
+
+    // Get current favorites for this category's channels
+    const newFavorites = new Set(
+      categoryData.items
+        .filter((item) => isFavorite(item.id))
+        .map((item) => item.id)
+    );
+
+    // Check if favorites actually changed
+    const oldFavorites = currentFavoritesRef.current;
+    const favoritesChanged =
+      newFavorites.size !== oldFavorites.size ||
+      [...newFavorites].some((id) => !oldFavorites.has(id)) ||
+      [...oldFavorites].some((id) => !newFavorites.has(id));
+
+    if (favoritesChanged || currentFavoritesRef.current.size === 0) {
+      console.log('Re-processing channels due to favorite change');
+      currentFavoritesRef.current = newFavorites;
+
+      // Re-apply sorting
+      const sortedItems = sortChannelsWithClustering(
+        categoryData.items,
+        (id: string) => isFavorite(id)
+      );
+
+      const channels = sortedItems.map((item) => ({
         uuid: item.id,
         type: 'live',
         title: item.title,
         logo: item.imageUrl || undefined,
         streamId: item.sourceItemId,
       }));
-  }, [selectedCategory, isFavorite]);
+
+      setProcessedChannels(channels);
+    }
+  }, [selectedCategoryChannelsQuery.data, selectedCategory, categories]); // categories will change when favorites change
+
+  // Use processed channels for EPG viewer
+  const epgChannels = useMemo<Channel[]>(() => {
+    return processedChannels;
+  }, [processedChannels]);
 
   const epgPrograms = useMemo<Program[]>(() => {
     // Use the programs from virtualized EPG (now includes placeholders)
@@ -290,49 +412,52 @@ export default function LiveTV() {
     console.log('Channel clicked:', channel.title);
   };
 
-  const handleProgramClick = useCallback(async (program: Program) => {
-    // Start background video player for this program
-    const channel = epgChannels.find((ch) => ch.uuid === program.channelUuid);
-    if (channel) {
-      try {
-        console.log('Starting background video for program:', {
-          channel: channel.title,
-          program: program.title,
-          streamId: channel.streamId,
-        });
-
-        const sourceId = selectedSourceId;
-        const channelId = channel.streamId;
-
-        if (sourceId && channelId) {
-          // Get credentials and construct stream URL
-          const creds = await getCredentials(sourceId, {
-            title: 'Watch TV',
-            message: 'Starting background video...',
+  const handleProgramClick = useCallback(
+    async (program: Program) => {
+      // Start background video player for this program
+      const channel = epgChannels.find((ch) => ch.uuid === program.channelUuid);
+      if (channel) {
+        try {
+          console.log('Starting background video for program:', {
+            channel: channel.title,
+            program: program.title,
+            streamId: channel.streamId,
           });
 
-          const { streamingUrl } = constructStreamUrl({
-            server: creds.server,
-            username: creds.username,
-            password: creds.password,
-            contentId: channelId,
-            contentType: 'live',
-            containerExtension: creds.containerExtension,
-            videoCodec: creds.videoCodec,
-            audioCodec: creds.audioCodec,
-          });
+          const sourceId = selectedSourceId;
+          const channelId = channel.streamId;
 
-          setBackgroundVideo({
-            channel,
-            program,
-            streamUrl: streamingUrl,
-          });
+          if (sourceId && channelId) {
+            // Get credentials and construct stream URL
+            const creds = await getCredentials(sourceId, {
+              title: 'Watch TV',
+              message: 'Starting background video...',
+            });
+
+            const { streamingUrl } = constructStreamUrl({
+              server: creds.server,
+              username: creds.username,
+              password: creds.password,
+              contentId: channelId,
+              contentType: 'live',
+              containerExtension: creds.containerExtension,
+              videoCodec: creds.videoCodec,
+              audioCodec: creds.audioCodec,
+            });
+
+            setBackgroundVideo({
+              channel,
+              program,
+              streamUrl: streamingUrl,
+            });
+          }
+        } catch (e) {
+          console.error('Failed to start background video:', e);
         }
-      } catch (e) {
-        console.error('Failed to start background video:', e);
       }
-    }
-  }, [epgChannels, selectedSourceId, getCredentials]);
+    },
+    [epgChannels, selectedSourceId, getCredentials]
+  );
 
   // Debounced handler for scroll updates
   const handleVisibleChannelsChange = useCallback(
@@ -349,6 +474,36 @@ export default function LiveTV() {
     },
     []
   );
+
+  // Show loading skeleton while categories are loading
+  if (
+    categoriesQuery.isPending ||
+    (!categoriesQuery.data && !categoriesQuery.isError)
+  ) {
+    return <EpgLoadingSkeleton />;
+  }
+
+  // Show error state
+  if (categoriesQuery.isError) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-white dark:bg-black">
+        <View className="items-center space-y-4 p-6">
+          <Text className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+            Failed to load categories
+          </Text>
+          <Text className="text-center text-neutral-600 dark:text-neutral-400">
+            There was an error loading your TV categories. Please try again.
+          </Text>
+          <Pressable
+            onPress={() => categoriesQuery.refetch()}
+            className="rounded-lg bg-blue-500 px-6 py-3"
+          >
+            <Text className="font-semibold text-white">Retry</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
@@ -367,13 +522,9 @@ export default function LiveTV() {
             height: '100%',
           }}
         >
-          <VideoPlayer
+          <PlainPlayer
             key={`${backgroundVideo.channel.uuid}-${backgroundVideo.program.id}`}
             url={backgroundVideo.streamUrl}
-            preferredPlayer="web"
-            layout="netflix"
-            theme="dark"
-            constrainToContainer={true}
             style={{
               width: '100%',
               height: '100%',
@@ -419,8 +570,13 @@ export default function LiveTV() {
                   <Pressable
                     key={category.categoryId || category.title}
                     onPress={() => {
+                      console.log(
+                        `Category clicked: ${category.title} (${category.items.length} channels)`
+                      );
                       setSelectedCategory(category);
                       setVisibleChannelRange({ start: 0, end: 15 });
+                      // Reset EPG scroll position to start from beginning
+                      epgProps.onScrollReset();
                     }}
                     className={`px-6 py-4  ${
                       selectedCategory?.categoryId === category.categoryId
@@ -429,7 +585,7 @@ export default function LiveTV() {
                     }`}
                   >
                     <View className="flex-row items-center justify-between">
-                      <View>
+                      <View className="flex-1">
                         <Text
                           className={`text-sm ${
                             selectedCategory?.categoryId === category.categoryId
@@ -439,14 +595,18 @@ export default function LiveTV() {
                         >
                           {category.title}
                         </Text>
-                        <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
-                          {category.items.length} channels •{' '}
-                          {
-                            category.items.filter((item) => isFavorite(item.id))
-                              .length
-                          }{' '}
-                          favorited
-                        </Text>
+                        {selectedCategory?.categoryId === category.categoryId &&
+                          processedChannels.length > 0 && (
+                            <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
+                              {processedChannels.length} channels •{' '}
+                              {
+                                processedChannels.filter((ch) =>
+                                  isFavorite(ch.uuid)
+                                ).length
+                              }{' '}
+                              favorited
+                            </Text>
+                          )}
                       </View>
                       {category.categoryId && (
                         <Pressable
@@ -489,8 +649,13 @@ export default function LiveTV() {
               <Pressable
                 key={category.categoryId || category.title}
                 onPress={() => {
+                  console.log(
+                    `Category clicked: ${category.title} (${category.items.length} channels)`
+                  );
                   setSelectedCategory(category);
                   setVisibleChannelRange({ start: 0, end: 15 });
+                  // Reset EPG scroll position to start from beginning
+                  epgProps.onScrollReset();
                 }}
                 className={`px-6 py-4 dark:border-neutral-800 ${
                   selectedCategory?.categoryId === category.categoryId
@@ -499,7 +664,7 @@ export default function LiveTV() {
                 }`}
               >
                 <View className="flex-row items-center justify-between">
-                  <View>
+                  <View className="flex-1">
                     <Text
                       className={`text-sm ${
                         selectedCategory?.categoryId === category.categoryId
@@ -509,9 +674,12 @@ export default function LiveTV() {
                     >
                       {category.title}
                     </Text>
-                    <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
-                      {category.items.length} channels
-                    </Text>
+                    {selectedCategory?.categoryId === category.categoryId &&
+                      processedChannels.length > 0 && (
+                        <Text className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
+                          {processedChannels.length} channels
+                        </Text>
+                      )}
                   </View>
                   {category.categoryId && (
                     <Pressable
@@ -588,7 +756,7 @@ export default function LiveTV() {
                               onPress={() => {
                                 handleChannelClick(channel);
                               }}
-                              className="relative flex items-center justify-center  border-white/10 bg-black/20 backdrop-blur-sm"
+                              className="relative flex items-center justify-center border-white/10 bg-black/20 backdrop-blur-sm"
                               style={{ height: '100%', cursor: 'pointer' }}
                             >
                               {channel.logo ? (
@@ -691,10 +859,16 @@ export default function LiveTV() {
                     ) : null}
                   </View>
                   <View className="flex-row items-center gap-2">
-                    <Text className="text-xs text-neutral-600 dark:text-neutral-400">
-                      {epgQuery.fetchedCount}/{epgQuery.totalCount} channels
-                      loaded
-                    </Text>
+                    {selectedCategoryChannelsQuery.isLoading && (
+                      <Text className="text-xs text-blue-600 dark:text-blue-400">
+                        Loading channels...
+                      </Text>
+                    )}
+                    {processedChannels.length > 0 && (
+                      <Text className="text-xs text-neutral-600 dark:text-neutral-400">
+                        {epgQuery.fetchedCount}/{epgQuery.totalCount} EPG loaded
+                      </Text>
+                    )}
                     {epgQuery.isLoading && (
                       <Text className="text-xs text-blue-600 dark:text-blue-400">
                         Loading EPG data...

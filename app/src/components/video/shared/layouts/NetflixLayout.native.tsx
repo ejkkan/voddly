@@ -5,7 +5,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ControlsBar } from '../components/ControlsBar';
 import { LoadingOverlay } from '../components/LoadingOverlay';
 import { TopBar } from '../components/TopBar';
-import { useTheme } from '../themes/ThemeProvider';
 import { type PlayerLayoutProps } from '../types/player.types';
 
 export function NetflixLayout({
@@ -19,7 +18,6 @@ export function NetflixLayout({
   setShowControls,
   constrainToContainer = true,
 }: PlayerLayoutProps) {
-  const theme = useTheme();
 
   return (
     <View style={styles.container}>
@@ -38,13 +36,13 @@ export function NetflixLayout({
           style={[
             styles.bottomGradient,
             {
-              padding: theme.dimensions.padding,
+              padding: 16,
               zIndex: 1000,
             },
           ]}
         >
           {/* Video Info at bottom */}
-          <View style={{ marginBottom: theme.dimensions.spacing }}>
+          <View style={{ marginBottom: 12 }}>
             <TopBar title={title} showBack={showBack} onBack={onBack} />
           </View>
           {/* Controls below the info */}

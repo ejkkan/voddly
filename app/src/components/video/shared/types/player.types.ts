@@ -27,9 +27,8 @@ export interface BasePlayerProps {
   onPlaybackStart?: (currentTimeSec: number, durationSec?: number) => void;
   onProgress?: (currentTimeSec: number, durationSec?: number) => void;
   onPlaybackEnd?: (currentTimeSec: number, durationSec?: number) => void;
-  // Layout & Theme
-  layout?: 'netflix' | 'minimal';
-  theme?: 'default' | 'compact';
+  // Layout - always use netflix layout
+  // Theme - always use default theme values
   // Auto-reload behavior
   disableAutoReload?: boolean;
   // Control positioning

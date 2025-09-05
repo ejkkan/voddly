@@ -10,7 +10,7 @@ type CachedPassphrase = {
   expiresAt: number;
 };
 
-const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+const CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // 1 day
 const STORAGE_KEY = 'passphrase_cache';
 
 function isWeb(): boolean {

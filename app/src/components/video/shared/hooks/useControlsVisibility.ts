@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useTheme } from '../themes/ThemeProvider';
+// Hard-coded default auto-hide delay (from default theme)
+const AUTO_HIDE_DELAY = 3000;
 
 export function useControlsVisibility(initialVisible = true) {
-  const theme = useTheme();
   const [showControls, setShowControls] = useState(initialVisible);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -18,9 +18,9 @@ export function useControlsVisibility(initialVisible = true) {
     if (showControls) {
       timeoutRef.current = setTimeout(() => {
         setShowControls(false);
-      }, theme.animations.autoHideDelay);
+      }, AUTO_HIDE_DELAY);
     }
-  }, [showControls, theme.animations.autoHideDelay]);
+  }, [showControls]);
 
   const handleUserActivity = useCallback(() => {
     setShowControls(true);

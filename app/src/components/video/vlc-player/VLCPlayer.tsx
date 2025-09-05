@@ -8,29 +8,21 @@ import {
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { useOrientation } from '../shared/hooks/useOrientation';
 import { usePlaybackState } from '../shared/hooks/usePlaybackState';
-import { MinimalLayout, NetflixLayout } from '../shared/layouts';
-import { ThemeProvider } from '../shared/themes/ThemeProvider';
+import { NetflixLayout } from '../shared/layouts';
 import {
   type BasePlayerProps,
   type PlayerControls,
 } from '../shared/types/player.types';
-import { type VisualTheme } from '../shared/types/theme.types';
-
-interface VLCPlayerProps extends BasePlayerProps {
-  theme: VisualTheme;
-}
 
 export function VLCPlayer({
   url,
   title,
   showBack,
   onBack,
-  layout = 'netflix',
-  theme,
   autoPlay = true,
   startTime = 0,
   constrainToContainer,
-}: VLCPlayerProps) {
+}: BasePlayerProps) {
   const vlcRef = useRef<VlcPlayerViewRef>(null);
   const {
     playerState,
@@ -206,12 +198,8 @@ export function VLCPlayer({
     },
   };
 
-  // Select layout component
-  const Layout = layout === 'minimal' ? MinimalLayout : NetflixLayout;
-
   return (
-    <ThemeProvider theme={theme}>
-      <Layout
+    <NetflixLayout
         videoElement={
           <VLC
             ref={vlcRef}
@@ -242,7 +230,6 @@ export function VLCPlayer({
         setShowControls={setShowControls}
         constrainToContainer={constrainToContainer}
       />
-    </ThemeProvider>
   );
 }
 

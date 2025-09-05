@@ -9,32 +9,24 @@ import { useCast } from '../shared/hooks/useCast';
 import { useControlsVisibility } from '../shared/hooks/useControlsVisibility';
 import { useOrientation } from '../shared/hooks/useOrientation';
 import { usePlaybackState } from '../shared/hooks/usePlaybackState';
-import { MinimalLayout, NetflixLayout } from '../shared/layouts';
-import { ThemeProvider } from '../shared/themes/ThemeProvider';
+import { NetflixLayout } from '../shared/layouts';
 import {
   type BasePlayerProps,
   type PlayerControls,
 } from '../shared/types/player.types';
-import { type VisualTheme } from '../shared/types/theme.types';
-
-interface RNVideoPlayerProps extends BasePlayerProps {
-  theme: VisualTheme;
-}
 
 export function RNVideoPlayer({
   url,
   title,
   showBack,
   onBack,
-  layout = 'netflix',
-  theme,
   autoPlay = true,
   startTime = 0,
   onPlaybackStart,
   onProgress,
   onPlaybackEnd,
   constrainToContainer,
-}: RNVideoPlayerProps) {
+}: BasePlayerProps) {
   const videoRef = useRef<Video>(null);
   const {
     playerState,
@@ -239,12 +231,9 @@ export function RNVideoPlayer({
       }
     : controls;
 
-  // Select layout component
-  const Layout = layout === 'minimal' ? MinimalLayout : NetflixLayout;
-
+  // Always use Netflix layout - single consistent layout
   return (
-    <ThemeProvider theme={theme}>
-      <Layout
+    <NetflixLayout
         videoElement={
           <Video
             ref={videoRef}
@@ -281,7 +270,6 @@ export function RNVideoPlayer({
         setShowControls={setShowControls}
         constrainToContainer={constrainToContainer}
       />
-    </ThemeProvider>
   );
 }
 

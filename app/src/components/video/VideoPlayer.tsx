@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 
-import { themes } from './shared/themes';
 import { type BasePlayerProps } from './shared/types/player.types';
 import { getDefaultPlayer } from './shared/utils/platformHelpers';
 
@@ -19,8 +18,6 @@ export interface VideoPlayerProps extends BasePlayerProps {
 export function VideoPlayer({
   url,
   preferredPlayer = 'auto',
-  layout = 'netflix',
-  theme = 'default',
   constrainToContainer = false, // Default to false for fullscreen players
   ...props
 }: VideoPlayerProps) {
@@ -41,15 +38,10 @@ export function VideoPlayer({
   }, [url, preferredPlayer]);
 
   console.log('[VideoPlayer] Final selected player:', selectedPlayer);
-  // Resolve theme if string
-  const resolvedTheme = typeof theme === 'string' ? (themes[theme] || themes.default) : theme;
-  console.log('[VideoPlayer] Theme:', theme, 'Resolved theme:', resolvedTheme);
 
-  // Common props for all players
+  // Common props for all players - no theme or layout props needed
   const playerProps = {
     url,
-    layout,
-    theme: resolvedTheme,
     constrainToContainer,
     ...props,
   };
