@@ -101,4 +101,8 @@ export const windowIpcSchema = {
     args: z.tuple([z.string()]),
     return: z.number(),
   },
+  'web-close-browser-view': {
+    args: z.tuple([]),
+    return: z.boolean(),
+  },
 }

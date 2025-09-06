@@ -2427,7 +2427,7 @@ class BaseClient {
             const data: CallParameters = {};
 
             data.headers = makeRecord<string, string>({
-                cookie:         authData.cookie,
+                "Cookie":       authData.cookie,
                 "x-device-id":  authData.deviceId,
                 "x-passphrase": authData.passphrase,
             });

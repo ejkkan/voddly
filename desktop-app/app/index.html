@@ -5,7 +5,7 @@
     <title>Electron</title>
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: res:;"
+      content="default-src 'self' https: http: data: blob: 'unsafe-inline' 'unsafe-eval'; script-src 'self' https: 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: res: https: http:; media-src 'self' https: http: data: blob:; connect-src 'self' https: http: data: blob:; frame-src 'self' https: http:;"
     />
   </head>
 

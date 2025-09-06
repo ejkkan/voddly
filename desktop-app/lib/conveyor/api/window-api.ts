@@ -27,4 +27,5 @@ export class WindowApi extends ConveyorApi {
   webToggleFullscreen = () => this.invoke('web-toggle-fullscreen')
   webOpenUrl = (url: string) => this.invoke('web-open-url', url)
   webOpenFullscreenBrowser = (url: string) => this.invoke('web-open-fullscreen-browser', url)
+  webCloseBrowserView = () => this.invoke('web-close-browser-view')
 }

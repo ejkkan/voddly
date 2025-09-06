@@ -39,17 +39,70 @@ class WindowApi extends ConveyorApi {
   webToggleFullscreen = () => this.invoke("web-toggle-fullscreen");
   webOpenUrl = (url) => this.invoke("web-open-url", url);
   webOpenFullscreenBrowser = (url) => this.invoke("web-open-fullscreen-browser", url);
+  webCloseBrowserView = () => this.invoke("web-close-browser-view");
 }
 const conveyor = {
   app: new AppApi(preload.electronAPI),
   window: new WindowApi(preload.electronAPI)
 };
+const websiteApi = {
+  /**
+   * Check if running in Electron
+   */
+  async isElectron() {
+    try {
+      return await electron.ipcRenderer.invoke("website:is-electron");
+    } catch (error) {
+      return { success: false, error: "Not in Electron environment" };
+    }
+  },
+  /**
+   * Get app information
+   */
+  async getAppInfo() {
+    return await electron.ipcRenderer.invoke("website:get-app-info");
+  },
+  /**
+   * Request video playback in Electron app
+   */
+  async playVideo(videoUrl, videoInfo) {
+    return await electron.ipcRenderer.invoke("website:play-video", videoUrl, videoInfo);
+  },
+  /**
+   * Focus the Electron window
+   */
+  async focusWindow() {
+    return await electron.ipcRenderer.invoke("website:focus-window");
+  },
+  /**
+   * Listen for video playback requests from website
+   */
+  onPlayVideoRequest(callback) {
+    const handler = (_event, request) => {
+      callback(request);
+    };
+    electron.ipcRenderer.on("website:play-video-request", handler);
+    return () => {
+      electron.ipcRenderer.removeListener("website:play-video-request", handler);
+    };
+  },
+  /**
+   * Simple detection method for websites
+   */
+  detectElectron() {
+    return typeof window !== "undefined" && typeof window.process === "object" && window.process.type === "renderer";
+  }
+};
 if (process.contextIsolated) {
   try {
     electron.contextBridge.exposeInMainWorld("conveyor", conveyor);
+    electron.contextBridge.exposeInMainWorld("websiteApi", websiteApi);
+    electron.contextBridge.exposeInMainWorld("isElectron", true);
   } catch (error) {
     console.error(error);
   }
 } else {
   window.conveyor = conveyor;
+  window.websiteApi = websiteApi;
+  window.isElectron = true;
 }

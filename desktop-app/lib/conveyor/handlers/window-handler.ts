@@ -1,5 +1,5 @@
 import type { BrowserWindow } from 'electron'
-import { shell, BrowserWindow as ElectronBrowserWindow } from 'electron'
+import { shell, BrowserView } from 'electron'
 import { handle } from '@/lib/main/shared'
 import { electronAPI } from '@electron-toolkit/preload'
 
@@ -39,22 +39,42 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
   handle('web-toggle-fullscreen', () => window.setFullScreen(!window.fullScreen))
   handle('web-open-url', (url: string) => shell.openExternal(url))
   handle('web-open-fullscreen-browser', (url: string) => {
-    const fullscreenWindow = new ElectronBrowserWindow({
-      fullscreen: true,
+    // Create a BrowserView that embeds inside the current window
+    const browserView = new BrowserView({
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        webSecurity: true,
       },
     })
-    fullscreenWindow.loadURL(url)
 
-    // Close on Escape key
-    fullscreenWindow.webContents.on('before-input-event', (event, input) => {
-      if (input.key === 'Escape') {
-        fullscreenWindow.close()
-      }
+    // Add the browser view to the current window
+    window.setBrowserView(browserView)
+
+    // Get window bounds and set the browser view to fill the content area
+    const bounds = window.getContentBounds()
+    browserView.setBounds({
+      x: 0,
+      y: 0,
+      width: bounds.width,
+      height: bounds.height,
     })
 
-    return fullscreenWindow.id
+    // Make it auto-resize with the window
+    browserView.setAutoResize({
+      width: true,
+      height: true,
+    })
+
+    // Load the URL
+    browserView.webContents.loadURL(url)
+
+    return window.id
+  })
+
+  handle('web-close-browser-view', () => {
+    // Remove the browser view to go back to the main app
+    window.setBrowserView(null)
+    return true
   })
 }

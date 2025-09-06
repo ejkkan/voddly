@@ -39,9 +39,24 @@ async function clearStoredCookie() {
 }
 
 function extractSetCookie(headers: Headers): string | null {
-  // Some environments expose 'set-cookie' or 'Set-Cookie'
-  const cookie = headers.get('set-cookie') || headers.get('Set-Cookie');
-  return cookie;
+  // Get all Set-Cookie headers - there might be multiple
+  const cookies: string[] = [];
+  
+  // Try to get all set-cookie headers (case-insensitive)
+  headers.forEach((value, key) => {
+    if (key.toLowerCase() === 'set-cookie') {
+      cookies.push(value);
+    }
+  });
+  
+  // If no Set-Cookie headers found, try the old way as fallback
+  if (cookies.length === 0) {
+    const cookie = headers.get('set-cookie') || headers.get('Set-Cookie');
+    if (cookie) cookies.push(cookie);
+  }
+  
+  // Join multiple cookies with semicolon and space
+  return cookies.length > 0 ? cookies.join('; ') : null;
 }
 
 async function doFetch(path: string, init?: RequestInit) {
@@ -74,8 +89,13 @@ async function doFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${base}${rel}`, safeInit);
 
   const setCookie = extractSetCookie(res.headers);
+  console.log('[Auth Client] Set-Cookie headers received:', setCookie);
   if (setCookie) {
+    console.log('[Auth Client] Storing cookie:', setCookie);
     await setStoredCookie(setCookie);
+    console.log('[Auth Client] Cookie stored successfully');
+  } else {
+    console.log('[Auth Client] No Set-Cookie headers found');
   }
 
   if (!res.ok) {
@@ -145,7 +165,9 @@ export const authClient = {
 
   // Expose cookie helpers for API client
   getCookie(): string | null {
-    return getStoredCookie();
+    const cookie = getStoredCookie();
+    console.log('[Auth Client] Retrieved cookie:', cookie);
+    return cookie;
   },
 };
 

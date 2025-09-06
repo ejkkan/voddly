@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useSourceCredentials } from '@/lib/source-credentials';
 import { getContainerInfoForContent } from '@/lib/container-extension';
 import { constructStreamUrl } from '@/lib/stream-url';
+import { electronBridge } from '@/lib/electron-bridge';
 
 export interface PlayerNavigationParams {
   playlist: string;
@@ -54,6 +55,41 @@ export function usePlayerNavigation() {
         videoCodec,
         audioCodec,
       });
+
+      // 🔥 ELECTRON OVERRIDE: If in Electron, play in VLC instead of web player
+      const isElectron = await electronBridge.checkElectronEnvironment();
+      if (isElectron) {
+        console.log('🖥️ Electron detected - playing video in VLC instead of web player');
+        
+        const videoInfo = {
+          video: {
+            codec_name: videoCodec || 'unknown',
+            width: 1920, // Default values - could be enhanced with real video info
+            height: 1080,
+          },
+          audio: {
+            codec_name: audioCodec || 'unknown',
+            channels: 2,
+          },
+          bitrate: 5000,
+          duration: '00:00:00',
+          container_extension: containerExtension || 'mp4'
+        };
+
+        const success = await electronBridge.playVideo({
+          url: streamingUrl,
+          title: title,
+          tmdbId: tmdbId ? String(tmdbId) : undefined,
+          videoInfo
+        });
+
+        if (success) {
+          console.log('✅ Video sent to Electron VLC player');
+          return; // Don't navigate to web player
+        } else {
+          console.warn('⚠️ Failed to play in Electron, falling back to web player');
+        }
+      }
 
       // Extract the path part after http:// to use as video parameter
       const videoPath = streamingUrl.replace(/^https?:\/\//, '');
